@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pranshuparmar/witr/internal/output"
 	"github.com/pranshuparmar/witr/internal/process"
@@ -41,9 +42,15 @@ func main() {
 	}
 
 	if len(pids) > 1 {
-		fmt.Println("Multiple matching processes found:")
-		for _, pid := range pids {
-			fmt.Printf("  PID %d\n", pid)
+		fmt.Println("Multiple matching processes found:\n")
+		for i, pid := range pids {
+			cmdline := "(unknown)"
+			cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+			if err == nil {
+				cmd := strings.ReplaceAll(string(cmdlineBytes), "\x00", " ")
+				cmdline = strings.TrimSpace(cmd)
+			}
+			fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
 		}
 		fmt.Println("\nRe-run with:")
 		fmt.Println("  witr --pid <pid>")

@@ -35,6 +35,12 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	user := readUser(pid)
 
+	// Working directory
+	cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
+	if err != nil {
+		cwd = "unknown"
+	}
+
 	sockets, _ := readListeningSockets()
 	inodes := socketsForPID(pid)
 
@@ -54,6 +60,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		Command:        comm,
 		StartedAt:      startedAt,
 		User:           user,
+		WorkingDir:     cwd,
 		ListeningPorts: ports,
 		BindAddresses:  addrs,
 	}, nil

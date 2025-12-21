@@ -10,6 +10,8 @@ type Process struct {
 	StartedAt time.Time
 	User      string
 
+	WorkingDir string
+
 	// Network context
 	ListeningPorts []int
 	BindAddresses  []string
