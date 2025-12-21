@@ -44,7 +44,7 @@ func readStat(pid int) (model.Process, error) {
 		PID:       pid,
 		PPID:      ppid,
 		Command:   comm,
-		StartTime: startTime,
+		StartedAt: startTime,
 	}, nil
 }
 

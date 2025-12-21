@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pranshuparmar/witr/internal/output"
 	"github.com/pranshuparmar/witr/internal/process"
 	"github.com/pranshuparmar/witr/internal/source"
 	"github.com/pranshuparmar/witr/internal/target"
@@ -59,16 +60,21 @@ func main() {
 
 	src := source.Detect(ancestry)
 
-	// TEMP output (we’ll clean this next)
-	fmt.Println("Why It Exists:")
-	for i, p := range ancestry {
-		if i > 0 {
-			fmt.Print(" → ")
-		}
-		fmt.Print(p.Command)
+	res := output.Result{
+		TargetPID: pid,
+		Ancestry:  ancestry,
+		Source:    src,
+		Warnings:  source.Warnings(ancestry),
 	}
 
-	fmt.Printf("\n\nSource: %s\n", src.Type)
+	switch {
+	case *treeFlag:
+		output.RenderTree(res)
+	case *shortFlag:
+		output.RenderShort(res)
+	default:
+		output.RenderStandard(res)
+	}
 
 	_ = shortFlag
 	_ = treeFlag

@@ -27,3 +27,23 @@ func Detect(ancestry []model.Process) model.Source {
 		Confidence: 0.2,
 	}
 }
+
+func Warnings(p []model.Process) []string {
+	var w []string
+
+	last := p[len(p)-1]
+
+	if IsPublicBind(last.BindAddresses) {
+		w = append(w, "process is listening on a public interface")
+	}
+
+	if last.User == "root" {
+		w = append(w, "process is running as root")
+	}
+
+	if Detect(p).Type == model.SourceUnknown {
+		w = append(w, "no known supervisor or service manager detected")
+	}
+
+	return w
+}
