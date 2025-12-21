@@ -37,7 +37,10 @@ func main() {
 
 	pids, err := target.Resolve(t)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println()
+		fmt.Println("Error:")
+		fmt.Printf("  %s\n", err)
+		fmt.Println("No matching process or service found. Please check your query or try a different name/port/PID.")
 		os.Exit(1)
 	}
 

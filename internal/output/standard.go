@@ -8,36 +8,44 @@ import (
 )
 
 func RenderStandard(r model.Result) {
-	fmt.Println("Why is this running?")
-	fmt.Println()
+	// Target
+	target := "unknown"
+	if len(r.Ancestry) > 0 {
+		target = r.Ancestry[len(r.Ancestry)-1].Command
+	}
+	fmt.Printf("Target      : %s\n\n", target)
 
+	// Process
+	proc := r.Ancestry[len(r.Ancestry)-1]
+	fmt.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
+	fmt.Printf("Command     : %s\n", proc.Command)
+	fmt.Printf("Started     : %s (%s ago)\n\n",
+		proc.StartedAt.Format("2006-01-02 15:04:05"),
+		time.Since(proc.StartedAt).Round(time.Second))
+
+	// Why It Exists
+	fmt.Printf("Why It Exists :\n  ")
 	for i, p := range r.Ancestry {
-		prefix := "└─"
-		if i < len(r.Ancestry)-1 {
-			prefix = "├─"
+		if i > 0 {
+			fmt.Print(" → ")
 		}
+		fmt.Print(p.Command)
+	}
+	fmt.Println("\n")
 
-		started := p.StartedAt.Format("2006-01-02 15:04:05")
-		ago := time.Since(p.StartedAt).Round(time.Second)
+	// Source
+	fmt.Printf("Source      : %s\n", r.Source.Type)
 
-		fmt.Printf(
-			"%s %s (pid=%d)\n   started: %s (%s ago)\n",
-			prefix,
-			p.Command,
-			p.PID,
-			started,
-			ago,
-		)
+	// Working Dir
+	if proc.WorkingDir != "" {
+		fmt.Printf("Working Dir : %s\n", proc.WorkingDir)
 	}
 
-	fmt.Println()
-	fmt.Printf("Source: %s\n", r.Source.Type)
-
+	// Warnings
 	if len(r.Warnings) > 0 {
-		fmt.Println()
-		fmt.Println("Warnings:")
+		fmt.Println("\nNotes       :")
 		for _, w := range r.Warnings {
-			fmt.Println(" -", w)
+			fmt.Printf("  • %s\n", w)
 		}
 	}
 }

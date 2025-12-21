@@ -14,16 +14,31 @@ func ResolveName(name string) ([]int, error) {
 	// Process name and command line matching (case-insensitive, substring)
 	entries, _ := os.ReadDir("/proc")
 	lowerName := strings.ToLower(name)
+	selfPid := os.Getpid()
+	parentPid := os.Getppid()
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
 			continue
 		}
 
+		// Prevent matching the PID itself as a name
+		if lowerName == strconv.Itoa(pid) {
+			continue
+		}
+
+		// Exclude self and parent (witr, go run, etc.)
+		if pid == selfPid || pid == parentPid {
+			continue
+		}
+
 		comm, err := os.ReadFile("/proc/" + e.Name() + "/comm")
 		if err == nil {
 			if strings.Contains(strings.ToLower(strings.TrimSpace(string(comm))), lowerName) {
-				procPIDs = append(procPIDs, pid)
+				// Exclude grep-like processes
+				if !strings.Contains(strings.ToLower(string(comm)), "grep") {
+					procPIDs = append(procPIDs, pid)
+				}
 				continue
 			}
 		}
@@ -32,10 +47,18 @@ func ResolveName(name string) ([]int, error) {
 		if err == nil {
 			// cmdline is null-separated
 			cmd := strings.ReplaceAll(string(cmdline), "\x00", " ")
-			if strings.Contains(strings.ToLower(cmd), lowerName) {
+			// Exclude self, parent, and grep
+			if strings.Contains(strings.ToLower(cmd), lowerName) &&
+				!strings.Contains(strings.ToLower(cmd), "grep") &&
+				!strings.Contains(strings.ToLower(cmd), "witr") {
 				procPIDs = append(procPIDs, pid)
 			}
 		}
+	}
+
+	// If all matches are filtered out, treat as no result
+	if len(procPIDs) == 0 {
+		return nil, fmt.Errorf("no running process or service named %q", name)
 	}
 
 	// Service detection (systemd)
