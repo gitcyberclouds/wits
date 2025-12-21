@@ -3,9 +3,11 @@ package output
 import (
 	"fmt"
 	"time"
+
+	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-func RenderStandard(r Result) {
+func RenderStandard(r model.Result) {
 	fmt.Println("Why is this running?")
 	fmt.Println()
 

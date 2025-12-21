@@ -289,8 +289,7 @@ systemd (pid 1)
 
 ## 8. Platform Support
 
-- Linux (primary)
-- macOS (partial)
+- Linux
 
 ---
 

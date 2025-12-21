@@ -41,7 +41,7 @@ func main() {
 	}
 
 	if len(pids) > 1 {
-		fmt.Println("Multiple matching processes found:\n")
+		fmt.Println("Multiple matching processes found:")
 		for _, pid := range pids {
 			fmt.Printf("  PID %d\n", pid)
 		}
@@ -60,16 +60,15 @@ func main() {
 
 	src := source.Detect(ancestry)
 
-	res := output.Result{
-		TargetPID: pid,
-		Ancestry:  ancestry,
-		Source:    src,
-		Warnings:  source.Warnings(ancestry),
+	res := model.Result{
+		Ancestry: ancestry,
+		Source:   src,
+		Warnings: source.Warnings(ancestry),
 	}
 
 	switch {
 	case *treeFlag:
-		output.RenderTree(res)
+		output.PrintTree(res.Ancestry)
 	case *shortFlag:
 		output.RenderShort(res)
 	default:

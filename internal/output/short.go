@@ -1,8 +1,12 @@
 package output
 
-import "fmt"
+import (
+	"fmt"
 
-func RenderShort(r Result) {
+	"github.com/pranshuparmar/witr/pkg/model"
+)
+
+func RenderShort(r model.Result) {
 	for i, p := range r.Ancestry {
 		if i > 0 {
 			fmt.Print(" → ")

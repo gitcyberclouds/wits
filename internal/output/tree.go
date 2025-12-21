@@ -18,13 +18,3 @@ func PrintTree(chain []model.Process) {
 		fmt.Printf("%s%s (pid %d)\n", prefix, p.Command, p.PID)
 	}
 }
-
-func RenderTree(r Result) {
-	for i, p := range r.Ancestry {
-		indent := ""
-		for j := 0; j < i; j++ {
-			indent += "  "
-		}
-		fmt.Printf("%s└─ %s (pid=%d)\n", indent, p.Command, p.PID)
-	}
-}
