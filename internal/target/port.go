@@ -52,8 +52,8 @@ func ResolvePort(port int) ([]int, error) {
 		return nil, err
 	}
 
-	pids := make(map[int]bool)
-
+	// Map inode to PID that owns the LISTEN socket
+	pidSet := make(map[int]bool)
 	procEntries, _ := os.ReadDir("/proc")
 	for _, entry := range procEntries {
 		pid, err := strconv.Atoi(entry.Name())
@@ -76,15 +76,23 @@ func ResolvePort(port int) ([]int, error) {
 			if strings.HasPrefix(link, "socket:[") {
 				inode := strings.TrimSuffix(strings.TrimPrefix(link, "socket:["), "]")
 				if inodes[inode] {
-					pids[pid] = true
+					// Only add the first PID that owns the LISTEN socket
+					pidSet[pid] = true
 				}
 			}
 		}
 	}
 
+	// Only return the lowest PID (the main listener, not forked children)
 	var result []int
-	for pid := range pids {
-		result = append(result, pid)
+	minPID := 0
+	for pid := range pidSet {
+		if minPID == 0 || pid < minPID {
+			minPID = pid
+		}
+	}
+	if minPID > 0 {
+		result = append(result, minPID)
 	}
 
 	if len(result) == 0 {

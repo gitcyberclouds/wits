@@ -18,20 +18,29 @@ func RenderStandard(r model.Result) {
 	// Process
 	proc := r.Ancestry[len(r.Ancestry)-1]
 	fmt.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
-	fmt.Printf("Command     : %s\n", proc.Command)
+	if proc.Cmdline != "" {
+		fmt.Printf("Command     : %s\n", proc.Cmdline)
+	} else {
+		fmt.Printf("Command     : %s\n", proc.Command)
+	}
 	fmt.Printf("Started     : %s (%s ago)\n\n",
 		proc.StartedAt.Format("2006-01-02 15:04:05"),
 		time.Since(proc.StartedAt).Round(time.Second))
 
 	// Why It Exists
-	fmt.Printf("Why It Exists :\n  ")
+	fmt.Printf("Why It Exists :\n")
 	for i, p := range r.Ancestry {
-		if i > 0 {
-			fmt.Print(" → ")
+		indent := "  "
+		if i == len(r.Ancestry)-1 {
+			indent = "└─"
 		}
-		fmt.Print(p.Command)
+		if p.Cmdline != "" {
+			fmt.Printf("%s %s (pid %d)\n", indent, p.Cmdline, p.PID)
+		} else {
+			fmt.Printf("%s %s (pid %d)\n", indent, p.Command, p.PID)
+		}
 	}
-	fmt.Println("\n")
+	fmt.Print("\n")
 
 	// Source
 	fmt.Printf("Source      : %s\n", r.Source.Type)

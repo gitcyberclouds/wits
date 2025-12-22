@@ -40,12 +40,12 @@ func main() {
 		fmt.Println()
 		fmt.Println("Error:")
 		fmt.Printf("  %s\n", err)
-		fmt.Println("No matching process or service found. Please check your query or try a different name/port/PID.")
+		fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
 		os.Exit(1)
 	}
 
 	if len(pids) > 1 {
-		fmt.Println("Multiple matching processes found:\n")
+		fmt.Print("Multiple matching processes found:\n\n")
 		for i, pid := range pids {
 			cmdline := "(unknown)"
 			cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))

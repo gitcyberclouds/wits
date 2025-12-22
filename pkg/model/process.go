@@ -6,6 +6,7 @@ type Process struct {
 	PID       int
 	PPID      int
 	Command   string
+	Cmdline   string
 	Exe       string
 	StartedAt time.Time
 	User      string

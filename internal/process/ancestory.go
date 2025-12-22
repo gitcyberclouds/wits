@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	proc "github.com/pranshuparmar/witr/internal/linux/proc"
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
@@ -79,17 +80,17 @@ func BuildAncestry(pid int) ([]model.Process, error) {
 		}
 		seen[current] = true
 
-		proc, err := readStat(current)
+		p, err := proc.ReadProcess(current)
 		if err != nil {
 			break
 		}
 
-		chain = append([]model.Process{proc}, chain...)
+		chain = append([]model.Process{p}, chain...)
 
-		if proc.PPID == 0 || proc.PID == 1 {
+		if p.PPID == 0 || p.PID == 1 {
 			break
 		}
-		current = proc.PPID
+		current = p.PPID
 	}
 
 	if len(chain) == 0 {

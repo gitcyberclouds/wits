@@ -53,11 +53,19 @@ func ReadProcess(pid int) (model.Process, error) {
 			addrs = append(addrs, s.Address)
 		}
 	}
+	// Full command line
+	cmdline := ""
+	cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err == nil {
+		cmd := strings.ReplaceAll(string(cmdlineBytes), "\x00", " ")
+		cmdline = strings.TrimSpace(cmd)
+	}
 
 	return model.Process{
 		PID:            pid,
 		PPID:           ppid,
 		Command:        comm,
+		Cmdline:        cmdline,
 		StartedAt:      startedAt,
 		User:           user,
 		WorkingDir:     cwd,

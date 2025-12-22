@@ -5,14 +5,14 @@ import (
 )
 
 func Detect(ancestry []model.Process) model.Source {
-	// Highest authority wins, in this order
+	// Prefer supervisor over systemd if both are present
 	if src := detectContainer(ancestry); src != nil {
 		return *src
 	}
-	if src := detectSystemd(ancestry); src != nil {
+	if src := detectSupervisor(ancestry); src != nil {
 		return *src
 	}
-	if src := detectSupervisor(ancestry); src != nil {
+	if src := detectSystemd(ancestry); src != nil {
 		return *src
 	}
 	if src := detectCron(ancestry); src != nil {
