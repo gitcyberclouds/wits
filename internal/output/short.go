@@ -14,5 +14,4 @@ func RenderShort(r model.Result) {
 		fmt.Print(p.Command)
 	}
 	fmt.Println()
-	fmt.Println("source:", r.Source.Type)
 }

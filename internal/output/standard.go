@@ -13,7 +13,7 @@ func RenderStandard(r model.Result) {
 	if len(r.Ancestry) > 0 {
 		target = r.Ancestry[len(r.Ancestry)-1].Command
 	}
-	fmt.Printf("\nTarget      : %s\n\n", target)
+	fmt.Printf("Target      : %s\n\n", target)
 
 	// Process
 	var proc = r.Ancestry[len(r.Ancestry)-1]
@@ -117,5 +117,4 @@ func RenderStandard(r model.Result) {
 			fmt.Printf("  • %s\n", w)
 		}
 	}
-	fmt.Println()
 }

@@ -13,13 +13,32 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
+func printHelp() {
+	fmt.Println("Usage: witr [--pid N | --port N | name] [--short] [--tree] [--json] [--warnings] [--help]")
+	fmt.Println("  --pid <n>         Explain a specific PID")
+	fmt.Println("  --port <n>        Explain port usage")
+	fmt.Println("  --short           One-line summary")
+	fmt.Println("  --tree            Show full process ancestry tree")
+	fmt.Println("  --json            Output result as JSON")
+	fmt.Println("  --warnings        Show only warnings")
+	fmt.Println("  --help            Show this help message")
+}
+
 func main() {
 	pidFlag := flag.String("pid", "", "pid to explain")
 	portFlag := flag.String("port", "", "port to explain")
 	shortFlag := flag.Bool("short", false, "short output")
 	treeFlag := flag.Bool("tree", false, "tree output")
+	jsonFlag := flag.Bool("json", false, "output as JSON")
+	warnFlag := flag.Bool("warnings", false, "show only warnings")
+	helpFlag := flag.Bool("help", false, "show help")
 
 	flag.Parse()
+
+	if *helpFlag {
+		printHelp()
+		os.Exit(0)
+	}
 
 	var t model.Target
 
@@ -31,7 +50,7 @@ func main() {
 	case flag.NArg() == 1:
 		t = model.Target{Type: model.TargetName, Value: flag.Arg(0)}
 	default:
-		fmt.Println("usage: witr [--pid N | --port N | name]")
+		printHelp()
 		os.Exit(1)
 	}
 
@@ -56,6 +75,7 @@ func main() {
 		} else {
 			fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
 		}
+		fmt.Println("For usage and options, run: witr --help")
 		os.Exit(1)
 	}
 
@@ -79,7 +99,11 @@ func main() {
 
 	ancestry, err := process.BuildAncestry(pid)
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println()
+		fmt.Println("Error:")
+		fmt.Printf("  %s\n", err.Error())
+		fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
+		fmt.Println("For usage and options, run: witr --help")
 		os.Exit(1)
 	}
 
@@ -92,6 +116,19 @@ func main() {
 	}
 
 	switch {
+	case *jsonFlag:
+		// Output as JSON
+		importJson, _ := output.ToJSON(res)
+		fmt.Println(importJson)
+	case *warnFlag:
+		if len(res.Warnings) == 0 {
+			fmt.Println("No warnings.")
+		} else {
+			fmt.Println("Warnings:")
+			for _, w := range res.Warnings {
+				fmt.Printf("  • %s\n", w)
+			}
+		}
 	case *treeFlag:
 		output.PrintTree(res.Ancestry)
 	case *shortFlag:
