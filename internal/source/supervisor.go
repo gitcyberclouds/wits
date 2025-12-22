@@ -6,29 +6,39 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-var knownSupervisors = map[string]bool{
-	"pm2":         true,
-	"supervisord": true,
-	"gunicorn":    true,
-	"uwsgi":       true,
-	"pm2 god":     true,
+var knownSupervisors = map[string]string{
+	"pm2":         "pm2",
+	"pm2 god":     "pm2",
+	"supervisord": "supervisord",
+	"gunicorn":    "gunicorn",
+	"uwsgi":       "uwsgi",
 }
 
 func detectSupervisor(ancestry []model.Process) *model.Source {
 	for _, p := range ancestry {
-		if knownSupervisors[strings.ToLower(p.Command)] {
+		// Normalize: remove spaces, lowercase
+		pname := strings.ReplaceAll(strings.ToLower(p.Command), " ", "")
+		pcmd := strings.ReplaceAll(strings.ToLower(p.Cmdline), " ", "")
+		if strings.Contains(pname, "pm2") || strings.Contains(pcmd, "pm2") {
 			return &model.Source{
 				Type:       model.SourceSupervisor,
-				Name:       p.Command,
+				Name:       "pm2",
+				Confidence: 0.9,
+			}
+		}
+		if label, ok := knownSupervisors[strings.ToLower(p.Command)]; ok {
+			return &model.Source{
+				Type:       model.SourceSupervisor,
+				Name:       label,
 				Confidence: 0.7,
 			}
 		}
 		// Also match on command line for supervisor keywords
-		for sup := range knownSupervisors {
+		for sup, label := range knownSupervisors {
 			if strings.Contains(strings.ToLower(p.Cmdline), sup) {
 				return &model.Source{
 					Type:       model.SourceSupervisor,
-					Name:       sup,
+					Name:       label,
 					Confidence: 0.7,
 				}
 			}

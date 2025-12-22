@@ -12,6 +12,10 @@ type Process struct {
 	User      string
 
 	WorkingDir string
+	GitRepo    string
+	GitBranch  string
+	Container  string
+	Service    string
 
 	// Network context
 	ListeningPorts []int

@@ -8,6 +8,7 @@ import (
 )
 
 func RenderStandard(r model.Result) {
+
 	// Target
 	target := "unknown"
 	if len(r.Ancestry) > 0 {
@@ -16,38 +17,83 @@ func RenderStandard(r model.Result) {
 	fmt.Printf("Target      : %s\n\n", target)
 
 	// Process
-	proc := r.Ancestry[len(r.Ancestry)-1]
+	var proc = r.Ancestry[len(r.Ancestry)-1]
 	fmt.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
+
+	// Container
+	if proc.Container != "" {
+		fmt.Printf("Container   : %s\n", proc.Container)
+	}
+	// Service
+	if proc.Service != "" {
+		fmt.Printf("Service     : %s\n", proc.Service)
+	}
+
 	if proc.Cmdline != "" {
 		fmt.Printf("Command     : %s\n", proc.Cmdline)
 	} else {
 		fmt.Printf("Command     : %s\n", proc.Command)
 	}
-	fmt.Printf("Started     : %s (%s ago)\n\n",
-		proc.StartedAt.Format("2006-01-02 15:04:05"),
-		time.Since(proc.StartedAt).Round(time.Second))
-
-	// Why It Exists
-	fmt.Printf("Why It Exists :\n")
-	for i, p := range r.Ancestry {
-		indent := "  "
-		if i == len(r.Ancestry)-1 {
-			indent = "└─"
-		}
-		if p.Cmdline != "" {
-			fmt.Printf("%s %s (pid %d)\n", indent, p.Cmdline, p.PID)
+	// Format as: 2 days ago (Mon 2025-02-02 11:42:10 +0530)
+	startedAt := proc.StartedAt
+	now := time.Now()
+	dur := now.Sub(startedAt)
+	var rel string
+	switch {
+	case dur.Hours() >= 48:
+		days := int(dur.Hours()) / 24
+		rel = fmt.Sprintf("%d days ago", days)
+	case dur.Hours() >= 24:
+		rel = "1 day ago"
+	case dur.Hours() >= 2:
+		hours := int(dur.Hours())
+		rel = fmt.Sprintf("%d hours ago", hours)
+	case dur.Minutes() >= 60:
+		rel = "1 hour ago"
+	default:
+		mins := int(dur.Minutes())
+		if mins > 0 {
+			rel = fmt.Sprintf("%d min ago", mins)
 		} else {
-			fmt.Printf("%s %s (pid %d)\n", indent, p.Command, p.PID)
+			rel = "just now"
 		}
 	}
-	fmt.Print("\n")
+	dtStr := startedAt.Format("Mon 2006-01-02 15:04:05 -07:00")
+	fmt.Printf("Started     : %s (%s)\n\n", rel, dtStr)
+
+	// Why It Exists (short chain)
+	fmt.Printf("Why It Exists :\n  ")
+	for i, p := range r.Ancestry {
+		name := p.Command
+		if name == "" && p.Cmdline != "" {
+			name = p.Cmdline
+		}
+		fmt.Printf("%s (pid %d)", name, p.PID)
+		if i < len(r.Ancestry)-1 {
+			fmt.Printf(" \u2192 ") // Unicode right arrow
+		}
+	}
+	fmt.Print("\n\n")
 
 	// Source
-	fmt.Printf("Source      : %s\n", r.Source.Type)
+	sourceLabel := string(r.Source.Type)
+	if r.Source.Name != "" && r.Source.Name != sourceLabel {
+		fmt.Printf("Source      : %s (%s)\n", r.Source.Name, sourceLabel)
+	} else {
+		fmt.Printf("Source      : %s\n", sourceLabel)
+	}
 
 	// Working Dir
 	if proc.WorkingDir != "" {
-		fmt.Printf("Working Dir : %s\n", proc.WorkingDir)
+		fmt.Printf("\nWorking Dir : %s\n", proc.WorkingDir)
+	}
+	// Git repo/branch
+	if proc.GitRepo != "" {
+		if proc.GitBranch != "" {
+			fmt.Printf("Git Repo    : %s (%s)\n", proc.GitRepo, proc.GitBranch)
+		} else {
+			fmt.Printf("Git Repo    : %s\n", proc.GitRepo)
+		}
 	}
 
 	// Warnings
