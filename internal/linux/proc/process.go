@@ -12,6 +12,16 @@ import (
 )
 
 func ReadProcess(pid int) (model.Process, error) {
+	// Read environment variables
+	env := []string{}
+	envBytes, errEnv := os.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
+	if errEnv == nil {
+		for _, e := range strings.Split(string(envBytes), "\x00") {
+			if e != "" {
+				env = append(env, e)
+			}
+		}
+	}
 	// Health status
 	health := "healthy"
 	forked := "unknown"
@@ -177,5 +187,6 @@ func ReadProcess(pid int) (model.Process, error) {
 		BindAddresses:  addrs,
 		Health:         health,
 		Forked:         forked,
+		Env:            env,
 	}, nil
 }

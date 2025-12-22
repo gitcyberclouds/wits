@@ -26,4 +26,6 @@ type Process struct {
 
 	// Forked status ("forked", "not-forked", "unknown")
 	Forked string
+	// Environment variables (key=value)
+	Env []string
 }

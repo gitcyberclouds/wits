@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pranshuparmar/witr/internal/linux/proc"
 	"github.com/pranshuparmar/witr/internal/output"
 	"github.com/pranshuparmar/witr/internal/process"
 	"github.com/pranshuparmar/witr/internal/source"
@@ -14,7 +15,7 @@ import (
 )
 
 func printHelp() {
-	fmt.Println("Usage: witr [--pid N | --port N | name] [--short] [--tree] [--json] [--warnings] [--no-color] [--help]")
+	fmt.Println("Usage: witr [--pid N | --port N | name] [--short] [--tree] [--json] [--warnings] [--no-color] [--env] [--help]")
 	fmt.Println("  --pid <n>         Explain a specific PID")
 	fmt.Println("  --port <n>        Explain port usage")
 	fmt.Println("  --short           One-line summary")
@@ -22,20 +23,38 @@ func printHelp() {
 	fmt.Println("  --json            Output result as JSON")
 	fmt.Println("  --warnings        Show only warnings")
 	fmt.Println("  --no-color        Disable colorized output")
+	fmt.Println("  --env             Show only environment variables for the process")
 	fmt.Println("  --help            Show this help message")
+}
+
+// Helper: which flags need a value (not bool flags)?
+func flagNeedsValue(flag string) bool {
+	switch flag {
+	case "--pid", "-pid", "--port", "-port":
+		return true
+	}
+	return false
 }
 
 func main() {
 
-	// Reorder os.Args so all flags come before positional arguments
+	// Reorder os.Args so all flags (with their values) come before positional arguments
 	reordered := []string{os.Args[0]}
 	var positionals []string
-	for _, arg := range os.Args[1:] {
+	i := 1
+	for i < len(os.Args) {
+		arg := os.Args[i]
 		if len(arg) > 0 && arg[0] == '-' {
 			reordered = append(reordered, arg)
+			// If this flag takes a value (not a bool flag), keep the value with it
+			if flagNeedsValue(arg) && i+1 < len(os.Args) && os.Args[i+1][0] != '-' {
+				reordered = append(reordered, os.Args[i+1])
+				i++
+			}
 		} else {
 			positionals = append(positionals, arg)
 		}
+		i++
 	}
 	reordered = append(reordered, positionals...)
 	os.Args = reordered
@@ -47,9 +66,54 @@ func main() {
 	jsonFlag := flag.Bool("json", false, "output as JSON")
 	warnFlag := flag.Bool("warnings", false, "show only warnings")
 	noColorFlag := flag.Bool("no-color", false, "disable colorized output")
+	envFlag := flag.Bool("env", false, "show only environment variables for the process")
 	helpFlag := flag.Bool("help", false, "show help")
 
 	flag.Parse()
+
+	if *envFlag {
+		var t model.Target
+		switch {
+		case *pidFlag != "":
+			t = model.Target{Type: model.TargetPID, Value: *pidFlag}
+		case *portFlag != "":
+			t = model.Target{Type: model.TargetPort, Value: *portFlag}
+		case len(flag.Args()) > 0:
+			t = model.Target{Type: model.TargetName, Value: flag.Args()[0]}
+		default:
+			printHelp()
+			os.Exit(1)
+		}
+
+		pids, err := target.Resolve(t)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		if len(pids) > 1 {
+			fmt.Print("Multiple matching processes found:\n\n")
+			for i, pid := range pids {
+				cmdline := "(unknown)"
+				cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+				if err == nil {
+					cmd := strings.ReplaceAll(string(cmdlineBytes), "\x00", " ")
+					cmdline = strings.TrimSpace(cmd)
+				}
+				fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
+			}
+			fmt.Println("\nRe-run with:")
+			fmt.Println("  witr --pid <pid> --env")
+			os.Exit(1)
+		}
+		pid := pids[0]
+		procInfo, err := proc.ReadProcess(pid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		output.RenderEnvOnly(procInfo)
+		return
+	}
 
 	if *helpFlag {
 		printHelp()
