@@ -35,6 +35,18 @@ func Warnings(p []model.Process) []string {
 
 	last := p[len(p)-1]
 
+	// Health warnings
+	switch last.Health {
+	case "zombie":
+		w = append(w, "Process is a zombie (defunct)")
+	case "stopped":
+		w = append(w, "Process is stopped (T state)")
+	case "high-cpu":
+		w = append(w, "Process is using high CPU (>2h total)")
+	case "high-mem":
+		w = append(w, "Process is using high memory (>1GB RSS)")
+	}
+
 	if IsPublicBind(last.BindAddresses) {
 		w = append(w, "Process is listening on a public interface")
 	}

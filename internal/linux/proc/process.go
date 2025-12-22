@@ -12,6 +12,10 @@ import (
 )
 
 func ReadProcess(pid int) (model.Process, error) {
+	// Health status
+	health := "healthy"
+	forked := "unknown"
+
 	// Working directory
 	var cwd, err = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
 	if err != nil {
@@ -100,9 +104,40 @@ func ReadProcess(pid int) (model.Process, error) {
 	fields := strings.Fields(raw[close+2:])
 
 	ppid, _ := strconv.Atoi(fields[1])
+	state := fields[2]
 	startTicks, _ := strconv.ParseInt(fields[19], 10, 64)
 
+	// Fork detection: if ppid != 1 and not systemd, likely forked; also check for vfork/fork/clone flags if possible
+	if ppid != 1 && comm != "systemd" {
+		forked = "forked"
+	} else {
+		forked = "not-forked"
+	}
+
 	startedAt := bootTime().Add(time.Duration(startTicks) * time.Second / ticksPerSecond())
+
+	// Health: zombie/stopped
+	if state == "Z" {
+		health = "zombie"
+	} else if state == "T" {
+		health = "stopped"
+	}
+
+	// High CPU/memory (simple: >80% of total)
+	utime, _ := strconv.ParseFloat(fields[11], 64)
+	stime, _ := strconv.ParseFloat(fields[12], 64)
+	rssPages, _ := strconv.ParseFloat(fields[21], 64)
+	clkTck := float64(ticksPerSecond())
+	totalCPU := (utime + stime) / clkTck
+	if totalCPU > 60*60*2 { // >2h CPU time
+		health = "high-cpu"
+	}
+	pageSize := float64(os.Getpagesize())
+	memBytes := rssPages * pageSize
+	memMB := memBytes / (1024 * 1024)
+	if memMB > 1024 {
+		health = "high-mem"
+	}
 
 	user := readUser(pid)
 
@@ -140,5 +175,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		Service:        service,
 		ListeningPorts: ports,
 		BindAddresses:  addrs,
+		Health:         health,
+		Forked:         forked,
 	}, nil
 }

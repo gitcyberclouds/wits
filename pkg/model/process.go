@@ -20,4 +20,10 @@ type Process struct {
 	// Network context
 	ListeningPorts []int
 	BindAddresses  []string
+
+	// Health status ("healthy", "zombie", "stopped", "high-cpu", "high-mem")
+	Health string
+
+	// Forked status ("forked", "not-forked", "unknown")
+	Forked string
 }

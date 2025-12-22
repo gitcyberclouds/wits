@@ -7,11 +7,24 @@ import (
 )
 
 var knownSupervisors = map[string]string{
-	"pm2":         "pm2",
-	"pm2 god":     "pm2",
-	"supervisord": "supervisord",
-	"gunicorn":    "gunicorn",
-	"uwsgi":       "uwsgi",
+	"pm2":          "pm2",
+	"pm2 god":      "pm2",
+	"supervisord":  "supervisord",
+	"gunicorn":     "gunicorn",
+	"uwsgi":        "uwsgi",
+	"s6-supervise": "s6",
+	"s6":           "s6",
+	"runsv":        "runit",
+	"runit":        "runit",
+	"openrc":       "openrc",
+	"monit":        "monit",
+	"circusd":      "circus",
+	"circus":       "circus",
+	"systemd":      "systemd service",
+	"daemontools":  "daemontools",
+	"init":         "init",
+	"tini":         "tini",
+	"docker-init":  "docker-init",
 }
 
 func detectSupervisor(ancestry []model.Process) *model.Source {

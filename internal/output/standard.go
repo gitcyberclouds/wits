@@ -32,10 +32,29 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 	// Process
 	var proc = r.Ancestry[len(r.Ancestry)-1]
 	if colorEnabled {
-		fmt.Printf("%sProcess%s     : %s (%spid %d%s)\n", colorBlue, colorReset, proc.Command, colorBold, proc.PID, colorReset)
+		fmt.Printf("%sProcess%s     : %s (%spid %d%s)", colorBlue, colorReset, proc.Command, colorBold, proc.PID, colorReset)
 	} else {
-		fmt.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
+		fmt.Printf("Process     : %s (pid %d)", proc.Command, proc.PID)
 	}
+	// Health status
+	if proc.Health != "" && proc.Health != "healthy" {
+		healthColor := colorRed
+		if colorEnabled {
+			fmt.Printf(" %s[%s]%s", healthColor, proc.Health, colorReset)
+		} else {
+			fmt.Printf(" [%s]", proc.Health)
+		}
+	}
+	// Forked status: only display if forked
+	if proc.Forked == "forked" {
+		forkColor := colorMagenta
+		if colorEnabled {
+			fmt.Printf(" %s{forked}%s", forkColor, colorReset)
+		} else {
+			fmt.Printf(" {forked}")
+		}
+	}
+	fmt.Println("")
 	if proc.User != "" && proc.User != "unknown" {
 		if colorEnabled {
 			fmt.Printf("%sUser%s        : %s\n", colorCyan, colorReset, proc.User)
