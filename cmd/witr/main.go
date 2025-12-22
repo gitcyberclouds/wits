@@ -109,10 +109,23 @@ func main() {
 
 	src := source.Detect(ancestry)
 
+	var proc model.Process
+	if len(ancestry) > 0 {
+		proc = ancestry[len(ancestry)-1]
+	}
+	resolvedTarget := "unknown"
+	if len(ancestry) > 0 {
+		proc = ancestry[len(ancestry)-1]
+		resolvedTarget = proc.Command
+	}
+
 	res := model.Result{
-		Ancestry: ancestry,
-		Source:   src,
-		Warnings: source.Warnings(ancestry),
+		Target:         t,
+		ResolvedTarget: resolvedTarget,
+		Process:        proc,
+		Ancestry:       ancestry,
+		Source:         src,
+		Warnings:       source.Warnings(ancestry),
 	}
 
 	switch {
