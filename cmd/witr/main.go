@@ -37,10 +37,25 @@ func main() {
 
 	pids, err := target.Resolve(t)
 	if err != nil {
+		errStr := err.Error()
 		fmt.Println()
 		fmt.Println("Error:")
-		fmt.Printf("  %s\n", err)
-		fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
+		fmt.Printf("  %s\n", errStr)
+		if strings.Contains(errStr, "socket found but owning process not detected") {
+			fmt.Println("\nA socket was found for the port, but the owning process could not be detected.")
+			fmt.Println("This may be due to insufficient permissions. Try running with sudo:")
+			// Print the actual command the user entered, prefixed with sudo
+			fmt.Print("  sudo ")
+			for i, arg := range os.Args {
+				if i > 0 {
+					fmt.Print(" ")
+				}
+				fmt.Print(arg)
+			}
+			fmt.Println()
+		} else {
+			fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
+		}
 		os.Exit(1)
 	}
 

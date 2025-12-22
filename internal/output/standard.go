@@ -8,13 +8,12 @@ import (
 )
 
 func RenderStandard(r model.Result) {
-
 	// Target
 	target := "unknown"
 	if len(r.Ancestry) > 0 {
 		target = r.Ancestry[len(r.Ancestry)-1].Command
 	}
-	fmt.Printf("Target      : %s\n\n", target)
+	fmt.Printf("\nTarget      : %s\n\n", target)
 
 	// Process
 	var proc = r.Ancestry[len(r.Ancestry)-1]
@@ -96,6 +95,21 @@ func RenderStandard(r model.Result) {
 		}
 	}
 
+	// Listening section (address:port)
+	if len(proc.ListeningPorts) > 0 && len(proc.BindAddresses) == len(proc.ListeningPorts) {
+		for i := range proc.ListeningPorts {
+			addr := proc.BindAddresses[i]
+			port := proc.ListeningPorts[i]
+			if addr != "" && port > 0 {
+				if i == 0 {
+					fmt.Printf("Listening   : %s:%d\n", addr, port)
+				} else {
+					fmt.Printf("              %s:%d\n", addr, port)
+				}
+			}
+		}
+	}
+
 	// Warnings
 	if len(r.Warnings) > 0 {
 		fmt.Println("\nNotes       :")
@@ -103,4 +117,5 @@ func RenderStandard(r model.Result) {
 			fmt.Printf("  • %s\n", w)
 		}
 	}
+	fmt.Println()
 }
