@@ -6,10 +6,19 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-func RenderShort(r model.Result) {
+var (
+	colorResetShort   = "\033[0m"
+	colorMagentaShort = "\033[35m"
+)
+
+func RenderShort(r model.Result, colorEnabled bool) {
 	for i, p := range r.Ancestry {
 		if i > 0 {
-			fmt.Print(" → ")
+			if colorEnabled {
+				fmt.Print(colorMagentaShort + " → " + colorResetShort)
+			} else {
+				fmt.Print(" → ")
+			}
 		}
 		fmt.Print(p.Command)
 	}

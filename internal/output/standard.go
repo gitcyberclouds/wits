@@ -7,31 +7,72 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-func RenderStandard(r model.Result) {
+var (
+	colorReset   = "\033[0m"
+	colorRed     = "\033[31m"
+	colorGreen   = "\033[32m"
+	colorBlue    = "\033[34m"
+	colorCyan    = "\033[36m"
+	colorMagenta = "\033[35m"
+	colorBold    = "\033[1m"
+)
+
+func RenderStandard(r model.Result, colorEnabled bool) {
 	// Target
 	target := "unknown"
 	if len(r.Ancestry) > 0 {
 		target = r.Ancestry[len(r.Ancestry)-1].Command
 	}
-	fmt.Printf("Target      : %s\n\n", target)
+	if colorEnabled {
+		fmt.Printf("%sTarget%s      : %s\n\n", colorBlue, colorReset, target)
+	} else {
+		fmt.Printf("Target      : %s\n\n", target)
+	}
 
 	// Process
 	var proc = r.Ancestry[len(r.Ancestry)-1]
-	fmt.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
+	if colorEnabled {
+		fmt.Printf("%sProcess%s     : %s (%spid %d%s)\n", colorBlue, colorReset, proc.Command, colorBold, proc.PID, colorReset)
+	} else {
+		fmt.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
+	}
+	if proc.User != "" && proc.User != "unknown" {
+		if colorEnabled {
+			fmt.Printf("%sUser%s        : %s\n", colorCyan, colorReset, proc.User)
+		} else {
+			fmt.Printf("User        : %s\n", proc.User)
+		}
+	}
 
 	// Container
 	if proc.Container != "" {
-		fmt.Printf("Container   : %s\n", proc.Container)
+		if colorEnabled {
+			fmt.Printf("%sContainer%s   : %s\n", colorBlue, colorReset, proc.Container)
+		} else {
+			fmt.Printf("Container   : %s\n", proc.Container)
+		}
 	}
 	// Service
 	if proc.Service != "" {
-		fmt.Printf("Service     : %s\n", proc.Service)
+		if colorEnabled {
+			fmt.Printf("%sService%s     : %s\n", colorBlue, colorReset, proc.Service)
+		} else {
+			fmt.Printf("Service     : %s\n", proc.Service)
+		}
 	}
 
 	if proc.Cmdline != "" {
-		fmt.Printf("Command     : %s\n", proc.Cmdline)
+		if colorEnabled {
+			fmt.Printf("%sCommand%s     : %s\n", colorGreen, colorReset, proc.Cmdline)
+		} else {
+			fmt.Printf("Command     : %s\n", proc.Cmdline)
+		}
 	} else {
-		fmt.Printf("Command     : %s\n", proc.Command)
+		if colorEnabled {
+			fmt.Printf("%sCommand%s     : %s\n", colorGreen, colorReset, proc.Command)
+		} else {
+			fmt.Printf("Command     : %s\n", proc.Command)
+		}
 	}
 	// Format as: 2 days ago (Mon 2025-02-02 11:42:10 +0530)
 	startedAt := proc.StartedAt
@@ -58,40 +99,79 @@ func RenderStandard(r model.Result) {
 		}
 	}
 	dtStr := startedAt.Format("Mon 2006-01-02 15:04:05 -07:00")
-	fmt.Printf("Started     : %s (%s)\n\n", rel, dtStr)
+	if colorEnabled {
+		fmt.Printf("%sStarted%s     : %s (%s)\n\n", colorMagenta, colorReset, rel, dtStr)
+	} else {
+		fmt.Printf("Started     : %s (%s)\n\n", rel, dtStr)
+	}
 
 	// Why It Exists (short chain)
-	fmt.Printf("Why It Exists :\n  ")
-	for i, p := range r.Ancestry {
-		name := p.Command
-		if name == "" && p.Cmdline != "" {
-			name = p.Cmdline
+	if colorEnabled {
+		fmt.Printf("%sWhy It Exists%s :\n  ", colorMagenta, colorReset)
+		for i, p := range r.Ancestry {
+			name := p.Command
+			if name == "" && p.Cmdline != "" {
+				name = p.Cmdline
+			}
+			fmt.Printf("%s (%spid %d%s)", name, colorBold, p.PID, colorReset)
+			if i < len(r.Ancestry)-1 {
+				fmt.Printf(" %s\u2192%s ", colorMagenta, colorReset)
+			}
 		}
-		fmt.Printf("%s (pid %d)", name, p.PID)
-		if i < len(r.Ancestry)-1 {
-			fmt.Printf(" \u2192 ") // Unicode right arrow
+		fmt.Print("\n\n")
+	} else {
+		fmt.Printf("Why It Exists :\n  ")
+		for i, p := range r.Ancestry {
+			name := p.Command
+			if name == "" && p.Cmdline != "" {
+				name = p.Cmdline
+			}
+			fmt.Printf("%s (pid %d)", name, p.PID)
+			if i < len(r.Ancestry)-1 {
+				fmt.Printf(" \u2192 ")
+			}
 		}
+		fmt.Print("\n\n")
 	}
-	fmt.Print("\n\n")
 
 	// Source
 	sourceLabel := string(r.Source.Type)
-	if r.Source.Name != "" && r.Source.Name != sourceLabel {
-		fmt.Printf("Source      : %s (%s)\n", r.Source.Name, sourceLabel)
+	if colorEnabled {
+		if r.Source.Name != "" && r.Source.Name != sourceLabel {
+			fmt.Printf("%sSource%s      : %s (%s)\n", colorCyan, colorReset, r.Source.Name, sourceLabel)
+		} else {
+			fmt.Printf("%sSource%s      : %s\n", colorCyan, colorReset, sourceLabel)
+		}
 	} else {
-		fmt.Printf("Source      : %s\n", sourceLabel)
+		if r.Source.Name != "" && r.Source.Name != sourceLabel {
+			fmt.Printf("Source      : %s (%s)\n", r.Source.Name, sourceLabel)
+		} else {
+			fmt.Printf("Source      : %s\n", sourceLabel)
+		}
 	}
 
-	// Working Dir
-	if proc.WorkingDir != "" {
-		fmt.Printf("\nWorking Dir : %s\n", proc.WorkingDir)
-	}
-	// Git repo/branch
-	if proc.GitRepo != "" {
-		if proc.GitBranch != "" {
-			fmt.Printf("Git Repo    : %s (%s)\n", proc.GitRepo, proc.GitBranch)
-		} else {
-			fmt.Printf("Git Repo    : %s\n", proc.GitRepo)
+	// Context group
+	if colorEnabled {
+		if proc.WorkingDir != "" {
+			fmt.Printf("\n%sWorking Dir%s : %s\n", colorGreen, colorReset, proc.WorkingDir)
+		}
+		if proc.GitRepo != "" {
+			if proc.GitBranch != "" {
+				fmt.Printf("%sGit Repo%s    : %s (%s)\n", colorCyan, colorReset, proc.GitRepo, proc.GitBranch)
+			} else {
+				fmt.Printf("%sGit Repo%s    : %s\n", colorCyan, colorReset, proc.GitRepo)
+			}
+		}
+	} else {
+		if proc.WorkingDir != "" {
+			fmt.Printf("\nWorking Dir : %s\n", proc.WorkingDir)
+		}
+		if proc.GitRepo != "" {
+			if proc.GitBranch != "" {
+				fmt.Printf("Git Repo    : %s (%s)\n", proc.GitRepo, proc.GitBranch)
+			} else {
+				fmt.Printf("Git Repo    : %s\n", proc.GitRepo)
+			}
 		}
 	}
 
@@ -101,10 +181,18 @@ func RenderStandard(r model.Result) {
 			addr := proc.BindAddresses[i]
 			port := proc.ListeningPorts[i]
 			if addr != "" && port > 0 {
-				if i == 0 {
-					fmt.Printf("Listening   : %s:%d\n", addr, port)
+				if colorEnabled {
+					if i == 0 {
+						fmt.Printf("%sListening%s   : %s:%d\n", colorGreen, colorReset, addr, port)
+					} else {
+						fmt.Printf("              %s:%d\n", addr, port)
+					}
 				} else {
-					fmt.Printf("              %s:%d\n", addr, port)
+					if i == 0 {
+						fmt.Printf("Listening   : %s:%d\n", addr, port)
+					} else {
+						fmt.Printf("              %s:%d\n", addr, port)
+					}
 				}
 			}
 		}
@@ -112,9 +200,16 @@ func RenderStandard(r model.Result) {
 
 	// Warnings
 	if len(r.Warnings) > 0 {
-		fmt.Println("\nNotes       :")
-		for _, w := range r.Warnings {
-			fmt.Printf("  • %s\n", w)
+		if colorEnabled {
+			fmt.Printf("\n%sNotes%s       :\n", colorRed, colorReset)
+			for _, w := range r.Warnings {
+				fmt.Printf("  %s• %s%s\n", colorRed, w, colorReset)
+			}
+		} else {
+			fmt.Println("\nNotes       :")
+			for _, w := range r.Warnings {
+				fmt.Printf("  • %s\n", w)
+			}
 		}
 	}
 }

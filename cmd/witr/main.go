@@ -14,13 +14,14 @@ import (
 )
 
 func printHelp() {
-	fmt.Println("Usage: witr [--pid N | --port N | name] [--short] [--tree] [--json] [--warnings] [--help]")
+	fmt.Println("Usage: witr [--pid N | --port N | name] [--short] [--tree] [--json] [--warnings] [--no-color] [--help]")
 	fmt.Println("  --pid <n>         Explain a specific PID")
 	fmt.Println("  --port <n>        Explain port usage")
 	fmt.Println("  --short           One-line summary")
 	fmt.Println("  --tree            Show full process ancestry tree")
 	fmt.Println("  --json            Output result as JSON")
 	fmt.Println("  --warnings        Show only warnings")
+	fmt.Println("  --no-color        Disable colorized output")
 	fmt.Println("  --help            Show this help message")
 }
 
@@ -31,6 +32,7 @@ func main() {
 	treeFlag := flag.Bool("tree", false, "tree output")
 	jsonFlag := flag.Bool("json", false, "output as JSON")
 	warnFlag := flag.Bool("warnings", false, "show only warnings")
+	noColorFlag := flag.Bool("no-color", false, "disable colorized output")
 	helpFlag := flag.Bool("help", false, "show help")
 
 	flag.Parse()
@@ -143,11 +145,11 @@ func main() {
 			}
 		}
 	case *treeFlag:
-		output.PrintTree(res.Ancestry)
+		output.PrintTree(res.Ancestry) // (color support can be added here if needed)
 	case *shortFlag:
-		output.RenderShort(res)
+		output.RenderShort(res, !*noColorFlag)
 	default:
-		output.RenderStandard(res)
+		output.RenderStandard(res, !*noColorFlag)
 	}
 
 	_ = shortFlag
