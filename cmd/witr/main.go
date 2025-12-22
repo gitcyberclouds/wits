@@ -26,6 +26,20 @@ func printHelp() {
 }
 
 func main() {
+
+	// Reorder os.Args so all flags come before positional arguments
+	reordered := []string{os.Args[0]}
+	var positionals []string
+	for _, arg := range os.Args[1:] {
+		if len(arg) > 0 && arg[0] == '-' {
+			reordered = append(reordered, arg)
+		} else {
+			positionals = append(positionals, arg)
+		}
+	}
+	reordered = append(reordered, positionals...)
+	os.Args = reordered
+
 	pidFlag := flag.String("pid", "", "pid to explain")
 	portFlag := flag.String("port", "", "port to explain")
 	shortFlag := flag.Bool("short", false, "short output")
@@ -49,8 +63,8 @@ func main() {
 		t = model.Target{Type: model.TargetPID, Value: *pidFlag}
 	case *portFlag != "":
 		t = model.Target{Type: model.TargetPort, Value: *portFlag}
-	case flag.NArg() == 1:
-		t = model.Target{Type: model.TargetName, Value: flag.Arg(0)}
+	case len(flag.Args()) > 0:
+		t = model.Target{Type: model.TargetName, Value: flag.Args()[0]}
 	default:
 		printHelp()
 		os.Exit(1)
@@ -130,12 +144,10 @@ func main() {
 		Warnings:       source.Warnings(ancestry),
 	}
 
-	switch {
-	case *jsonFlag:
-		// Output as JSON
+	if *jsonFlag {
 		importJson, _ := output.ToJSON(res)
 		fmt.Println(importJson)
-	case *warnFlag:
+	} else if *warnFlag {
 		if len(res.Warnings) == 0 {
 			fmt.Println("No warnings.")
 		} else {
@@ -144,11 +156,11 @@ func main() {
 				fmt.Printf("  • %s\n", w)
 			}
 		}
-	case *treeFlag:
-		output.PrintTree(res.Ancestry) // (color support can be added here if needed)
-	case *shortFlag:
+	} else if *treeFlag {
+		output.PrintTree(res.Ancestry)
+	} else if *shortFlag {
 		output.RenderShort(res, !*noColorFlag)
-	default:
+	} else {
 		output.RenderStandard(res, !*noColorFlag)
 	}
 
