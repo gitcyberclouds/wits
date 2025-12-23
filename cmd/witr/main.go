@@ -224,10 +224,10 @@ func main() {
 		Target:         t,
 		ResolvedTarget: resolvedTarget,
 		Process:        proc,
+		RestartCount:   restartCount,
 		Ancestry:       ancestry,
 		Source:         src,
 		Warnings:       source.Warnings(ancestry),
-		RestartCount:   restartCount,
 	}
 
 	if *jsonFlag {
