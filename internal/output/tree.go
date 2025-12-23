@@ -9,14 +9,17 @@ import (
 var (
 	colorResetTree   = "\033[0m"
 	colorMagentaTree = "\033[35m"
+	colorBoldTree    = "\033[1m"
 )
 
 func PrintTree(chain []model.Process, colorEnabled bool) {
 	colorReset := ""
 	colorMagenta := ""
+	colorBold := ""
 	if colorEnabled {
 		colorReset = colorResetTree
 		colorMagenta = colorMagentaTree
+		colorBold = colorBoldTree
 	}
 	for i, p := range chain {
 		prefix := ""
@@ -30,6 +33,10 @@ func PrintTree(chain []model.Process, colorEnabled bool) {
 				prefix += "└─ "
 			}
 		}
-		fmt.Printf("%s%s (pid %d)\n", prefix, p.Command, p.PID)
+		if colorEnabled {
+			fmt.Printf("%s%s (%spid %d%s)\n", prefix, p.Command, colorBold, p.PID, colorReset)
+		} else {
+			fmt.Printf("%s%s (pid %d)\n", prefix, p.Command, p.PID)
+		}
 	}
 }

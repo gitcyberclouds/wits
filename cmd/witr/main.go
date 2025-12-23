@@ -234,14 +234,7 @@ func main() {
 		importJson, _ := output.ToJSON(res)
 		fmt.Println(importJson)
 	} else if *warnFlag {
-		if len(res.Warnings) == 0 {
-			fmt.Println("No warnings.")
-		} else {
-			fmt.Println("Warnings:")
-			for _, w := range res.Warnings {
-				fmt.Printf("  • %s\n", w)
-			}
-		}
+		output.RenderWarnings(res.Warnings, !*noColorFlag)
 	} else if *treeFlag {
 		output.PrintTree(res.Ancestry, !*noColorFlag)
 	} else if *shortFlag {

@@ -18,6 +18,29 @@ var (
 	colorDimYellow = "\033[2;33m"
 )
 
+// RenderWarnings prints only the warnings, with color if enabled
+func RenderWarnings(warnings []string, colorEnabled bool) {
+	if len(warnings) == 0 {
+		if colorEnabled {
+			fmt.Printf("%sNo warnings.%s\n", colorGreen, colorReset)
+		} else {
+			fmt.Println("No warnings.")
+		}
+		return
+	}
+	if colorEnabled {
+		fmt.Printf("%sWarnings%s:\n", colorRed, colorReset)
+		for _, w := range warnings {
+			fmt.Printf("  • %s\n", w)
+		}
+	} else {
+		fmt.Println("Warnings:")
+		for _, w := range warnings {
+			fmt.Printf("  • %s\n", w)
+		}
+	}
+}
+
 func RenderStandard(r model.Result, colorEnabled bool) {
 	// Target
 	target := "unknown"
@@ -128,15 +151,15 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 	// Restart count
 	if r.RestartCount > 0 {
 		if colorEnabled {
-			fmt.Printf("%sRestarts%s    : %d\n\n", colorDimYellow, colorReset, r.RestartCount)
+			fmt.Printf("%sRestarts%s    : %d\n", colorDimYellow, colorReset, r.RestartCount)
 		} else {
-			fmt.Printf("Restarts    : %d\n\n", r.RestartCount)
+			fmt.Printf("Restarts    : %d\n", r.RestartCount)
 		}
 	}
 
 	// Why It Exists (short chain)
 	if colorEnabled {
-		fmt.Printf("%sWhy It Exists%s :\n  ", colorMagenta, colorReset)
+		fmt.Printf("\n%sWhy It Exists%s :\n  ", colorMagenta, colorReset)
 		for i, p := range r.Ancestry {
 			name := p.Command
 			if name == "" && p.Cmdline != "" {
@@ -149,7 +172,7 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 		}
 		fmt.Print("\n\n")
 	} else {
-		fmt.Printf("Why It Exists :\n  ")
+		fmt.Printf("\nWhy It Exists :\n  ")
 		for i, p := range r.Ancestry {
 			name := p.Command
 			if name == "" && p.Cmdline != "" {
@@ -232,7 +255,7 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 		if colorEnabled {
 			fmt.Printf("\n%sWarnings%s    :\n", colorRed, colorReset)
 			for _, w := range r.Warnings {
-				fmt.Printf("  %s• %s%s\n", colorRed, w, colorReset)
+				fmt.Printf("  • %s\n", w)
 			}
 		} else {
 			fmt.Println("\nWarnings    :")

@@ -9,6 +9,7 @@ import (
 var (
 	colorResetShort   = "\033[0m"
 	colorMagentaShort = "\033[35m"
+	colorBoldShort    = "\033[1m"
 )
 
 func RenderShort(r model.Result, colorEnabled bool) {
@@ -20,7 +21,11 @@ func RenderShort(r model.Result, colorEnabled bool) {
 				fmt.Print(" → ")
 			}
 		}
-		fmt.Print(p.Command)
+		if colorEnabled {
+			fmt.Printf("%s (%spid %d%s)", p.Command, colorBoldShort, p.PID, colorResetShort)
+		} else {
+			fmt.Printf("%s (pid %d)", p.Command, p.PID)
+		}
 	}
 	fmt.Println()
 }
