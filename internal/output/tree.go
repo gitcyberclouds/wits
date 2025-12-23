@@ -9,7 +9,7 @@ import (
 var (
 	colorResetTree   = "\033[0m"
 	colorMagentaTree = "\033[35m"
-	colorBoldTree    = "\033[1m"
+	colorBoldTree    = "\033[2m"
 )
 
 func PrintTree(chain []model.Process, colorEnabled bool) {

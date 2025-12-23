@@ -64,8 +64,15 @@ func ResolveName(name string) ([]int, error) {
 	// Service detection (systemd)
 	servicePID, serviceErr := resolveSystemdServiceMainPID(name)
 
-	// Ambiguity: both process and service
-	if len(procPIDs) > 0 && servicePID > 0 {
+	// Ambiguity: both process and service, but only if there are at least two unique PIDs
+	uniquePIDs := map[int]bool{}
+	if servicePID > 0 {
+		uniquePIDs[servicePID] = true
+	}
+	for _, pid := range procPIDs {
+		uniquePIDs[pid] = true
+	}
+	if len(uniquePIDs) > 1 {
 		fmt.Printf("Ambiguous target: \"%s\"\n\n", name)
 		fmt.Println("The name matches multiple entities:")
 		fmt.Println()

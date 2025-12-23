@@ -9,7 +9,7 @@ import (
 var (
 	colorResetShort   = "\033[0m"
 	colorMagentaShort = "\033[35m"
-	colorBoldShort    = "\033[1m"
+	colorBoldShort    = "\033[2m"
 )
 
 func RenderShort(r model.Result, colorEnabled bool) {

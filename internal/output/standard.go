@@ -14,7 +14,7 @@ var (
 	colorBlue      = "\033[34m"
 	colorCyan      = "\033[36m"
 	colorMagenta   = "\033[35m"
-	colorBold      = "\033[1m"
+	colorBold      = "\033[2m"
 	colorDimYellow = "\033[2;33m"
 )
 
