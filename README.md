@@ -1,8 +1,5 @@
 # witr (why-is-this-running)
 
-## 0. Disclaimer
-This project is a work in progress. The requirements, scope, and design decisions documented here are subject to change based on implementation feasibility, technical constraints, and learnings as development progresses.
-
 ## 1. Purpose
 
 **witr** exists to answer a single question:
@@ -61,11 +58,7 @@ witr node
 witr nginx
 ```
 
-Accepts a single positional argument that may refer to a process name or a service name. witr intentionally does not require the user to distinguish between the two.
-
-If the name matches **both** a running process and a service definition, witr treats this as ambiguity and asks the user to re-run the command with an explicit PID.
-
-If multiple matching processes exist, witr lists them and requires disambiguation.
+A single positional argument (without flags) is treated as a process or service name. If multiple matches are found, witr will prompt for disambiguation by PID.
 
 ---
 
@@ -104,20 +97,14 @@ Explains the process(es) listening on a port.
 What the user asked about.
 
 #### Process
-Executable, PID, command, and start time.
+Executable, PID, user, command, start time and restart count.
 
 #### Why It Exists
 A causal ancestry chain showing how the process came to exist.
-
-Format:
-```
-systemd → docker → node → app
-```
-
 This is the core value of witr.
 
 #### Source
-The primary system responsible for starting or supervising the process.
+The primary system responsible for starting or supervising the process (best effort).
 
 Examples:
 - systemd unit
@@ -134,28 +121,33 @@ Only **one primary source** is selected.
 - Docker container name / image
 - Public vs private bind
 
-#### Notes / Warnings
+#### Warnings
 Non‑blocking observations such as:
-- Running as root
-- Bound to public interface (0.0.0.0 / ::)
-- No supervisor detected
-- Restarted multiple times
+- Process is running as root
+- Process is listening on a public interface (0.0.0.0 / ::)
+- Restarted multiple times (warning only if above threshold)
+- Process is using high memory (>1GB RSS)
+- Process has been running for over 90 days
 
 ---
 
 ## 6. Flags
 
-```text
+## 6. Flags & Options
+
+```
 --pid <n>         Explain a specific PID
 --port <n>        Explain port usage
-
 --short           One-line summary
 --tree            Show full process ancestry tree
+--json            Output result as JSON
+--warnings        Show only warnings
+--no-color        Disable colorized output
+--env             Show only environment variables for the process
+--help            Show this help message
 ```
 
 A single positional argument (without flags) is treated as a process or service name.
-
-No configuration files. No environment variables.
 
 ---
 
@@ -171,63 +163,33 @@ witr node
 Target      : node
 
 Process     : node (pid 14233)
+User        : pm2
 Command     : node index.js
-Started     : 2 days ago (Mon 2025-02-02 11:42:10 +0530)
+Started     : 2 days ago (Mon 2025-02-02 11:42:10 +05:30)
+Restarts    : 1
 
 Why It Exists :
-  systemd → pm2 → node
+  systemd (pid 1) → pm2 (pid 5034) → node (pid 6948)
 
-Source      : pm2 startup
+Source      : pm2
 
 Working Dir : /opt/apps/expense-manager
 Git Repo    : expense-manager (main)
+Listening   : 127.0.0.1:5001
 ```
 
 ---
 
-### 7.2 Port-based query
+### 7.2 Multiple matches
 
-```bash
-witr --port 5000
-```
-
-```
-Target      : Port 5000
-
-Process     : python (pid 24891)
-Command     : python app.py
-Started     : 6 hours ago (Tue 01:12 IST, 2025-02-04 01:12:03 +0530)
-
-Why It Exists :
-  systemd → docker → python
-
-Source      : docker container
-Container   : api-dev
-Image       : python:3.11-slim
-
-Working Dir : /app
-Git Repo    : expense-manager (branch: dev)
-
-Listening   : 0.0.0.0:5000 (public)
-
-Notes       :
-  • Bound to public interface (0.0.0.0)
-  • Restarted 3 times
-  • No healthcheck detected
-```
-
----
-
-### 7.3 Multiple matches
-
-#### 7.3.1 Multiple matching processes
+#### 7.2.1 Multiple matching processes
 
 ```bash
 witr node
 ```
 
 ```
-Found 3 matching running entities:
+Multiple matching processes found:
 
 [1] PID 12091  node server.js  (docker)
 [2] PID 14233  node index.js   (pm2)
@@ -239,7 +201,7 @@ Re-run with:
 
 ---
 
-#### 7.3.2 Ambiguous name (process and service)
+#### 7.2.2 Ambiguous name (process and service)
 
 ```bash
 witr nginx
@@ -260,29 +222,28 @@ Please re-run with an explicit PID:
 
 ---
 
-### 7.4 Short output
+### 7.3 Short output
 
 ```bash
 witr --port 5000 --short
 ```
 
 ```
-Port 5000 → python (pid 24891) | systemd → docker → python | started Tue 01:12 IST, 2025-02-04
+systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
 ```
 
 ---
 
-### 7.5 Tree output
+### 7.4 Tree output
 
 ```bash
-witr --pid 14233 --tree
+witr --pid 1482060 --tree
 ```
 
 ```
 systemd (pid 1)
-└─ pm2 (pid 812)
-   └─ node (pid 913)
-      └─ node index.js (pid 14233)
+  └─ PM2 v5.3.1: God (pid 1481580)
+    └─ python (pid 1482060)
 ```
 
 ---
@@ -293,16 +254,7 @@ systemd (pid 1)
 
 ---
 
-## 9. Safety & Trust
-
-- Read‑only by default
-- No automatic killing or modification of processes
-- Explicit warnings instead of implicit actions
-- Never escalates privileges silently
-
----
-
-## 10. Success Criteria
+## 9. Success Criteria
 
 witr is successful if:
 - An engineer can answer "why is this running?" within seconds
@@ -312,3 +264,8 @@ witr is successful if:
 
 ---
 
+## 10. AI Assistance Disclaimer
+
+This project was developed with the assistance of AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), with human oversight.
+
+---
