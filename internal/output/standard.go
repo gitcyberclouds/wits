@@ -125,11 +125,13 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 		fmt.Printf("Started     : %s (%s)\n", rel, dtStr)
 	}
 
-	// Restart count (always shown)
-	if colorEnabled {
-		fmt.Printf("%sRestarts%s    : %d\n\n", colorDimYellow, colorReset, r.RestartCount)
-	} else {
-		fmt.Printf("Restarts    : %d\n\n", r.RestartCount)
+	// Restart count
+	if r.RestartCount > 0 {
+		if colorEnabled {
+			fmt.Printf("%sRestarts%s    : %d\n\n", colorDimYellow, colorReset, r.RestartCount)
+		} else {
+			fmt.Printf("Restarts    : %d\n\n", r.RestartCount)
+		}
 	}
 
 	// Why It Exists (short chain)

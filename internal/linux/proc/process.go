@@ -127,9 +127,10 @@ func ReadProcess(pid int) (model.Process, error) {
 	startedAt := bootTime().Add(time.Duration(startTicks) * time.Second / ticksPerSecond())
 
 	// Health: zombie/stopped
-	if state == "Z" {
+	switch state {
+	case "Z":
 		health = "zombie"
-	} else if state == "T" {
+	case "T":
 		health = "stopped"
 	}
 
