@@ -7,14 +7,17 @@ import (
 )
 
 // RenderEnvOnly prints only the command and environment variables for a process
-var (
-	colorResetEnv = "\033[0m"
-	colorBlueEnv  = "\033[34m"
-	colorRedEnv   = "\033[31m"
-	colorGreenEnv = "\033[32m"
-)
-
-func RenderEnvOnly(proc model.Process) {
+func RenderEnvOnly(proc model.Process, colorEnabled bool) {
+	colorResetEnv := ""
+	colorBlueEnv := ""
+	colorRedEnv := ""
+	colorGreenEnv := ""
+	if colorEnabled {
+		colorResetEnv = "\033[0m"
+		colorBlueEnv = "\033[34m"
+		colorRedEnv = "\033[31m"
+		colorGreenEnv = "\033[32m"
+	}
 	fmt.Printf("%sCommand%s     : %s\n", colorGreenEnv, colorResetEnv, proc.Cmdline)
 	if len(proc.Env) > 0 {
 		fmt.Printf("%sEnvironment%s :\n", colorBlueEnv, colorResetEnv)

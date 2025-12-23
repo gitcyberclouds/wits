@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -111,7 +112,17 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		output.RenderEnvOnly(procInfo)
+		if *jsonFlag {
+			type envOut struct {
+				Command string   `json:"Command"`
+				Env     []string `json:"Env"`
+			}
+			out := envOut{Command: procInfo.Cmdline, Env: procInfo.Env}
+			enc, _ := json.MarshalIndent(out, "", "  ")
+			fmt.Println(string(enc))
+		} else {
+			output.RenderEnvOnly(procInfo, !*noColorFlag)
+		}
 		return
 	}
 
@@ -221,7 +232,7 @@ func main() {
 			}
 		}
 	} else if *treeFlag {
-		output.PrintTree(res.Ancestry)
+		output.PrintTree(res.Ancestry, !*noColorFlag)
 	} else if *shortFlag {
 		output.RenderShort(res, !*noColorFlag)
 	} else {

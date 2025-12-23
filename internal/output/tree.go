@@ -11,15 +11,21 @@ var (
 	colorMagentaTree = "\033[35m"
 )
 
-func PrintTree(chain []model.Process) {
+func PrintTree(chain []model.Process, colorEnabled bool) {
+	colorReset := ""
+	colorMagenta := ""
+	if colorEnabled {
+		colorReset = colorResetTree
+		colorMagenta = colorMagentaTree
+	}
 	for i, p := range chain {
 		prefix := ""
 		for j := 0; j < i; j++ {
 			prefix += "  "
 		}
 		if i > 0 {
-			if true { // always colorize separator if color is enabled (could add flag if needed)
-				prefix += colorMagentaTree + "└─ " + colorResetTree
+			if colorEnabled {
+				prefix += colorMagenta + "└─ " + colorReset
 			} else {
 				prefix += "└─ "
 			}
