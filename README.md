@@ -52,6 +52,8 @@ At its core, witr answers:
 
 witr supports multiple entry points that converge to PID analysis.
 
+---
+
 ### 4.1 Name (process or service)
 ```bash
 witr node
@@ -131,8 +133,6 @@ Non‑blocking observations such as:
 
 ---
 
-## 6. Flags
-
 ## 6. Flags & Options
 
 ```
@@ -177,12 +177,37 @@ Working Dir : /opt/apps/expense-manager
 Git Repo    : expense-manager (main)
 Listening   : 127.0.0.1:5001
 ```
+---
+
+### 7.2 Short output
+
+```bash
+witr --port 5000 --short
+```
+
+```
+systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
+```
 
 ---
 
-### 7.2 Multiple matches
+### 7.3 Tree output
 
-#### 7.2.1 Multiple matching processes
+```bash
+witr --pid 1482060 --tree
+```
+
+```
+systemd (pid 1)
+  └─ PM2 v5.3.1: God (pid 1481580)
+    └─ python (pid 1482060)
+```
+
+---
+
+### 7.4 Multiple matches
+
+#### 7.4.1 Multiple matching processes
 
 ```bash
 witr node
@@ -201,7 +226,7 @@ Re-run with:
 
 ---
 
-#### 7.2.2 Ambiguous name (process and service)
+#### 7.4.2 Ambiguous name (process and service)
 
 ```bash
 witr nginx
@@ -219,38 +244,21 @@ witr cannot determine intent safely.
 Please re-run with an explicit PID:
   witr --pid <pid>
 ```
-
----
-
-### 7.3 Short output
-
-```bash
-witr --port 5000 --short
-```
-
-```
-systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
-```
-
----
-
-### 7.4 Tree output
-
-```bash
-witr --pid 1482060 --tree
-```
-
-```
-systemd (pid 1)
-  └─ PM2 v5.3.1: God (pid 1481580)
-    └─ python (pid 1482060)
-```
-
 ---
 
 ## 8. Platform Support
 
 - Linux
+
+---
+
+### 8.1 Permissions Note
+
+If you are not seeing the expected information (e.g., missing process ancestry, user, working directory or environment details), try running witr with sudo for elevated permissions:
+
+```bash
+sudo witr [your arguments]
+```
 
 ---
 
@@ -266,6 +274,6 @@ witr is successful if:
 
 ## 10. AI Assistance Disclaimer
 
-This project was developed with the assistance of AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), with human oversight.
+This project was developed with assistance from AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), supervised by a human who occasionally knew what he was doing.
 
 ---
