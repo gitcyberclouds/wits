@@ -210,6 +210,16 @@ func main() {
 		resolvedTarget = proc.Command
 	}
 
+	// Calculate restart count (consecutive same-command entries)
+	restartCount := 0
+	lastCmd := ""
+	for _, procA := range ancestry {
+		if procA.Command == lastCmd {
+			restartCount++
+		}
+		lastCmd = procA.Command
+	}
+
 	res := model.Result{
 		Target:         t,
 		ResolvedTarget: resolvedTarget,
@@ -217,6 +227,7 @@ func main() {
 		Ancestry:       ancestry,
 		Source:         src,
 		Warnings:       source.Warnings(ancestry),
+		RestartCount:   restartCount,
 	}
 
 	if *jsonFlag {

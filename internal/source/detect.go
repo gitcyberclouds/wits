@@ -35,6 +35,19 @@ func Warnings(p []model.Process) []string {
 
 	last := p[len(p)-1]
 
+	// Restart count detection (count consecutive same-command entries)
+	restartCount := 0
+	lastCmd := ""
+	for _, proc := range p {
+		if proc.Command == lastCmd {
+			restartCount++
+		}
+		lastCmd = proc.Command
+	}
+	if restartCount > 5 {
+		w = append(w, "Process or ancestor restarted more than 5 times")
+	}
+
 	// Health warnings
 	switch last.Health {
 	case "zombie":
@@ -57,17 +70,6 @@ func Warnings(p []model.Process) []string {
 
 	if Detect(p).Type == model.SourceUnknown {
 		w = append(w, "No known supervisor or service manager detected")
-	}
-
-	// Warn if process has been restarted multiple times (simple: if ancestry has >2 entries with same command)
-	cmdCount := make(map[string]int)
-	for _, proc := range p {
-		cmdCount[proc.Command]++
-	}
-	for cmd, count := range cmdCount {
-		if count > 2 {
-			w = append(w, "Process or ancestor restarted multiple times: "+cmd)
-		}
 	}
 
 	// Warn if process is very old (>90 days)

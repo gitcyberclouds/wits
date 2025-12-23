@@ -8,13 +8,14 @@ import (
 )
 
 var (
-	colorReset   = "\033[0m"
-	colorRed     = "\033[31m"
-	colorGreen   = "\033[32m"
-	colorBlue    = "\033[34m"
-	colorCyan    = "\033[36m"
-	colorMagenta = "\033[35m"
-	colorBold    = "\033[1m"
+	colorReset     = "\033[0m"
+	colorRed       = "\033[31m"
+	colorGreen     = "\033[32m"
+	colorBlue      = "\033[34m"
+	colorCyan      = "\033[36m"
+	colorMagenta   = "\033[35m"
+	colorBold      = "\033[1m"
+	colorDimYellow = "\033[2;33m"
 )
 
 func RenderStandard(r model.Result, colorEnabled bool) {
@@ -47,7 +48,7 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 	}
 	// Forked status: only display if forked
 	if proc.Forked == "forked" {
-		forkColor := colorMagenta
+		forkColor := colorDimYellow
 		if colorEnabled {
 			fmt.Printf(" %s{forked}%s", forkColor, colorReset)
 		} else {
@@ -119,9 +120,16 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 	}
 	dtStr := startedAt.Format("Mon 2006-01-02 15:04:05 -07:00")
 	if colorEnabled {
-		fmt.Printf("%sStarted%s     : %s (%s)\n\n", colorMagenta, colorReset, rel, dtStr)
+		fmt.Printf("%sStarted%s     : %s (%s)\n", colorMagenta, colorReset, rel, dtStr)
 	} else {
-		fmt.Printf("Started     : %s (%s)\n\n", rel, dtStr)
+		fmt.Printf("Started     : %s (%s)\n", rel, dtStr)
+	}
+
+	// Restart count (always shown)
+	if colorEnabled {
+		fmt.Printf("%sRestarts%s    : %d\n\n", colorDimYellow, colorReset, r.RestartCount)
+	} else {
+		fmt.Printf("Restarts    : %d\n\n", r.RestartCount)
 	}
 
 	// Why It Exists (short chain)
@@ -220,12 +228,12 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 	// Warnings
 	if len(r.Warnings) > 0 {
 		if colorEnabled {
-			fmt.Printf("\n%sNotes%s       :\n", colorRed, colorReset)
+			fmt.Printf("\n%sWarnings%s    :\n", colorRed, colorReset)
 			for _, w := range r.Warnings {
 				fmt.Printf("  %s• %s%s\n", colorRed, w, colorReset)
 			}
 		} else {
-			fmt.Println("\nNotes       :")
+			fmt.Println("\nWarnings    :")
 			for _, w := range r.Warnings {
 				fmt.Printf("  • %s\n", w)
 			}

@@ -7,4 +7,5 @@ type Result struct {
 	Ancestry       []Process
 	Source         Source
 	Warnings       []string
+	RestartCount   int // Number of restarts detected in ancestry
 }
