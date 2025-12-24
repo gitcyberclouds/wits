@@ -246,13 +246,117 @@ Please re-run with an explicit PID:
 ```
 ---
 
-## 8. Platform Support
+## 8. Installation
+
+witr is distributed as a single static Linux binary.
+
+---
+
+### 8.1 Script Installation (Recommended)
+
+The easiest way to install **witr** is via the install script.
+
+#### Quick install
+```bash
+curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash
+```
+
+#### Review before install
+```bash
+curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh -o install.sh
+cat install.sh
+chmod +x install.sh
+./install.sh
+```
+
+The script will:
+- Detect your CPU architecture (`amd64` or `arm64`)
+- Download the latest released binary
+- Install it to `/usr/local/bin/witr`
+- Install the man page to `/usr/local/share/man/man1/witr.1`
+You may be prompted for your password to write to system directories.
+
+### 8.2 Manual Installation
+
+If you prefer full manual control, follow these steps.
+
+1. Download the binary
+
+**amd64**
+```bash
+curl -fsSL \
+  https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-amd64 \
+  -o witr
+```
+**arm64**
+```bash
+curl -fsSL \
+  https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-arm64 \
+  -o witr
+```
+
+2. Make it executable
+```bash
+chmod +x witr
+```
+
+3. Move it into your PATH
+```bash
+sudo mv witr /usr/local/bin/witr
+```
+
+4. (Optional) Install the man page
+```
+sudo curl -fsSL \
+  https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 \
+  -o /usr/local/share/man/man1/witr.1
+
+sudo mandb >/dev/null 2>&1 || true
+```
+
+### 8.3 Verify installation:
+```bash
+witr --version
+man witr
+```
+
+### 8.4 Checksum Verification (Recommended)
+
+To verify binary integrity:
+
+1. Download checksums
+```bash
+curl -fsSL \
+  https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS \
+  -o SHA256SUMS
+```
+
+2. Verify
+```
+sha256sum -c SHA256SUMS
+```
+
+You should see `OK` next to the `witr-linux-*` entry.
+
+### 8.5 Uninstallation
+
+To completely remove **witr**:
+```bash
+sudo rm -f /usr/local/bin/witr
+sudo rm -f /usr/local/share/man/man1/witr.1
+```
+
+---
+
+## 9. Platform Support
 
 - Linux
 
 ---
 
-### 8.1 Permissions Note
+### 9.1 Permissions Note
+
+witr inspects `/proc` and may require elevated permissions to explain certain processes.
 
 If you are not seeing the expected information (e.g., missing process ancestry, user, working directory or environment details), try running witr with sudo for elevated permissions:
 
@@ -262,7 +366,7 @@ sudo witr [your arguments]
 
 ---
 
-## 9. Success Criteria
+## 10. Success Criteria
 
 witr is successful if:
 - An engineer can answer "why is this running?" within seconds
@@ -272,7 +376,7 @@ witr is successful if:
 
 ---
 
-## 10. AI Assistance Disclaimer
+## 11. AI Assistance Disclaimer
 
 This project was developed with assistance from AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), supervised by a human who occasionally knew what he was doing.
 
