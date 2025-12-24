@@ -1,0 +1,61 @@
+package source
+
+import (
+	"strings"
+
+	"github.com/pranshuparmar/witr/pkg/model"
+)
+
+var knownSupervisors = map[string]string{
+	"pm2":          "pm2",
+	"pm2 god":      "pm2",
+	"supervisord":  "supervisord",
+	"gunicorn":     "gunicorn",
+	"uwsgi":        "uwsgi",
+	"s6-supervise": "s6",
+	"s6":           "s6",
+	"runsv":        "runit",
+	"runit":        "runit",
+	"openrc":       "openrc",
+	"monit":        "monit",
+	"circusd":      "circus",
+	"circus":       "circus",
+	"systemd":      "systemd service",
+	"daemontools":  "daemontools",
+	"init":         "init",
+	"tini":         "tini",
+	"docker-init":  "docker-init",
+}
+
+func detectSupervisor(ancestry []model.Process) *model.Source {
+	for _, p := range ancestry {
+		// Normalize: remove spaces, lowercase
+		pname := strings.ReplaceAll(strings.ToLower(p.Command), " ", "")
+		pcmd := strings.ReplaceAll(strings.ToLower(p.Cmdline), " ", "")
+		if strings.Contains(pname, "pm2") || strings.Contains(pcmd, "pm2") {
+			return &model.Source{
+				Type:       model.SourceSupervisor,
+				Name:       "pm2",
+				Confidence: 0.9,
+			}
+		}
+		if label, ok := knownSupervisors[strings.ToLower(p.Command)]; ok {
+			return &model.Source{
+				Type:       model.SourceSupervisor,
+				Name:       label,
+				Confidence: 0.7,
+			}
+		}
+		// Also match on command line for supervisor keywords
+		for sup, label := range knownSupervisors {
+			if strings.Contains(strings.ToLower(p.Cmdline), sup) {
+				return &model.Source{
+					Type:       model.SourceSupervisor,
+					Name:       label,
+					Confidence: 0.7,
+				}
+			}
+		}
+	}
+	return nil
+}
