@@ -15,9 +15,9 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-var version = "v0.1.0"
-var commit = "dev"
-var buildDate = "unknown"
+var version = ""
+var commit = ""
+var buildDate = ""
 
 func printHelp() {
 	fmt.Println("Usage: witr [--pid N | --port N | name] [--short] [--tree] [--json] [--warnings] [--no-color] [--env] [--help] [--version]")
@@ -43,6 +43,11 @@ func flagNeedsValue(flag string) bool {
 }
 
 func main() {
+	// Sanity check: fail build if version is not injected
+	if version == "" {
+		fmt.Fprintln(os.Stderr, "ERROR: version not set. Use -ldflags '-X main.version=...' when building.")
+		os.Exit(2)
+	}
 	versionFlag := flag.Bool("version", false, "show version and exit")
 
 	// Reorder os.Args so all flags (with their values) come before positional arguments
