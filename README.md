@@ -169,7 +169,7 @@ Started     : 2 days ago (Mon 2025-02-02 11:42:10 +05:30)
 Restarts    : 1
 
 Why It Exists :
-  systemd (pid 1) → pm2 (pid 5034) → node (pid 6948)
+  systemd (pid 1) → pm2 (pid 5034) → node (pid 14233)
 
 Source      : pm2
 
@@ -271,48 +271,57 @@ chmod +x install.sh
 
 The script will:
 - Detect your CPU architecture (`amd64` or `arm64`)
-- Download the latest released binary
+- Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
 - Install the man page to `/usr/local/share/man/man1/witr.1`
+
 You may be prompted for your password to write to system directories.
 
 ### 8.2 Manual Installation
 
-If you prefer full manual control, follow these steps.
+If you prefer manual installation, follow these simple steps for your architecture:
 
-1. Download the binary
+#### For amd64 (most PCs/servers):
+```bash
+# Download the binary
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-amd64 -o witr-linux-amd64
 
-**amd64**
-```bash
-curl -fsSL \
-  https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-amd64 \
-  -o witr
-```
-**arm64**
-```bash
-curl -fsSL \
-  https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-arm64 \
-  -o witr
-```
+# Verify checksum (Optional, should print OK)
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
+grep witr-linux-amd64 SHA256SUMS | sha256sum -c -
 
-2. Make it executable
-```bash
-chmod +x witr
-```
-
-3. Move it into your PATH
-```bash
+# Rename and install
+mv witr-linux-amd64 witr && chmod +x witr
 sudo mv witr /usr/local/bin/witr
-```
 
-4. (Optional) Install the man page
-```
-sudo curl -fsSL \
-  https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 \
-  -o /usr/local/share/man/man1/witr.1
-
+# Install the man page (Optional)
+sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
 sudo mandb >/dev/null 2>&1 || true
 ```
+
+#### For arm64 (Raspberry Pi, ARM servers):
+```bash
+# Download the binary
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-arm64 -o witr-linux-arm64
+
+# Verify checksum (Optional, should print OK)
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
+grep witr-linux-arm64 SHA256SUMS | sha256sum -c -
+
+# Rename and install
+mv witr-linux-arm64 witr && chmod +x witr
+sudo mv witr /usr/local/bin/witr
+
+# Install the man page (Optional)
+sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
+sudo mandb >/dev/null 2>&1 || true
+```
+
+**Explanation:**
+- Download only the binary for your architecture and the SHA256SUMS file.
+- Verify the checksum for your binary only (prints OK if valid).
+- Rename to witr, make it executable, and move to your PATH.
+- Install man page.
 
 ### 8.3 Verify installation:
 ```bash
@@ -320,25 +329,7 @@ witr --version
 man witr
 ```
 
-### 8.4 Checksum Verification (Recommended)
-
-To verify binary integrity:
-
-1. Download checksums
-```bash
-curl -fsSL \
-  https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS \
-  -o SHA256SUMS
-```
-
-2. Verify
-```
-sha256sum -c SHA256SUMS
-```
-
-You should see `OK` next to the `witr-linux-*` entry.
-
-### 8.5 Uninstallation
+### 8.4 Uninstallation
 
 To completely remove **witr**:
 ```bash
