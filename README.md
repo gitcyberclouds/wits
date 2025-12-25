@@ -274,6 +274,7 @@ The script will:
 - Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
 - Install the man page to `/usr/local/share/man/man1/witr.1`
+
 You may be prompted for your password to write to system directories.
 
 ### 8.2 Manual Installation
@@ -282,30 +283,36 @@ If you prefer manual installation, follow these simple steps for your architectu
 
 #### For amd64 (most PCs/servers):
 ```bash
-# Download binary and checksums
+# Download the binary
 curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-amd64 -o witr-linux-amd64
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
+
 # Verify checksum (Optional, should print OK)
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
 grep witr-linux-amd64 SHA256SUMS | sha256sum -c -
+
 # Rename and install
 mv witr-linux-amd64 witr && chmod +x witr
 sudo mv witr /usr/local/bin/witr
-# (Optional) Install man page
+
+# Install the man page (Optional)
 sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
 sudo mandb >/dev/null 2>&1 || true
 ```
 
 #### For arm64 (Raspberry Pi, ARM servers):
 ```bash
-# Download binary and checksums
+# Download the binary
 curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-arm64 -o witr-linux-arm64
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
+
 # Verify checksum (Optional, should print OK)
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
 grep witr-linux-arm64 SHA256SUMS | sha256sum -c -
+
 # Rename and install
 mv witr-linux-arm64 witr && chmod +x witr
 sudo mv witr /usr/local/bin/witr
-# (Optional) Install man page
+
+# Install the man page (Optional)
 sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
 sudo mandb >/dev/null 2>&1 || true
 ```
@@ -322,7 +329,7 @@ witr --version
 man witr
 ```
 
-### 8.5 Uninstallation
+### 8.4 Uninstallation
 
 To completely remove **witr**:
 ```bash
