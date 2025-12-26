@@ -1,5 +1,9 @@
 # witr (why-is-this-running)
 
+![witr](https://github.com/user-attachments/assets/adebb063-4706-47a8-9f77-612298354ef7)
+
+---
+
 ## 1. Purpose
 
 **witr** exists to answer a single question:
