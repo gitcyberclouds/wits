@@ -14,19 +14,20 @@
   - [4.2 PID](#42-pid)
   - [4.3 Port](#43-port)
 - [5. Output Behavior](#5-output-behavior)
-  - [5.1 Output principles](#51-output-principles)
+  - [5.1 Output Principles](#51-output-principles)
   - [5.2 Standard Output Sections](#52-standard-output-sections)
 - [6. Flags & Options](#6-flags--options)
 - [7. Example Outputs](#7-example-outputs)
-  - [7.1 Name-based query](#71-name-based-query)
-  - [7.2 Short output](#72-short-output)
-  - [7.3 Tree output](#73-tree-output)
-  - [7.4 Multiple matches](#74-multiple-matches)
+  - [7.1 Name Based Query](#71-name-based-query)
+  - [7.2 Short Output](#72-short-output)
+  - [7.3 Tree Output](#73-tree-output)
+  - [7.4 Multiple Matches](#74-multiple-matches)
 - [8. Installation](#8-installation)
   - [8.1 Script Installation (Recommended)](#81-script-installation-recommended)
   - [8.2 Manual Installation](#82-manual-installation)
-  - [8.3 Verify installation](#83-verify-installation)
+  - [8.3 Verify Installation](#83-verify-installation)
   - [8.4 Uninstallation](#84-uninstallation)
+  - [8.5 Nix Flake](#85-nix-flake)
 - [9. Platform Support](#9-platform-support)
   - [9.1 Permissions Note](#91-permissions-note)
 - [10. Success Criteria](#10-success-criteria)
@@ -123,7 +124,7 @@ Explains the process(es) listening on a port.
 
 ## 5. Output Behavior
 
-### 5.1 Output principles
+### 5.1 Output Principles
 
 - Single screen by default (best effort)
 - Deterministic ordering
@@ -200,7 +201,7 @@ A single positional argument (without flags) is treated as a process or service 
 
 ## 7. Example Outputs
 
-### 7.1 Name-based query
+### 7.1 Name Based Query
 
 ```bash
 witr node
@@ -227,7 +228,7 @@ Listening   : 127.0.0.1:5001
 
 ---
 
-### 7.2 Short output
+### 7.2 Short Output
 
 ```bash
 witr --port 5000 --short
@@ -239,7 +240,7 @@ systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
 
 ---
 
-### 7.3 Tree output
+### 7.3 Tree Output
 
 ```bash
 witr --pid 1482060 --tree
@@ -253,9 +254,9 @@ systemd (pid 1)
 
 ---
 
-### 7.4 Multiple matches
+### 7.4 Multiple Matches
 
-#### 7.4.1 Multiple matching processes
+#### 7.4.1 Multiple Matching Processes
 
 ```bash
 witr node
@@ -274,7 +275,7 @@ Re-run with:
 
 ---
 
-#### 7.4.2 Ambiguous name (process and service)
+#### 7.4.2 Ambiguous Name (process and service)
 
 ```bash
 witr nginx
@@ -378,7 +379,7 @@ sudo mandb >/dev/null 2>&1 || true
 - Rename to witr, make it executable, and move to your PATH.
 - Install man page.
 
-### 8.3 Verify installation:
+### 8.3 Verify Installation:
 
 ```bash
 witr --version
@@ -394,9 +395,10 @@ sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
 ```
 
-### 8.5 Nix flake
+### 8.5 Nix Flake
 
 If you use Nix, you can build **witr** from source and run without installation:
+
 ```bash
 nix run github:pranshuparmar/witr -- --port 5000
 ```
@@ -425,7 +427,7 @@ sudo witr [your arguments]
 
 witr is successful if:
 
-- An engineer can answer "why is this running?" within seconds
+- A user can answer "why is this running?" within seconds
 - It reduces reliance on multiple tools
 - Output is understandable under stress
 - Users trust it during incidents
