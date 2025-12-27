@@ -1,6 +1,37 @@
 # witr (why-is-this-running)
 
-![witr](https://github.com/user-attachments/assets/adebb063-4706-47a8-9f77-612298354ef7)
+<img width="631" height="445" alt="witr" src="https://github.com/user-attachments/assets/e51cace3-0070-4200-9d1f-c4c9fbc81b8d" />
+
+---
+
+## Table of Contents
+
+- [1. Purpose](#1-purpose)
+- [2. Goals](#2-goals)
+- [3. Core Concept](#3-core-concept)
+- [4. Supported Targets](#4-supported-targets)
+  - [4.1 Name (process or service)](#41-name-process-or-service)
+  - [4.2 PID](#42-pid)
+  - [4.3 Port](#43-port)
+- [5. Output Behavior](#5-output-behavior)
+  - [5.1 Output Principles](#51-output-principles)
+  - [5.2 Standard Output Sections](#52-standard-output-sections)
+- [6. Flags & Options](#6-flags--options)
+- [7. Example Outputs](#7-example-outputs)
+  - [7.1 Name Based Query](#71-name-based-query)
+  - [7.2 Short Output](#72-short-output)
+  - [7.3 Tree Output](#73-tree-output)
+  - [7.4 Multiple Matches](#74-multiple-matches)
+- [8. Installation](#8-installation)
+  - [8.1 Script Installation (Recommended)](#81-script-installation-recommended)
+  - [8.2 Manual Installation](#82-manual-installation)
+  - [8.3 Verify Installation](#83-verify-installation)
+  - [8.4 Uninstallation](#84-uninstallation)
+  - [8.5 Nix Flake](#85-nix-flake)
+- [9. Platform Support](#9-platform-support)
+  - [9.1 Permissions Note](#91-permissions-note)
+- [10. Success Criteria](#10-success-criteria)
+- [11. AI Assistance Disclaimer](#11-ai-assistance-disclaimer)
 
 ---
 
@@ -12,7 +43,7 @@
 
 When something is running on a system—whether it is a process, a service, or something bound to a port—there is always a cause. That cause is often indirect, non-obvious, or spread across multiple layers such as supervisors, containers, services, or shells.
 
-Existing tools (`ps`, `top`, `lsof`, `ss`, `systemctl`, `docker ps`) expose state and metadata. They show *what* is running, but leave the user to infer *why* by manually correlating outputs across tools.
+Existing tools (`ps`, `top`, `lsof`, `ss`, `systemctl`, `docker ps`) expose state and metadata. They show _what_ is running, but leave the user to infer _why_ by manually correlating outputs across tools.
 
 **witr** makes that causality explicit.
 
@@ -23,6 +54,7 @@ It explains **where a running thing came from**, **how it was started**, and **w
 ## 2. Goals
 
 ### Primary goals
+
 - Explain **why a process exists**, not just that it exists
 - Reduce time‑to‑understanding during debugging and outages
 - Work with zero configuration
@@ -30,6 +62,7 @@ It explains **where a running thing came from**, **how it was started**, and **w
 - Prefer clarity over completeness
 
 ### Non‑goals
+
 - Not a monitoring tool
 - Not a performance profiler
 - Not a replacement for systemd/docker tooling
@@ -41,7 +74,7 @@ It explains **where a running thing came from**, **how it was started**, and **w
 
 witr treats **everything as a process question**.
 
-Ports, services, containers, and commands all eventually map to **PIDs**. Once a PID is identified, witr builds a causal chain explaining *why that PID exists*.
+Ports, services, containers, and commands all eventually map to **PIDs**. Once a PID is identified, witr builds a causal chain explaining _why that PID exists_.
 
 At its core, witr answers:
 
@@ -59,6 +92,7 @@ witr supports multiple entry points that converge to PID analysis.
 ---
 
 ### 4.1 Name (process or service)
+
 ```bash
 witr node
 witr nginx
@@ -69,6 +103,7 @@ A single positional argument (without flags) is treated as a process or service 
 ---
 
 ### 4.2 PID
+
 ```bash
 witr --pid 14233
 ```
@@ -78,6 +113,7 @@ Explains why a specific process exists.
 ---
 
 ### 4.3 Port
+
 ```bash
 witr --port 5000
 ```
@@ -88,8 +124,8 @@ Explains the process(es) listening on a port.
 
 ## 5. Output Behavior
 
+### 5.1 Output Principles
 
-### 5.1 Output principles
 - Single screen by default (best effort)
 - Deterministic ordering
 - Narrative-style explanation
@@ -100,19 +136,24 @@ Explains the process(es) listening on a port.
 ### 5.2 Standard Output Sections
 
 #### Target
+
 What the user asked about.
 
 #### Process
+
 Executable, PID, user, command, start time and restart count.
 
 #### Why It Exists
+
 A causal ancestry chain showing how the process came to exist.
 This is the core value of witr.
 
 #### Source
+
 The primary system responsible for starting or supervising the process (best effort).
 
 Examples:
+
 - systemd unit
 - docker container
 - pm2
@@ -122,13 +163,16 @@ Examples:
 Only **one primary source** is selected.
 
 #### Context (best effort)
+
 - Working directory
 - Git repository name and branch
 - Docker container name / image
 - Public vs private bind
 
 #### Warnings
+
 Non‑blocking observations such as:
+
 - Process is running as root
 - Process is listening on a public interface (0.0.0.0 / ::)
 - Restarted multiple times (warning only if above threshold)
@@ -157,7 +201,7 @@ A single positional argument (without flags) is treated as a process or service 
 
 ## 7. Example Outputs
 
-### 7.1 Name-based query
+### 7.1 Name Based Query
 
 ```bash
 witr node
@@ -181,9 +225,10 @@ Working Dir : /opt/apps/expense-manager
 Git Repo    : expense-manager (main)
 Listening   : 127.0.0.1:5001
 ```
+
 ---
 
-### 7.2 Short output
+### 7.2 Short Output
 
 ```bash
 witr --port 5000 --short
@@ -195,7 +240,7 @@ systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
 
 ---
 
-### 7.3 Tree output
+### 7.3 Tree Output
 
 ```bash
 witr --pid 1482060 --tree
@@ -209,9 +254,9 @@ systemd (pid 1)
 
 ---
 
-### 7.4 Multiple matches
+### 7.4 Multiple Matches
 
-#### 7.4.1 Multiple matching processes
+#### 7.4.1 Multiple Matching Processes
 
 ```bash
 witr node
@@ -230,7 +275,7 @@ Re-run with:
 
 ---
 
-#### 7.4.2 Ambiguous name (process and service)
+#### 7.4.2 Ambiguous Name (process and service)
 
 ```bash
 witr nginx
@@ -248,6 +293,7 @@ witr cannot determine intent safely.
 Please re-run with an explicit PID:
   witr --pid <pid>
 ```
+
 ---
 
 ## 8. Installation
@@ -261,11 +307,13 @@ witr is distributed as a single static Linux binary.
 The easiest way to install **witr** is via the install script.
 
 #### Quick install
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash
 ```
 
 #### Review before install
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh -o install.sh
 cat install.sh
@@ -274,6 +322,7 @@ chmod +x install.sh
 ```
 
 The script will:
+
 - Detect your CPU architecture (`amd64` or `arm64`)
 - Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
@@ -286,6 +335,7 @@ You may be prompted for your password to write to system directories.
 If you prefer manual installation, follow these simple steps for your architecture:
 
 #### For amd64 (most PCs/servers):
+
 ```bash
 # Download the binary
 curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-amd64 -o witr-linux-amd64
@@ -304,6 +354,7 @@ sudo mandb >/dev/null 2>&1 || true
 ```
 
 #### For arm64 (Raspberry Pi, ARM servers):
+
 ```bash
 # Download the binary
 curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-arm64 -o witr-linux-arm64
@@ -322,12 +373,14 @@ sudo mandb >/dev/null 2>&1 || true
 ```
 
 **Explanation:**
+
 - Download only the binary for your architecture and the SHA256SUMS file.
 - Verify the checksum for your binary only (prints OK if valid).
 - Rename to witr, make it executable, and move to your PATH.
 - Install man page.
 
-### 8.3 Verify installation:
+### 8.3 Verify Installation:
+
 ```bash
 witr --version
 man witr
@@ -336,9 +389,18 @@ man witr
 ### 8.4 Uninstallation
 
 To completely remove **witr**:
+
 ```bash
 sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
+```
+
+### 8.5 Nix Flake
+
+If you use Nix, you can build **witr** from source and run without installation:
+
+```bash
+nix run github:pranshuparmar/witr -- --port 5000
 ```
 
 ---
@@ -364,7 +426,8 @@ sudo witr [your arguments]
 ## 10. Success Criteria
 
 witr is successful if:
-- An engineer can answer "why is this running?" within seconds
+
+- A user can answer "why is this running?" within seconds
 - It reduces reliance on multiple tools
 - Output is understandable under stress
 - Users trust it during incidents
