@@ -1,6 +1,6 @@
 # witr (why-is-this-running)
 
-![witr](https://github.com/user-attachments/assets/adebb063-4706-47a8-9f77-612298354ef7)
+<img width="631" height="445" alt="witr" src="https://github.com/user-attachments/assets/e51cace3-0070-4200-9d1f-c4c9fbc81b8d" />
 
 ---
 
