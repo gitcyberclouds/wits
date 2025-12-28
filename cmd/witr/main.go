@@ -243,6 +243,9 @@ func main() {
 		}
 	}
 
+	// Add resource context (thermal state, sleep prevention)
+	res.ResourceContext = procpkg.GetResourceContext(pid)
+
 	if *jsonFlag {
 		importJson, _ := output.ToJSON(res)
 		fmt.Println(importJson)

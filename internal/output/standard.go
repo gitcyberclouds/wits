@@ -301,6 +301,24 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 		}
 	}
 
+	// Resource context (thermal state, sleep prevention)
+	if r.ResourceContext != nil {
+		if r.ResourceContext.PreventsSleep {
+			if colorEnabled {
+				fmt.Printf("%sEnergy%s      : %sPreventing system sleep%s\n", colorRed, colorReset, colorDimYellow, colorReset)
+			} else {
+				fmt.Printf("Energy      : Preventing system sleep\n")
+			}
+		}
+		if r.ResourceContext.ThermalState != "" {
+			if colorEnabled {
+				fmt.Printf("%sThermal%s     : %s%s%s\n", colorRed, colorReset, colorDimYellow, r.ResourceContext.ThermalState, colorReset)
+			} else {
+				fmt.Printf("Thermal     : %s\n", r.ResourceContext.ThermalState)
+			}
+		}
+	}
+
 	// Warnings
 	if len(r.Warnings) > 0 {
 		if colorEnabled {

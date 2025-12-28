@@ -11,4 +11,7 @@ type Result struct {
 
 	// SocketInfo holds socket state details (for port queries)
 	SocketInfo *SocketInfo
+
+	// ResourceContext holds resource usage context (macOS)
+	ResourceContext *ResourceContext
 }
