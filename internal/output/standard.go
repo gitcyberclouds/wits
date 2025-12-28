@@ -18,6 +18,20 @@ var (
 	colorDimYellow = "\033[2;33m"
 )
 
+// formatDetailLabel formats a detail key into a padded label for display
+func formatDetailLabel(key string) string {
+	labels := map[string]string{
+		"type":      "              Type",
+		"plist":     "              Plist",
+		"triggers":  "              Trigger",
+		"keepalive": "              KeepAlive",
+	}
+	if label, ok := labels[key]; ok {
+		return label
+	}
+	return "              " + key
+}
+
 // RenderWarnings prints only the warnings, with color if enabled
 func RenderWarnings(warnings []string, colorEnabled bool) {
 	if len(warnings) == 0 {
@@ -199,6 +213,22 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 			fmt.Printf("Source      : %s (%s)\n", r.Source.Name, sourceLabel)
 		} else {
 			fmt.Printf("Source      : %s\n", sourceLabel)
+		}
+	}
+
+	// Source details (launchd triggers, plist path, etc.)
+	if len(r.Source.Details) > 0 {
+		// Display in consistent order
+		detailKeys := []string{"type", "plist", "triggers", "keepalive"}
+		for _, key := range detailKeys {
+			if val, ok := r.Source.Details[key]; ok {
+				label := formatDetailLabel(key)
+				if colorEnabled {
+					fmt.Printf("%s%s%s : %s\n", colorBold, label, colorReset, val)
+				} else {
+					fmt.Printf("%s : %s\n", label, val)
+				}
+			}
 		}
 	}
 
