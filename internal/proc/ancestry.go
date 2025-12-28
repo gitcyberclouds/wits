@@ -23,7 +23,7 @@ func ResolveAncestry(pid int) ([]model.Process, error) {
 
 		chain = append(chain, p)
 
-		// pid 1 is always the root
+		// pid 1 is always the root (launchd on macOS, init/systemd on Linux)
 		if p.PID == 1 || p.PPID == 0 {
 			break
 		}
