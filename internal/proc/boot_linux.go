@@ -1,3 +1,5 @@
+//go:build linux
+
 package proc
 
 import (
@@ -9,7 +11,10 @@ import (
 )
 
 func bootTime() time.Time {
-	f, _ := os.Open("/proc/stat")
+	f, err := os.Open("/proc/stat")
+	if err != nil {
+		return time.Now()
+	}
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)

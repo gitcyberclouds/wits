@@ -1,0 +1,304 @@
+//go:build darwin
+
+package proc
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/pranshuparmar/witr/pkg/model"
+)
+
+func ReadProcess(pid int) (model.Process, error) {
+	// Read process info using ps command on macOS
+	// ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=").Output()
+	if err != nil {
+		return model.Process{}, fmt.Errorf("process %d not found: %w", pid, err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
+		return model.Process{}, fmt.Errorf("process %d not found", pid)
+	}
+
+	// Parse the first line
+	fields := strings.Fields(lines[0])
+	if len(fields) < 9 {
+		// lstart is 5 fields: Mon Dec 25 12:00:00 2024
+		return model.Process{}, fmt.Errorf("unexpected ps output format for pid %d", pid)
+	}
+
+	ppid, _ := strconv.Atoi(fields[1])
+	uid, _ := strconv.Atoi(fields[2])
+
+	// lstart is 5 fields: Mon Dec 25 12:00:00 2024
+	lstartStr := strings.Join(fields[3:8], " ")
+	startedAt, _ := time.Parse("Mon Jan 2 15:04:05 2006", lstartStr)
+	if startedAt.IsZero() {
+		startedAt = time.Now()
+	}
+
+	state := fields[8]
+	comm := ""
+	if len(fields) > 9 {
+		comm = fields[9]
+	}
+
+	// Get full command line
+	cmdline := getCommandLine(pid)
+	if cmdline == "" {
+		cmdline = comm
+	}
+
+	// Get environment variables
+	env := getEnvironment(pid)
+
+	// Get working directory
+	cwd := getWorkingDirectory(pid)
+
+	// Health status
+	health := "healthy"
+	forked := "unknown"
+
+	switch state {
+	case "Z":
+		health = "zombie"
+	case "T":
+		health = "stopped"
+	}
+
+	// Fork detection
+	if ppid != 1 && comm != "launchd" {
+		forked = "forked"
+	} else {
+		forked = "not-forked"
+	}
+
+	// Get user from UID
+	user := readUserByUID(uid)
+
+	// Container detection on macOS (Docker for Mac)
+	container := detectContainer(pid)
+
+	// Service detection (launchd)
+	service := detectLaunchdService(pid)
+
+	// Git repo/branch detection
+	gitRepo, gitBranch := detectGitInfo(cwd)
+
+	// Get listening ports for this process
+	sockets, _ := readListeningSockets()
+	inodes := socketsForPID(pid)
+
+	var ports []int
+	var addrs []string
+
+	for _, inode := range inodes {
+		if s, ok := sockets[inode]; ok {
+			ports = append(ports, s.Port)
+			addrs = append(addrs, s.Address)
+		}
+	}
+
+	// Check for high resource usage
+	health = checkResourceUsage(pid, health)
+
+	return model.Process{
+		PID:            pid,
+		PPID:           ppid,
+		Command:        comm,
+		Cmdline:        cmdline,
+		StartedAt:      startedAt,
+		User:           user,
+		WorkingDir:     cwd,
+		GitRepo:        gitRepo,
+		GitBranch:      gitBranch,
+		Container:      container,
+		Service:        service,
+		ListeningPorts: ports,
+		BindAddresses:  addrs,
+		Health:         health,
+		Forked:         forked,
+		Env:            env,
+	}, nil
+}
+
+func getCommandLine(pid int) string {
+	// Use ps to get full command line
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "args=").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func getEnvironment(pid int) []string {
+	var env []string
+
+	// On macOS, getting environment of another process requires elevated privileges
+	// or using the proc_pidinfo syscall. For simplicity, we use ps -E when available
+	// Note: This might not work for all processes due to SIP restrictions
+
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-E", "-o", "command=").Output()
+	if err != nil {
+		return env
+	}
+
+	// The -E output appends environment to the command
+	// This is a simplified approach; full env parsing would need libproc
+	output := string(out)
+
+	// Look for common environment variable patterns
+	for _, part := range strings.Fields(output) {
+		if strings.Contains(part, "=") && !strings.HasPrefix(part, "-") {
+			// Basic validation - should look like VAR=value
+			eqIdx := strings.Index(part, "=")
+			if eqIdx > 0 {
+				varName := part[:eqIdx]
+				// Check if it looks like an env var name (uppercase or common patterns)
+				if isEnvVarName(varName) {
+					env = append(env, part)
+				}
+			}
+		}
+	}
+
+	return env
+}
+
+func isEnvVarName(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	// Common env var patterns
+	for _, c := range name {
+		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+func getWorkingDirectory(pid int) string {
+	// Use lsof to get current working directory
+	out, err := exec.Command("lsof", "-a", "-p", strconv.Itoa(pid), "-d", "cwd", "-F", "n").Output()
+	if err != nil {
+		return "unknown"
+	}
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		if len(line) > 1 && line[0] == 'n' {
+			return line[1:]
+		}
+	}
+
+	return "unknown"
+}
+
+func detectContainer(pid int) string {
+	// On macOS, check if running inside Docker for Mac
+	// Docker for Mac runs processes inside a Linux VM, but we can check
+	// if the process has Docker-related environment or parent processes
+
+	cmdline := getCommandLine(pid)
+	lowerCmd := strings.ToLower(cmdline)
+
+	if strings.Contains(lowerCmd, "docker") {
+		return "docker"
+	}
+	if strings.Contains(lowerCmd, "containerd") {
+		return "containerd"
+	}
+
+	return ""
+}
+
+func detectLaunchdService(pid int) string {
+	// Try to find the launchd service managing this process
+	// Use launchctl blame on macOS 10.10+
+
+	out, err := exec.Command("launchctl", "blame", strconv.Itoa(pid)).Output()
+	if err == nil {
+		blame := strings.TrimSpace(string(out))
+		if blame != "" && !strings.Contains(blame, "unknown") {
+			return blame
+		}
+	}
+
+	// Fallback: check if process is a known launchd service
+	// by looking at the parent chain or service database
+	return ""
+}
+
+func detectGitInfo(cwd string) (string, string) {
+	if cwd == "unknown" || cwd == "" {
+		return "", ""
+	}
+
+	searchDir := cwd
+	for searchDir != "/" && searchDir != "." && searchDir != "" {
+		gitDir := searchDir + "/.git"
+		if fi, err := os.Stat(gitDir); err == nil && fi.IsDir() {
+			// Repo name is the base dir
+			parts := strings.Split(strings.TrimRight(searchDir, "/"), "/")
+			gitRepo := parts[len(parts)-1]
+
+			// Try to read HEAD for branch
+			gitBranch := ""
+			headFile := gitDir + "/HEAD"
+			if head, err := os.ReadFile(headFile); err == nil {
+				headStr := strings.TrimSpace(string(head))
+				if strings.HasPrefix(headStr, "ref: ") {
+					ref := strings.TrimPrefix(headStr, "ref: ")
+					refParts := strings.Split(ref, "/")
+					gitBranch = refParts[len(refParts)-1]
+				}
+			}
+
+			return gitRepo, gitBranch
+		}
+
+		// Move up one directory
+		idx := strings.LastIndex(searchDir, "/")
+		if idx <= 0 {
+			break
+		}
+		searchDir = searchDir[:idx]
+	}
+
+	return "", ""
+}
+
+func checkResourceUsage(pid int, currentHealth string) string {
+	// Use ps to get CPU and memory usage
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pcpu=,rss=").Output()
+	if err != nil {
+		return currentHealth
+	}
+
+	fields := strings.Fields(strings.TrimSpace(string(out)))
+	if len(fields) < 2 {
+		return currentHealth
+	}
+
+	// Check CPU percentage
+	cpuPct, _ := strconv.ParseFloat(fields[0], 64)
+	if cpuPct > 90 {
+		return "high-cpu"
+	}
+
+	// Check RSS memory in KB
+	rssKB, _ := strconv.ParseFloat(fields[1], 64)
+	rssMB := rssKB / 1024
+	if rssMB > 1024 { // > 1GB
+		return "high-mem"
+	}
+
+	return currentHealth
+}
