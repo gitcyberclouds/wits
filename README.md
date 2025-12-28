@@ -29,7 +29,8 @@
   - [8.4 Uninstallation](#84-uninstallation)
   - [8.5 Nix Flake](#85-nix-flake)
 - [9. Platform Support](#9-platform-support)
-  - [9.1 Permissions Note](#91-permissions-note)
+  - [9.1 Feature Compatibility Matrix](#91-feature-compatibility-matrix)
+  - [9.2 Permissions Note](#92-permissions-note)
 - [10. Success Criteria](#10-success-criteria)
 - [11. AI Assistance Disclaimer](#11-ai-assistance-disclaimer)
 
@@ -154,7 +155,8 @@ The primary system responsible for starting or supervising the process (best eff
 
 Examples:
 
-- systemd unit
+- systemd unit (Linux)
+- launchd service (macOS)
 - docker container
 - pm2
 - cron
@@ -298,7 +300,7 @@ Please re-run with an explicit PID:
 
 ## 8. Installation
 
-witr is distributed as a single static Linux binary.
+witr is distributed as a single static binary for Linux and macOS.
 
 ---
 
@@ -323,6 +325,7 @@ chmod +x install.sh
 
 The script will:
 
+- Detect your operating system (`linux` or `darwin`/macOS)
 - Detect your CPU architecture (`amd64` or `arm64`)
 - Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
@@ -332,9 +335,9 @@ You may be prompted for your password to write to system directories.
 
 ### 8.2 Manual Installation
 
-If you prefer manual installation, follow these simple steps for your architecture:
+If you prefer manual installation, follow these simple steps for your platform:
 
-#### For amd64 (most PCs/servers):
+#### Linux amd64 (most PCs/servers):
 
 ```bash
 # Download the binary
@@ -353,7 +356,7 @@ sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/w
 sudo mandb >/dev/null 2>&1 || true
 ```
 
-#### For arm64 (Raspberry Pi, ARM servers):
+#### Linux arm64 (Raspberry Pi, ARM servers):
 
 ```bash
 # Download the binary
@@ -372,9 +375,47 @@ sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/w
 sudo mandb >/dev/null 2>&1 || true
 ```
 
+#### macOS arm64 (Apple Silicon - M1/M2/M3):
+
+```bash
+# Download the binary
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-darwin-arm64 -o witr-darwin-arm64
+
+# Verify checksum (Optional, should print OK)
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
+grep witr-darwin-arm64 SHA256SUMS | shasum -a 256 -c -
+
+# Rename and install
+mv witr-darwin-arm64 witr && chmod +x witr
+sudo mv witr /usr/local/bin/witr
+
+# Install the man page (Optional)
+sudo mkdir -p /usr/local/share/man/man1
+sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
+```
+
+#### macOS amd64 (Intel Macs):
+
+```bash
+# Download the binary
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-darwin-amd64 -o witr-darwin-amd64
+
+# Verify checksum (Optional, should print OK)
+curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
+grep witr-darwin-amd64 SHA256SUMS | shasum -a 256 -c -
+
+# Rename and install
+mv witr-darwin-amd64 witr && chmod +x witr
+sudo mv witr /usr/local/bin/witr
+
+# Install the man page (Optional)
+sudo mkdir -p /usr/local/share/man/man1
+sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
+```
+
 **Explanation:**
 
-- Download only the binary for your architecture and the SHA256SUMS file.
+- Download only the binary for your platform/architecture and the SHA256SUMS file.
 - Verify the checksum for your binary only (prints OK if valid).
 - Rename to witr, make it executable, and move to your PATH.
 - Install man page.
@@ -407,11 +448,46 @@ nix run github:pranshuparmar/witr -- --port 5000
 
 ## 9. Platform Support
 
-- Linux
+- **Linux** (x86_64, arm64) - Uses `/proc` filesystem for process information
+- **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, and `sysctl` for process information
 
 ---
 
-### 9.1 Permissions Note
+### 9.1 Feature Compatibility Matrix
+
+| Feature | Linux | macOS | Notes |
+|---------|:-----:|:-----:|-------|
+| **Process Inspection** |
+| Basic process info (PID, PPID, user, command) | ✅ | ✅ | |
+| Full command line | ✅ | ✅ | |
+| Process start time | ✅ | ✅ | |
+| Working directory | ✅ | ✅ | Linux: `/proc`, macOS: `lsof` |
+| Environment variables | ✅ | ⚠️ | macOS: partial via `ps -E`, limited by SIP |
+| **Network** |
+| Listening ports | ✅ | ✅ | |
+| Bind addresses | ✅ | ✅ | |
+| Port → PID resolution | ✅ | ✅ | Linux: `/proc/net/tcp`, macOS: `lsof`/`netstat` |
+| **Service Detection** |
+| systemd | ✅ | ❌ | Linux only |
+| launchd | ❌ | ✅ | macOS only |
+| Supervisor | ✅ | ✅ | |
+| Cron | ✅ | ✅ | |
+| Docker/containers | ✅ | ⚠️ | macOS: Docker Desktop runs in VM |
+| **Health & Diagnostics** |
+| CPU usage detection | ✅ | ✅ | |
+| Memory usage detection | ✅ | ✅ | |
+| Zombie process detection | ✅ | ✅ | |
+| **Context** |
+| Git repo/branch detection | ✅ | ✅ | |
+| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop |
+
+**Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
+
+---
+
+### 9.2 Permissions Note
+
+#### Linux
 
 witr inspects `/proc` and may require elevated permissions to explain certain processes.
 
@@ -420,6 +496,16 @@ If you are not seeing the expected information (e.g., missing process ancestry, 
 ```bash
 sudo witr [your arguments]
 ```
+
+#### macOS
+
+On macOS, witr uses `ps`, `lsof`, and `launchctl` to gather process information. Some operations may require elevated permissions:
+
+```bash
+sudo witr [your arguments]
+```
+
+Note: Due to macOS System Integrity Protection (SIP), some system process details may not be accessible even with sudo.
 
 ---
 

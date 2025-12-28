@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pranshuparmar/witr/internal/linux/proc"
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 	"github.com/pranshuparmar/witr/internal/output"
 	"github.com/pranshuparmar/witr/internal/process"
 	"github.com/pranshuparmar/witr/internal/source"
@@ -111,12 +111,7 @@ func main() {
 		if len(pids) > 1 {
 			fmt.Print("Multiple matching processes found:\n\n")
 			for i, pid := range pids {
-				cmdline := "(unknown)"
-				cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-				if err == nil {
-					cmd := strings.ReplaceAll(string(cmdlineBytes), "\x00", " ")
-					cmdline = strings.TrimSpace(cmd)
-				}
+				cmdline := procpkg.GetCmdline(pid)
 				fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
 			}
 			fmt.Println("\nRe-run with:")
@@ -124,7 +119,7 @@ func main() {
 			os.Exit(1)
 		}
 		pid := pids[0]
-		procInfo, err := proc.ReadProcess(pid)
+		procInfo, err := procpkg.ReadProcess(pid)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -190,12 +185,7 @@ func main() {
 	if len(pids) > 1 {
 		fmt.Print("Multiple matching processes found:\n\n")
 		for i, pid := range pids {
-			cmdline := "(unknown)"
-			cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-			if err == nil {
-				cmd := strings.ReplaceAll(string(cmdlineBytes), "\x00", " ")
-				cmdline = strings.TrimSpace(cmd)
-			}
+			cmdline := procpkg.GetCmdline(pid)
 			fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
 		}
 		fmt.Println("\nRe-run with:")
@@ -218,9 +208,6 @@ func main() {
 	src := source.Detect(ancestry)
 
 	var proc model.Process
-	if len(ancestry) > 0 {
-		proc = ancestry[len(ancestry)-1]
-	}
 	resolvedTarget := "unknown"
 	if len(ancestry) > 0 {
 		proc = ancestry[len(ancestry)-1]
@@ -247,6 +234,21 @@ func main() {
 		Warnings:       source.Warnings(ancestry),
 	}
 
+	// Add socket state info for port queries
+	if t.Type == model.TargetPort {
+		portNum := 0
+		fmt.Sscanf(t.Value, "%d", &portNum)
+		if portNum > 0 {
+			res.SocketInfo = procpkg.GetSocketStateForPort(portNum)
+		}
+	}
+
+	// Add resource context (thermal state, sleep prevention)
+	res.ResourceContext = procpkg.GetResourceContext(pid)
+
+	// Add file context (open files, locks)
+	res.FileContext = procpkg.GetFileContext(pid)
+
 	if *jsonFlag {
 		importJson, _ := output.ToJSON(res)
 		fmt.Println(importJson)
@@ -259,7 +261,4 @@ func main() {
 	} else {
 		output.RenderStandard(res, !*noColorFlag)
 	}
-
-	_ = shortFlag
-	_ = treeFlag
 }
