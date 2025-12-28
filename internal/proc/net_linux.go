@@ -1,3 +1,5 @@
+//go:build linux
+
 package proc
 
 import (
@@ -53,6 +55,9 @@ func readListeningSockets() (map[string]Socket, error) {
 
 func parseAddr(raw string, ipv6 bool) (string, int) {
 	parts := strings.Split(raw, ":")
+	if len(parts) < 2 {
+		return "", 0
+	}
 	portHex := parts[1]
 	port, _ := strconv.ParseInt(portHex, 16, 32)
 
@@ -62,6 +67,9 @@ func parseAddr(raw string, ipv6 bool) (string, int) {
 
 	ipHex := parts[0]
 	b, _ := hex.DecodeString(ipHex)
+	if len(b) < 4 {
+		return "", int(port)
+	}
 	ip := strconv.Itoa(int(b[3])) + "." +
 		strconv.Itoa(int(b[2])) + "." +
 		strconv.Itoa(int(b[1])) + "." +
