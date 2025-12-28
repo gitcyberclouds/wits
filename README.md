@@ -23,11 +23,13 @@
   - [7.3 Tree Output](#73-tree-output)
   - [7.4 Multiple Matches](#74-multiple-matches)
 - [8. Installation](#8-installation)
-  - [8.1 Script Installation (Recommended)](#81-script-installation-recommended)
-  - [8.2 Manual Installation](#82-manual-installation)
-  - [8.3 Verify Installation](#83-verify-installation)
-  - [8.4 Uninstallation](#84-uninstallation)
-  - [8.5 Nix Flake](#85-nix-flake)
+  - [8.1 Homebrew (macOS & Linux)](#81-homebrew-macos--linux)
+  - [8.2 Arch Linux (AUR)](#82-arch-linux-aur)
+  - [8.3 Script Installation (Recommended)](#83-script-installation-recommended)
+  - [8.4 Manual Installation](#84-manual-installation)
+  - [8.5 Verify Installation](#85-verify-installation)
+  - [8.6 Uninstallation](#86-uninstallation)
+  - [8.7 Nix Flake](#87-nix-flake)
 - [9. Platform Support](#9-platform-support)
   - [9.1 Feature Compatibility Matrix](#91-feature-compatibility-matrix)
   - [9.2 Permissions Note](#92-permissions-note)
@@ -304,7 +306,29 @@ witr is distributed as a single static binary for Linux and macOS.
 
 ---
 
-### 8.1 Script Installation (Recommended)
+
+### 8.1 Homebrew (macOS & Linux)
+
+You can install **witr** using [Homebrew](https://brew.sh/) on macOS or Linux:
+
+```bash
+brew install witr
+```
+
+See the [Homebrew Formula page](https://formulae.brew.sh/formula/witr#default) for more details.
+
+### 8.2 Arch Linux (AUR)
+
+On Arch Linux and derivatives, install from the [AUR package](https://aur.archlinux.org/packages/witr-bin):
+
+```bash
+yay -S witr-bin
+# or use your preferred AUR helper
+```
+
+---
+
+### 8.3 Script Installation (Recommended)
 
 The easiest way to install **witr** is via the install script.
 
@@ -333,7 +357,7 @@ The script will:
 
 You may be prompted for your password to write to system directories.
 
-### 8.2 Manual Installation
+### 8.4 Manual Installation
 
 If you prefer manual installation, follow these simple steps for your platform:
 
@@ -420,14 +444,14 @@ sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/w
 - Rename to witr, make it executable, and move to your PATH.
 - Install man page.
 
-### 8.3 Verify Installation:
+### 8.5 Verify Installation:
 
 ```bash
 witr --version
 man witr
 ```
 
-### 8.4 Uninstallation
+### 8.6 Uninstallation
 
 To completely remove **witr**:
 
@@ -436,7 +460,7 @@ sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
 ```
 
-### 8.5 Nix Flake
+### 8.7 Nix Flake
 
 If you use Nix, you can build **witr** from source and run without installation:
 
@@ -522,6 +546,6 @@ witr is successful if:
 
 ## 11. AI Assistance Disclaimer
 
-This project was developed with assistance from AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), supervised by a human who occasionally knew what he was doing.
+This project was developed with assistance from AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), supervised by humans who occasionally knew what they were doing.
 
 ---
