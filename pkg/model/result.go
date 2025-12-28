@@ -14,4 +14,7 @@ type Result struct {
 
 	// ResourceContext holds resource usage context (macOS)
 	ResourceContext *ResourceContext
+
+	// FileContext holds file descriptor and lock info
+	FileContext *FileContext
 }

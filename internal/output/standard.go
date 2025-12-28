@@ -319,6 +319,35 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 		}
 	}
 
+	// File context (open files, locks)
+	if r.FileContext != nil {
+		if r.FileContext.OpenFiles > 0 && r.FileContext.FileLimit > 0 {
+			usagePercent := float64(r.FileContext.OpenFiles) / float64(r.FileContext.FileLimit) * 100
+			if colorEnabled {
+				if usagePercent > 80 {
+					fmt.Printf("%sOpen Files%s  : %s%d of %d (%.0f%%)%s\n", colorRed, colorReset, colorDimYellow, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent, colorReset)
+				} else {
+					fmt.Printf("%sOpen Files%s  : %d of %d (%.0f%%)\n", colorCyan, colorReset, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
+				}
+			} else {
+				fmt.Printf("Open Files  : %d of %d (%.0f%%)\n", r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
+			}
+		}
+		if len(r.FileContext.LockedFiles) > 0 {
+			if colorEnabled {
+				fmt.Printf("%sLocks%s       : %s\n", colorCyan, colorReset, r.FileContext.LockedFiles[0])
+				for _, f := range r.FileContext.LockedFiles[1:] {
+					fmt.Printf("              %s\n", f)
+				}
+			} else {
+				fmt.Printf("Locks       : %s\n", r.FileContext.LockedFiles[0])
+				for _, f := range r.FileContext.LockedFiles[1:] {
+					fmt.Printf("              %s\n", f)
+				}
+			}
+		}
+	}
+
 	// Warnings
 	if len(r.Warnings) > 0 {
 		if colorEnabled {
