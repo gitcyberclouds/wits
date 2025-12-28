@@ -7,6 +7,21 @@ set -euo pipefail
 REPO="pranshuparmar/witr"
 INSTALL_PATH="/usr/local/bin/witr"
 
+# Detect OS
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+case "$OS" in
+    linux)
+        OS=linux
+        ;;
+    darwin)
+        OS=darwin
+        ;;
+    *)
+        echo "Unsupported OS: $OS" >&2
+        exit 1
+        ;;
+esac
+
 # Detect architecture
 ARCH=$(uname -m)
 case "$ARCH" in
@@ -29,7 +44,7 @@ if [[ -z "$LATEST" ]]; then
     exit 1
 fi
 
-URL="https://github.com/$REPO/releases/download/$LATEST/witr-linux-$ARCH"
+URL="https://github.com/$REPO/releases/download/$LATEST/witr-$OS-$ARCH"
 TMP=$(mktemp)
 MANURL="https://github.com/$REPO/releases/download/$LATEST/witr.1"
 MAN_TMP=$(mktemp)
@@ -41,8 +56,15 @@ curl -fL "$MANURL" -o "$MAN_TMP"
 # Install
 sudo install -m 755 "$TMP" "$INSTALL_PATH"
 rm -f "$TMP"
-sudo install -D -m 644 "$MAN_TMP" /usr/local/share/man/man1/witr.1
+
+# Install man page (different paths for Linux vs macOS)
+if [[ "$OS" == "darwin" ]]; then
+    sudo mkdir -p /usr/local/share/man/man1
+    sudo install -m 644 "$MAN_TMP" /usr/local/share/man/man1/witr.1
+else
+    sudo install -D -m 644 "$MAN_TMP" /usr/local/share/man/man1/witr.1
+fi
 rm -f "$MAN_TMP"
 
-echo "witr installed successfully to $INSTALL_PATH (version: $LATEST, arch: $ARCH)"
+echo "witr installed successfully to $INSTALL_PATH (version: $LATEST, os: $OS, arch: $ARCH)"
 echo "Man page installed to /usr/local/share/man/man1/witr.1"
