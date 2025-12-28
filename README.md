@@ -298,14 +298,13 @@ Please re-run with an explicit PID:
 
 ## 8. Installation
 
-- **Linux:** Downloads prebuilt binary
-- **macOS:** Builds from source (requires Go 1.21+)
+witr is distributed as a single static Linux binary.
 
 ---
 
 ### 8.1 Script Installation (Recommended)
 
-The easiest way to install **witr** is via the install script. Works on both Linux and macOS.
+The easiest way to install **witr** is via the install script.
 
 #### Quick install
 
@@ -323,10 +322,10 @@ chmod +x install.sh
 ```
 
 The script will:
-- Detect your OS (Linux or macOS) and CPU architecture (`amd64` or `arm64`)
-- **Linux:** Download the latest prebuilt binary
-- **macOS:** Clone the repo and build from source (requires Go 1.21+)
-- Install to `/usr/local/bin/witr`
+
+- Detect your CPU architecture (`amd64` or `arm64`)
+- Download the latest released binary and man page
+- Install it to `/usr/local/bin/witr`
 - Install the man page to `/usr/local/share/man/man1/witr.1`
 
 You may be prompted for your password to write to system directories.
@@ -408,37 +407,15 @@ nix run github:pranshuparmar/witr -- --port 5000
 
 ## 9. Platform Support
 
-- **Linux** - Full support via `/proc` filesystem
-- **macOS** - Full support via `lsof`, `ps`, `sysctl`
+- Linux
 
 ---
 
-### 9.1 macOS Notes
+### 9.1 Permissions Note
 
-On macOS, witr uses system commands (`lsof`, `ps`, `sysctl`) instead of `/proc`. Most features work identically with these differences:
+witr inspects `/proc` and may require elevated permissions to explain certain processes.
 
-| Feature | Linux | macOS |
-|---------|-------|-------|
-| Environment vars (`--env`) | ✓ | Not available |
-| Container detection | ✓ | Skipped (Docker runs in VM) |
-| Source detection | systemd | launchd |
-| Health status | Full (zombie, high-cpu, high-mem) | Basic ("healthy" only) |
-
-#### Building on macOS
-
-```bash
-go build -ldflags "-X main.version=dev -X main.commit=$(git rev-parse --short HEAD) -X 'main.buildDate=$(date +%Y-%m-%d)'" -o witr ./cmd/witr
-```
-
----
-
-### 9.2 Permissions Note
-
-**Linux:** witr inspects `/proc` and may require elevated permissions to explain certain processes.
-
-**macOS:** witr uses `lsof` which may require elevated permissions for processes owned by other users.
-
-If you are not seeing the expected information (e.g., missing process ancestry, user, working directory or environment details), try running witr with sudo:
+If you are not seeing the expected information (e.g., missing process ancestry, user, working directory or environment details), try running witr with sudo for elevated permissions:
 
 ```bash
 sudo witr [your arguments]

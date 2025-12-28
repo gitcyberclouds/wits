@@ -1,5 +1,3 @@
-//go:build linux
-
 package source
 
 import "github.com/pranshuparmar/witr/pkg/model"
