@@ -18,6 +18,20 @@ var (
 	colorDimYellow = "\033[2;33m"
 )
 
+// formatDetailLabel formats a detail key into a padded label for display
+func formatDetailLabel(key string) string {
+	labels := map[string]string{
+		"type":      "              Type",
+		"plist":     "              Plist",
+		"triggers":  "              Trigger",
+		"keepalive": "              KeepAlive",
+	}
+	if label, ok := labels[key]; ok {
+		return label
+	}
+	return "              " + key
+}
+
 // RenderWarnings prints only the warnings, with color if enabled
 func RenderWarnings(warnings []string, colorEnabled bool) {
 	if len(warnings) == 0 {
@@ -202,6 +216,22 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 		}
 	}
 
+	// Source details (launchd triggers, plist path, etc.)
+	if len(r.Source.Details) > 0 {
+		// Display in consistent order
+		detailKeys := []string{"type", "plist", "triggers", "keepalive"}
+		for _, key := range detailKeys {
+			if val, ok := r.Source.Details[key]; ok {
+				label := formatDetailLabel(key)
+				if colorEnabled {
+					fmt.Printf("%s%s%s : %s\n", colorBold, label, colorReset, val)
+				} else {
+					fmt.Printf("%s : %s\n", label, val)
+				}
+			}
+		}
+	}
+
 	// Context group
 	if colorEnabled {
 		if proc.WorkingDir != "" {
@@ -245,6 +275,74 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 					} else {
 						fmt.Printf("              %s:%d\n", addr, port)
 					}
+				}
+			}
+		}
+	}
+
+	// Socket state (for port queries)
+	if r.SocketInfo != nil {
+		if colorEnabled {
+			fmt.Printf("%sSocket%s      : %s\n", colorCyan, colorReset, r.SocketInfo.State)
+			if r.SocketInfo.Explanation != "" {
+				fmt.Printf("              %s\n", r.SocketInfo.Explanation)
+			}
+			if r.SocketInfo.Workaround != "" {
+				fmt.Printf("              %s%s%s\n", colorDimYellow, r.SocketInfo.Workaround, colorReset)
+			}
+		} else {
+			fmt.Printf("Socket      : %s\n", r.SocketInfo.State)
+			if r.SocketInfo.Explanation != "" {
+				fmt.Printf("              %s\n", r.SocketInfo.Explanation)
+			}
+			if r.SocketInfo.Workaround != "" {
+				fmt.Printf("              %s\n", r.SocketInfo.Workaround)
+			}
+		}
+	}
+
+	// Resource context (thermal state, sleep prevention)
+	if r.ResourceContext != nil {
+		if r.ResourceContext.PreventsSleep {
+			if colorEnabled {
+				fmt.Printf("%sEnergy%s      : %sPreventing system sleep%s\n", colorRed, colorReset, colorDimYellow, colorReset)
+			} else {
+				fmt.Printf("Energy      : Preventing system sleep\n")
+			}
+		}
+		if r.ResourceContext.ThermalState != "" {
+			if colorEnabled {
+				fmt.Printf("%sThermal%s     : %s%s%s\n", colorRed, colorReset, colorDimYellow, r.ResourceContext.ThermalState, colorReset)
+			} else {
+				fmt.Printf("Thermal     : %s\n", r.ResourceContext.ThermalState)
+			}
+		}
+	}
+
+	// File context (open files, locks)
+	if r.FileContext != nil {
+		if r.FileContext.OpenFiles > 0 && r.FileContext.FileLimit > 0 {
+			usagePercent := float64(r.FileContext.OpenFiles) / float64(r.FileContext.FileLimit) * 100
+			if colorEnabled {
+				if usagePercent > 80 {
+					fmt.Printf("%sOpen Files%s  : %s%d of %d (%.0f%%)%s\n", colorRed, colorReset, colorDimYellow, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent, colorReset)
+				} else {
+					fmt.Printf("%sOpen Files%s  : %d of %d (%.0f%%)\n", colorCyan, colorReset, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
+				}
+			} else {
+				fmt.Printf("Open Files  : %d of %d (%.0f%%)\n", r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
+			}
+		}
+		if len(r.FileContext.LockedFiles) > 0 {
+			if colorEnabled {
+				fmt.Printf("%sLocks%s       : %s\n", colorCyan, colorReset, r.FileContext.LockedFiles[0])
+				for _, f := range r.FileContext.LockedFiles[1:] {
+					fmt.Printf("              %s\n", f)
+				}
+			} else {
+				fmt.Printf("Locks       : %s\n", r.FileContext.LockedFiles[0])
+				for _, f := range r.FileContext.LockedFiles[1:] {
+					fmt.Printf("              %s\n", f)
 				}
 			}
 		}
