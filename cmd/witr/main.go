@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pranshuparmar/witr/internal/linux/proc"
+	"github.com/pranshuparmar/witr/internal/proc"
 	"github.com/pranshuparmar/witr/internal/output"
 	"github.com/pranshuparmar/witr/internal/process"
 	"github.com/pranshuparmar/witr/internal/source"
@@ -111,12 +111,7 @@ func main() {
 		if len(pids) > 1 {
 			fmt.Print("Multiple matching processes found:\n\n")
 			for i, pid := range pids {
-				cmdline := "(unknown)"
-				cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-				if err == nil {
-					cmd := strings.ReplaceAll(string(cmdlineBytes), "\x00", " ")
-					cmdline = strings.TrimSpace(cmd)
-				}
+				cmdline := proc.GetCmdline(pid)
 				fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
 			}
 			fmt.Println("\nRe-run with:")
@@ -190,12 +185,7 @@ func main() {
 	if len(pids) > 1 {
 		fmt.Print("Multiple matching processes found:\n\n")
 		for i, pid := range pids {
-			cmdline := "(unknown)"
-			cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
-			if err == nil {
-				cmd := strings.ReplaceAll(string(cmdlineBytes), "\x00", " ")
-				cmdline = strings.TrimSpace(cmd)
-			}
+			cmdline := proc.GetCmdline(pid)
 			fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
 		}
 		fmt.Println("\nRe-run with:")
@@ -218,9 +208,6 @@ func main() {
 	src := source.Detect(ancestry)
 
 	var proc model.Process
-	if len(ancestry) > 0 {
-		proc = ancestry[len(ancestry)-1]
-	}
 	resolvedTarget := "unknown"
 	if len(ancestry) > 0 {
 		proc = ancestry[len(ancestry)-1]
@@ -259,7 +246,4 @@ func main() {
 	} else {
 		output.RenderStandard(res, !*noColorFlag)
 	}
-
-	_ = shortFlag
-	_ = treeFlag
 }
