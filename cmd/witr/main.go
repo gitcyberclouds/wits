@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pranshuparmar/witr/internal/proc"
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 	"github.com/pranshuparmar/witr/internal/output"
 	"github.com/pranshuparmar/witr/internal/process"
 	"github.com/pranshuparmar/witr/internal/source"
@@ -111,7 +111,7 @@ func main() {
 		if len(pids) > 1 {
 			fmt.Print("Multiple matching processes found:\n\n")
 			for i, pid := range pids {
-				cmdline := proc.GetCmdline(pid)
+				cmdline := procpkg.GetCmdline(pid)
 				fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
 			}
 			fmt.Println("\nRe-run with:")
@@ -119,7 +119,7 @@ func main() {
 			os.Exit(1)
 		}
 		pid := pids[0]
-		procInfo, err := proc.ReadProcess(pid)
+		procInfo, err := procpkg.ReadProcess(pid)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -185,7 +185,7 @@ func main() {
 	if len(pids) > 1 {
 		fmt.Print("Multiple matching processes found:\n\n")
 		for i, pid := range pids {
-			cmdline := proc.GetCmdline(pid)
+			cmdline := procpkg.GetCmdline(pid)
 			fmt.Printf("[%d] PID %d   %s\n", i+1, pid, cmdline)
 		}
 		fmt.Println("\nRe-run with:")
@@ -232,6 +232,15 @@ func main() {
 		Ancestry:       ancestry,
 		Source:         src,
 		Warnings:       source.Warnings(ancestry),
+	}
+
+	// Add socket state info for port queries
+	if t.Type == model.TargetPort {
+		portNum := 0
+		fmt.Sscanf(t.Value, "%d", &portNum)
+		if portNum > 0 {
+			res.SocketInfo = procpkg.GetSocketStateForPort(portNum)
+		}
 	}
 
 	if *jsonFlag {

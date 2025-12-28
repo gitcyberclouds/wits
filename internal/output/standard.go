@@ -280,6 +280,27 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 		}
 	}
 
+	// Socket state (for port queries)
+	if r.SocketInfo != nil {
+		if colorEnabled {
+			fmt.Printf("%sSocket%s      : %s\n", colorCyan, colorReset, r.SocketInfo.State)
+			if r.SocketInfo.Explanation != "" {
+				fmt.Printf("              %s\n", r.SocketInfo.Explanation)
+			}
+			if r.SocketInfo.Workaround != "" {
+				fmt.Printf("              %s%s%s\n", colorDimYellow, r.SocketInfo.Workaround, colorReset)
+			}
+		} else {
+			fmt.Printf("Socket      : %s\n", r.SocketInfo.State)
+			if r.SocketInfo.Explanation != "" {
+				fmt.Printf("              %s\n", r.SocketInfo.Explanation)
+			}
+			if r.SocketInfo.Workaround != "" {
+				fmt.Printf("              %s\n", r.SocketInfo.Workaround)
+			}
+		}
+	}
+
 	// Warnings
 	if len(r.Warnings) > 0 {
 		if colorEnabled {

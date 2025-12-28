@@ -8,4 +8,7 @@ type Result struct {
 	Ancestry       []Process
 	Source         Source
 	Warnings       []string
+
+	// SocketInfo holds socket state details (for port queries)
+	SocketInfo *SocketInfo
 }
