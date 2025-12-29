@@ -1,5 +1,4 @@
 //go:build linux
-//hugs from brazil
 
 package proc
 
