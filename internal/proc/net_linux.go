@@ -5,6 +5,7 @@ package proc
 import (
 	"bufio"
 	"encoding/hex"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -61,12 +62,28 @@ func parseAddr(raw string, ipv6 bool) (string, int) {
 	portHex := parts[1]
 	port, _ := strconv.ParseInt(portHex, 16, 32)
 
-	if ipv6 {
-		return "::", int(port)
+	ipHex := parts[0]
+	b, err := hex.DecodeString(ipHex)
+	if err != nil {
+		return "", int(port)
 	}
 
-	ipHex := parts[0]
-	b, _ := hex.DecodeString(ipHex)
+	if ipv6 {
+		if len(b) != 16 {
+			return "::", int(port)
+		}
+		// /proc/net/tcp6 stores IPv6 as 4 little-endian 32-bit groups
+		// Reverse bytes within each 4-byte group
+		ip := make(net.IP, 16)
+		for i := 0; i < 4; i++ {
+			ip[i*4+0] = b[i*4+3]
+			ip[i*4+1] = b[i*4+2]
+			ip[i*4+2] = b[i*4+1]
+			ip[i*4+3] = b[i*4+0]
+		}
+		return ip.String(), int(port)
+	}
+
 	if len(b) < 4 {
 		return "", int(port)
 	}
