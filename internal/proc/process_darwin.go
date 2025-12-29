@@ -215,6 +215,9 @@ func detectContainer(pid int) string {
 	if strings.Contains(lowerCmd, "containerd") {
 		return "containerd"
 	}
+	if strings.Contains(lowerCmd, "colima") {
+		return "colima"
+	}
 
 	return ""
 }
