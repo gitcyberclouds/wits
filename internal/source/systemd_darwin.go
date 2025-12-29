@@ -5,5 +5,5 @@ package source
 import "github.com/pranshuparmar/witr/pkg/model"
 
 func detectSystemd(_ []model.Process) *model.Source {
-  return nil
+	return nil
 }
