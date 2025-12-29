@@ -15,8 +15,10 @@ import (
 
 func ReadProcess(pid int) (model.Process, error) {
 	// Read process info using ps command on macOS
-	// ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=").Output()
+	// TZ=UTC ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
+	cmd := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=")
+	cmd.Env = append(os.Environ(), "TZ=UTC")
+	out, err := cmd.Output()
 	if err != nil {
 		return model.Process{}, fmt.Errorf("process %d not found: %w", pid, err)
 	}
@@ -40,7 +42,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	lstartStr := strings.Join(fields[3:8], " ")
 	startedAt, _ := time.Parse("Mon Jan 2 15:04:05 2006", lstartStr)
 	if startedAt.IsZero() {
-		startedAt = time.Now()
+		startedAt = time.Now().UTC()
 	}
 
 	state := fields[8]
