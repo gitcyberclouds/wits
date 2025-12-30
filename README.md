@@ -30,6 +30,7 @@
   - [8.5 Verify Installation](#85-verify-installation)
   - [8.6 Uninstallation](#86-uninstallation)
   - [8.7 Nix Flake](#87-nix-flake)
+  - [8.8 Build from Source](#88-build-from-source)
 - [9. Platform Support](#9-platform-support)
   - [9.1 Feature Compatibility Matrix](#91-feature-compatibility-matrix)
   - [9.2 Permissions Note](#92-permissions-note)
@@ -306,7 +307,6 @@ witr is distributed as a single static binary for Linux and macOS.
 
 ---
 
-
 ### 8.1 Homebrew (macOS & Linux)
 
 You can install **witr** using [Homebrew](https://brew.sh/) on macOS or Linux:
@@ -467,6 +467,22 @@ If you use Nix, you can build **witr** from source and run without installation:
 ```bash
 nix run github:pranshuparmar/witr -- --port 5000
 ```
+
+---
+
+### 8.8 Build from Source
+
+If you prefer compiling locally (for hacking or to inspect the binary), build the CLI with Go 1.25+:
+
+```bash
+git clone https://github.com/pranshuparmar/witr.git
+cd witr
+go build -ldflags "-X main.version=v0.0.0-dev -X main.commit=$(git rev-parse --short HEAD) -X 'main.buildDate=$(date +%Y-%m-%d)'" -o witr ./cmd/witr
+./witr --help   # quick smoke test
+```
+
+- The `-ldflags` stanza embeds version metadata so `witr --version` is meaningful.
+- The resulting `witr` binary lives in the repo root
 
 ---
 
