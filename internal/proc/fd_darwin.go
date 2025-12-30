@@ -25,8 +25,7 @@ func socketsForPID(pid int) []string {
 	}
 
 	// Parse lsof output
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if len(line) == 0 {
 			continue
 		}

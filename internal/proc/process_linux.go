@@ -53,8 +53,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	svcOut, err := exec.Command("systemctl", "status", fmt.Sprintf("%d", pid)).CombinedOutput()
 	if err == nil && strings.Contains(string(svcOut), "Loaded: loaded") {
 		// Try to extract service name from output
-		lines := strings.Split(string(svcOut), "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(string(svcOut)) {
 			if strings.HasPrefix(line, "Loaded:") && strings.Contains(line, ".service") {
 				parts := strings.Fields(line)
 				for _, part := range parts {
