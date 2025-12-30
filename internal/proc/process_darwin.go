@@ -85,7 +85,6 @@ func ReadProcess(pid int) (model.Process, error) {
 	// Container detection on macOS (Docker for Mac)
 	container := detectContainer(pid)
 
-	// Docker-proxy resolution: resolve target container IP to container name
 	if comm == "docker-proxy" && container == "" {
 		container = resolveDockerProxyContainer(cmdline)
 	}
@@ -311,10 +310,7 @@ func checkResourceUsage(pid int, currentHealth string) string {
 	return currentHealth
 }
 
-// resolveDockerProxyContainer extracts the container IP from docker-proxy cmdline
-// and queries Docker to find the container name for that IP.
 func resolveDockerProxyContainer(cmdline string) string {
-	// Parse -container-ip argument from cmdline
 	var containerIP string
 	parts := strings.Fields(cmdline)
 	for i, part := range parts {
@@ -323,38 +319,29 @@ func resolveDockerProxyContainer(cmdline string) string {
 			break
 		}
 	}
-
 	if containerIP == "" {
 		return ""
 	}
 
-	// Query Docker to find container with this IP
-	// Use docker network inspect to get container names and IPs
 	out, err := exec.Command("docker", "network", "inspect", "bridge",
 		"--format", "{{range .Containers}}{{.Name}}:{{.IPv4Address}}{{\"\\n\"}}{{end}}").Output()
 	if err != nil {
 		return ""
 	}
 
-	// Parse output to find matching container
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	for _, line := range lines {
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if line == "" {
 			continue
 		}
-		// Format: container_name:172.17.0.2/16
 		colonIdx := strings.Index(line, ":")
 		if colonIdx == -1 {
 			continue
 		}
 		name := line[:colonIdx]
-		ipWithCIDR := line[colonIdx+1:]
-		// Strip CIDR notation (e.g., /16)
-		ip := strings.Split(ipWithCIDR, "/")[0]
+		ip := strings.Split(line[colonIdx+1:], "/")[0]
 		if ip == containerIP {
 			return "target: " + name
 		}
 	}
-
 	return ""
 }
