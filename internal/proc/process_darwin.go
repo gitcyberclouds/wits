@@ -15,7 +15,7 @@ import (
 
 func ReadProcess(pid int) (model.Process, error) {
 	// Read process info using ps command on macOS
-	// ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
+	// LC_ALL=C TZ=UTC ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
 	cmd := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=")
 	cmd.Env = buildEnvForPS()
 	out, err := cmd.Output()
