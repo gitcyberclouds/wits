@@ -465,7 +465,7 @@ sudo rm -f /usr/local/share/man/man1/witr.1
 If you use Nix, you can build **witr** from source and run without installation:
 
 ```bash
-nix run github:pranshuparmar/witr -- --port 5000
+nix run github:pranshuparmar/witr -- --help
 ```
 
 ---
