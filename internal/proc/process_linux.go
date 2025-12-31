@@ -13,7 +13,45 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
+// isValidSymlinkTarget validates that a symlink target is safe and reasonable
+func isValidSymlinkTarget(target string) bool {
+	if target == "" {
+		return false
+	}
+
+	// Reject absolute paths that seem suspicious
+	if strings.HasPrefix(target, "/") {
+		// Allow normal absolute paths but reject system-critical ones
+		suspiciousPaths := []string{"/proc", "/sys", "/dev", "/boot", "/root"}
+		for _, suspicious := range suspiciousPaths {
+			if strings.HasPrefix(target, suspicious) {
+				return false
+			}
+		}
+	}
+
+	// Reject relative paths that could escape
+	if strings.Contains(target, "../") {
+		return false
+	}
+
+	return true
+}
+
 func ReadProcess(pid int) (model.Process, error) {
+	// Verify process still exists before reading
+	if _, err := os.Stat(fmt.Sprintf("/proc/%d", pid)); os.IsNotExist(err) {
+		return model.Process{}, fmt.Errorf("process %d does not exist", pid)
+	}
+
+	// Read all proc files in a logical order to minimize TOCTOU issues
+	// Start with stat file which is most likely to fail if process disappears
+	statPath := fmt.Sprintf("/proc/%d/stat", pid)
+	stat, err := os.ReadFile(statPath)
+	if err != nil {
+		return model.Process{}, fmt.Errorf("process %d disappeared during read", pid)
+	}
+
 	// Read environment variables
 	env := []string{}
 	envBytes, errEnv := os.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
@@ -29,9 +67,14 @@ func ReadProcess(pid int) (model.Process, error) {
 	forked := "unknown"
 
 	// Working directory
-	var cwd, err = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
-	if err != nil {
+	var cwd, cwdErr = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
+	if cwdErr != nil {
 		cwd = "unknown"
+	} else {
+		// Validate symlink target is reasonable
+		if !isValidSymlinkTarget(cwd) {
+			cwd = "invalid"
+		}
 	}
 
 	// Container detection
@@ -102,11 +145,6 @@ func ReadProcess(pid int) (model.Process, error) {
 			}
 			searchDir = searchDir[:idx]
 		}
-	}
-	statPath := fmt.Sprintf("/proc/%d/stat", pid)
-	stat, err := os.ReadFile(statPath)
-	if err != nil {
-		return model.Process{}, err
 	}
 
 	// stat format is evil, command is inside ()
