@@ -211,14 +211,17 @@ func detectContainer(pid int) string {
 	cmdline := getCommandLine(pid)
 	lowerCmd := strings.ToLower(cmdline)
 
-	if strings.Contains(lowerCmd, "docker") {
+	switch {
+	case strings.Contains(lowerCmd, "docker"):
 		return "docker"
-	}
-	if strings.Contains(lowerCmd, "containerd") {
-		return "containerd"
-	}
-	if strings.Contains(lowerCmd, "colima") {
+	case strings.Contains(lowerCmd, "podman"):
+		return "podman"
+	case strings.Contains(lowerCmd, "kubepods"):
+		return "kubernetes"
+	case strings.Contains(lowerCmd, "colima"):
 		return "colima"
+	case strings.Contains(lowerCmd, "containerd"):
+		return "containerd"
 	}
 
 	return ""
