@@ -34,17 +34,22 @@ func ReadProcess(pid int) (model.Process, error) {
 		cwd = "unknown"
 	}
 
-	// Container detection (simple: look for docker/containerd/kubepods in cgroup)
+	// Container detection
 	container := ""
 	cgroupFile := fmt.Sprintf("/proc/%d/cgroup", pid)
 	if cgroupData, err := os.ReadFile(cgroupFile); err == nil {
 		cgroupStr := string(cgroupData)
-		if strings.Contains(cgroupStr, "docker") {
+		switch {
+		case strings.Contains(cgroupStr, "docker"):
 			container = "docker"
-		} else if strings.Contains(cgroupStr, "containerd") {
-			container = "containerd"
-		} else if strings.Contains(cgroupStr, "kubepods") {
+		case strings.Contains(cgroupStr, "podman"):
+			container = "podman"
+		case strings.Contains(cgroupStr, "kubepods"):
 			container = "kubernetes"
+		case strings.Contains(cgroupStr, "colima"):
+			container = "colima"
+		case strings.Contains(cgroupStr, "containerd"):
+			container = "containerd"
 		}
 	}
 
