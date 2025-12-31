@@ -116,7 +116,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	fields := strings.Fields(raw[close+2:])
 
 	ppid, _ := strconv.Atoi(fields[1])
-	state := fields[2]
+	state := processState(fields)
 	startTicks, _ := strconv.ParseInt(fields[19], 10, 64)
 
 	// Fork detection: if ppid != 1 and not systemd, likely forked; also check for vfork/fork/clone flags if possible
@@ -192,4 +192,16 @@ func ReadProcess(pid int) (model.Process, error) {
 		Forked:         forked,
 		Env:            env,
 	}, nil
+}
+
+// The kernel emits the state immediately after the command, so fields[0] always carries it.
+func processState(fields []string) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	state := fields[0]
+	if len(state) == 0 {
+		return ""
+	}
+	return state[:1]
 }
