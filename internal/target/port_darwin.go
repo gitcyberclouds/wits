@@ -63,9 +63,8 @@ func resolvePortNetstat(port int) ([]int, error) {
 	}
 
 	portStr := fmt.Sprintf(".%d", port)
-	lines := strings.Split(string(out), "\n")
 
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if !strings.Contains(line, "LISTEN") {
 			continue
 		}
