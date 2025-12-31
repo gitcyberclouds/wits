@@ -101,8 +101,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	svcOut, err := exec.Command("systemctl", "status", fmt.Sprintf("%d", pid)).CombinedOutput()
 	if err == nil && strings.Contains(string(svcOut), "Loaded: loaded") {
 		// Try to extract service name from output
-		lines := strings.Split(string(svcOut), "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(string(svcOut)) {
 			if strings.HasPrefix(line, "Loaded:") && strings.Contains(line, ".service") {
 				parts := strings.Fields(line)
 				for _, part := range parts {
@@ -159,7 +158,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	fields := strings.Fields(raw[close+2:])
 
 	ppid, _ := strconv.Atoi(fields[1])
-	state := fields[2]
+	state := processState(fields)
 	startTicks, _ := strconv.ParseInt(fields[19], 10, 64)
 
 	// Fork detection: if ppid != 1 and not systemd, likely forked; also check for vfork/fork/clone flags if possible
@@ -217,6 +216,10 @@ func ReadProcess(pid int) (model.Process, error) {
 		cmdline = strings.TrimSpace(cmd)
 	}
 
+	if comm == "docker-proxy" && container == "" {
+		container = resolveDockerProxyContainer(cmdline)
+	}
+
 	return model.Process{
 		PID:            pid,
 		PPID:           ppid,
@@ -235,4 +238,52 @@ func ReadProcess(pid int) (model.Process, error) {
 		Forked:         forked,
 		Env:            env,
 	}, nil
+}
+
+func resolveDockerProxyContainer(cmdline string) string {
+	var containerIP string
+	parts := strings.Fields(cmdline)
+	for i, part := range parts {
+		if part == "-container-ip" && i+1 < len(parts) {
+			containerIP = parts[i+1]
+			break
+		}
+	}
+	if containerIP == "" {
+		return ""
+	}
+
+	out, err := exec.Command("docker", "network", "inspect", "bridge",
+		"--format", "{{range .Containers}}{{.Name}}:{{.IPv4Address}}{{\"\\n\"}}{{end}}").Output()
+	if err != nil {
+		return ""
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		colonIdx := strings.Index(line, ":")
+		if colonIdx == -1 {
+			continue
+		}
+		name := line[:colonIdx]
+		ip := strings.Split(line[colonIdx+1:], "/")[0]
+		if ip == containerIP {
+			return "target: " + name
+		}
+	}
+	return ""
+}
+
+// The kernel emits the state immediately after the command, so fields[0] always carries it.
+func processState(fields []string) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	state := fields[0]
+	if len(state) == 0 {
+		return ""
+	}
+	return state[:1]
 }

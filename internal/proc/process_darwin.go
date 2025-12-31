@@ -87,6 +87,10 @@ func ReadProcess(pid int) (model.Process, error) {
 	// Container detection on macOS (Docker for Mac)
 	container := detectContainer(pid)
 
+	if comm == "docker-proxy" && container == "" {
+		container = resolveDockerProxyContainer(cmdline)
+	}
+
 	// Service detection (launchd)
 	service := detectLaunchdService(pid)
 
@@ -193,8 +197,7 @@ func getWorkingDirectory(pid int) string {
 		return "unknown"
 	}
 
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if len(line) > 1 && line[0] == 'n' {
 			return line[1:]
 		}
@@ -322,4 +325,40 @@ func checkResourceUsage(pid int, currentHealth string) string {
 	}
 
 	return currentHealth
+}
+
+func resolveDockerProxyContainer(cmdline string) string {
+	var containerIP string
+	parts := strings.Fields(cmdline)
+	for i, part := range parts {
+		if part == "-container-ip" && i+1 < len(parts) {
+			containerIP = parts[i+1]
+			break
+		}
+	}
+	if containerIP == "" {
+		return ""
+	}
+
+	out, err := exec.Command("docker", "network", "inspect", "bridge",
+		"--format", "{{range .Containers}}{{.Name}}:{{.IPv4Address}}{{\"\\n\"}}{{end}}").Output()
+	if err != nil {
+		return ""
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		colonIdx := strings.Index(line, ":")
+		if colonIdx == -1 {
+			continue
+		}
+		name := line[:colonIdx]
+		ip := strings.Split(line[colonIdx+1:], "/")[0]
+		if ip == containerIP {
+			return "target: " + name
+		}
+	}
+	return ""
 }
