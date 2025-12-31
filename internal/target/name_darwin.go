@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -13,17 +14,13 @@ import (
 // isValidServiceLabel validates that a launchd service label contains only
 // safe characters to prevent command injection. Valid labels contain only
 // alphanumeric characters, dots, hyphens, and underscores.
+var validServiceLabelRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+
 func isValidServiceLabel(label string) bool {
 	if len(label) == 0 || len(label) > 256 {
 		return false
 	}
-	for _, c := range label {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-			(c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_') {
-			return false
-		}
-	}
-	return true
+	return validServiceLabelRegex.MatchString(label)
 }
 
 func ResolveName(name string) ([]int, error) {
@@ -40,8 +37,7 @@ func ResolveName(name string) ([]int, error) {
 		return nil, fmt.Errorf("failed to list processes: %w", err)
 	}
 
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -168,8 +164,7 @@ func resolveLaunchdServicePID(name string) (int, error) {
 		if err == nil {
 			// Parse output to find PID
 			// Look for "pid = <number>"
-			lines := strings.Split(string(out), "\n")
-			for _, line := range lines {
+			for line := range strings.Lines(string(out)) {
 				line = strings.TrimSpace(line)
 				if strings.HasPrefix(line, "pid = ") {
 					pidStr := strings.TrimPrefix(line, "pid = ")

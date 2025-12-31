@@ -15,8 +15,10 @@ import (
 
 func ReadProcess(pid int) (model.Process, error) {
 	// Read process info using ps command on macOS
-	// ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=").Output()
+	// LC_ALL=C TZ=UTC ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
+	cmd := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=")
+	cmd.Env = buildEnvForPS()
+	out, err := cmd.Output()
 	if err != nil {
 		return model.Process{}, fmt.Errorf("process %d not found: %w", pid, err)
 	}
@@ -40,7 +42,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	lstartStr := strings.Join(fields[3:8], " ")
 	startedAt, _ := time.Parse("Mon Jan 2 15:04:05 2006", lstartStr)
 	if startedAt.IsZero() {
-		startedAt = time.Now()
+		startedAt = time.Now().UTC()
 	}
 
 	state := fields[8]
@@ -195,8 +197,7 @@ func getWorkingDirectory(pid int) string {
 		return "unknown"
 	}
 
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if len(line) > 1 && line[0] == 'n' {
 			return line[1:]
 		}
@@ -213,14 +214,17 @@ func detectContainer(pid int) string {
 	cmdline := getCommandLine(pid)
 	lowerCmd := strings.ToLower(cmdline)
 
-	if strings.Contains(lowerCmd, "docker") {
+	switch {
+	case strings.Contains(lowerCmd, "docker"):
 		return "docker"
-	}
-	if strings.Contains(lowerCmd, "containerd") {
-		return "containerd"
-	}
-	if strings.Contains(lowerCmd, "colima") {
+	case strings.Contains(lowerCmd, "podman"):
+		return "podman"
+	case strings.Contains(lowerCmd, "kubepods"):
+		return "kubernetes"
+	case strings.Contains(lowerCmd, "colima"):
 		return "colima"
+	case strings.Contains(lowerCmd, "containerd"):
+		return "containerd"
 	}
 
 	return ""
@@ -280,6 +284,19 @@ func detectGitInfo(cwd string) (string, string) {
 	}
 
 	return "", ""
+}
+
+// buildEnvForPS returns environment variables with LC_ALL=C and TZ=UTC,
+// removing any existing LC_ALL or TZ to ensure consistent output format.
+func buildEnvForPS() []string {
+	var env []string
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "LC_ALL=") && !strings.HasPrefix(e, "TZ=") {
+			env = append(env, e)
+		}
+	}
+	env = append(env, "LC_ALL=C", "TZ=UTC")
+	return env
 }
 
 func checkResourceUsage(pid int, currentHealth string) string {

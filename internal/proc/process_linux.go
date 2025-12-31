@@ -34,17 +34,22 @@ func ReadProcess(pid int) (model.Process, error) {
 		cwd = "unknown"
 	}
 
-	// Container detection (simple: look for docker/containerd/kubepods in cgroup)
+	// Container detection
 	container := ""
 	cgroupFile := fmt.Sprintf("/proc/%d/cgroup", pid)
 	if cgroupData, err := os.ReadFile(cgroupFile); err == nil {
 		cgroupStr := string(cgroupData)
-		if strings.Contains(cgroupStr, "docker") {
+		switch {
+		case strings.Contains(cgroupStr, "docker"):
 			container = "docker"
-		} else if strings.Contains(cgroupStr, "containerd") {
-			container = "containerd"
-		} else if strings.Contains(cgroupStr, "kubepods") {
+		case strings.Contains(cgroupStr, "podman"):
+			container = "podman"
+		case strings.Contains(cgroupStr, "kubepods"):
 			container = "kubernetes"
+		case strings.Contains(cgroupStr, "colima"):
+			container = "colima"
+		case strings.Contains(cgroupStr, "containerd"):
+			container = "containerd"
 		}
 	}
 
@@ -53,8 +58,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	svcOut, err := exec.Command("systemctl", "status", fmt.Sprintf("%d", pid)).CombinedOutput()
 	if err == nil && strings.Contains(string(svcOut), "Loaded: loaded") {
 		// Try to extract service name from output
-		lines := strings.Split(string(svcOut), "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(string(svcOut)) {
 			if strings.HasPrefix(line, "Loaded:") && strings.Contains(line, ".service") {
 				parts := strings.Fields(line)
 				for _, part := range parts {
@@ -116,7 +120,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	fields := strings.Fields(raw[close+2:])
 
 	ppid, _ := strconv.Atoi(fields[1])
-	state := fields[2]
+	state := processState(fields)
 	startTicks, _ := strconv.ParseInt(fields[19], 10, 64)
 
 	// Fork detection: if ppid != 1 and not systemd, likely forked; also check for vfork/fork/clone flags if possible
@@ -232,4 +236,16 @@ func resolveDockerProxyContainer(cmdline string) string {
 		}
 	}
 	return ""
+}
+
+// The kernel emits the state immediately after the command, so fields[0] always carries it.
+func processState(fields []string) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	state := fields[0]
+	if len(state) == 0 {
+		return ""
+	}
+	return state[:1]
 }

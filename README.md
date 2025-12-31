@@ -170,7 +170,7 @@ Only **one primary source** is selected.
 
 - Working directory
 - Git repository name and branch
-- Docker container name / image
+- Container name / image (docker, podman, kubernetes, colima, containerd)
 - Public vs private bind
 
 #### Warnings
@@ -496,14 +496,14 @@ nix run github:pranshuparmar/witr -- --port 5000
 | launchd | ❌ | ✅ | macOS only |
 | Supervisor | ✅ | ✅ | |
 | Cron | ✅ | ✅ | |
-| Docker/containers | ✅ | ⚠️ | macOS: Docker Desktop runs in VM |
+| Containers | ✅ | ⚠️ | macOS: Docker Desktop, Podman, Colima run in VM |
 | **Health & Diagnostics** |
 | CPU usage detection | ✅ | ✅ | |
 | Memory usage detection | ✅ | ✅ | |
 | Zombie process detection | ✅ | ✅ | |
 | **Context** |
 | Git repo/branch detection | ✅ | ✅ | |
-| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop |
+| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop, Podman, Colima |
 
 **Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
 

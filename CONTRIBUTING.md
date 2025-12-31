@@ -16,6 +16,21 @@ Contributions are welcome and appreciated ❤️
 - Open PRs against the `staging` branch, not `main`.
 - Update the README only if the change affects users.
 
+## Building from source
+
+When you need to verify a change locally, compile the CLI with Go 1.25+
+so that the embedded version data stays accurate:
+
+```bash
+git clone https://github.com/pranshuparmar/witr.git
+cd witr
+go build -ldflags "-X main.version=v0.0.0-dev -X main.commit=$(git rev-parse --short HEAD) -X 'main.buildDate=$(date +%Y-%m-%d)'" -o witr ./cmd/witr
+./witr --help  # quick smoke test
+```
+
+- The `-ldflags` block injects commit/date metadata for `witr --version`.
+- The resulting `witr` binary lands in the repo root.
+
 ## Code Style
 
 - Follow the existing code style and structure.

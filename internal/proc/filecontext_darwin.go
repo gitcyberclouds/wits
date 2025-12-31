@@ -4,6 +4,7 @@ package proc
 
 import (
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -48,9 +49,8 @@ func getOpenFileCount(pid int) (int, int) {
 	}
 
 	// Count lines (subtract 1 for header)
-	lines := strings.Split(string(out), "\n")
 	openFiles := 0
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if strings.TrimSpace(line) != "" {
 			openFiles++
 		}
@@ -104,8 +104,7 @@ func getLockedFiles(pid int) []string {
 	// f = file descriptor info
 	// n = file name
 	var currentFD string
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if len(line) == 0 {
 			continue
 		}
@@ -119,7 +118,7 @@ func getLockedFiles(pid int) []string {
 			if strings.HasSuffix(fileName, ".lock") ||
 				strings.HasSuffix(fileName, ".pid") ||
 				strings.Contains(fileName, "/lock") {
-				if !containsString(locked, fileName) {
+				if !slices.Contains(locked, fileName) {
 					locked = append(locked, fileName)
 				}
 			}
@@ -130,8 +129,7 @@ func getLockedFiles(pid int) []string {
 	// Also check for actual fcntl/flock locks using lsof -F with lock info
 	out2, err := exec.Command("lsof", "-p", strconv.Itoa(pid)).Output()
 	if err == nil {
-		lines := strings.Split(string(out2), "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(string(out2)) {
 			fields := strings.Fields(line)
 			// Look for lock type indicators (varies by lsof version)
 			// Typically shows "r" for read lock, "w" for write lock, "R" for read lock on entire file
@@ -141,7 +139,7 @@ func getLockedFiles(pid int) []string {
 					// This file has a lock
 					if len(fields) >= 9 {
 						fileName := fields[8]
-						if !containsString(locked, fileName) {
+						if !slices.Contains(locked, fileName) {
 							locked = append(locked, fileName)
 						}
 					}
@@ -151,14 +149,4 @@ func getLockedFiles(pid int) []string {
 	}
 
 	return locked
-}
-
-// containsString checks if a slice contains a string
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
 }
