@@ -354,6 +354,7 @@ The script will:
 - Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
 - Install the man page to `/usr/local/share/man/man1/witr.1`
+- Pass INSTALL_PREFIX to override default install path
 
 You may be prompted for your password to write to system directories.
 
