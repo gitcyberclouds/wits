@@ -29,8 +29,7 @@ func readListeningSockets() (map[string]Socket, error) {
 	// p<pid>
 	// n<address>
 	var currentPID string
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if len(line) == 0 {
 			continue
 		}
@@ -65,8 +64,7 @@ func readListeningSocketsNetstat() (map[string]Socket, error) {
 		return sockets, nil
 	}
 
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		if !strings.Contains(line, "LISTEN") {
 			continue
 		}

@@ -37,11 +37,10 @@ func checkPreventsSleep(pid int) bool {
 	}
 
 	pidStr := strconv.Itoa(pid)
-	lines := strings.Split(string(out), "\n")
 
 	// Look for lines containing our PID in assertion listings
 	// Format varies but typically includes "pid <pid>" or "(<pid>)"
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		// Check if this line references our PID and is a sleep prevention assertion
 		if strings.Contains(line, pidStr) {
 			lower := strings.ToLower(line)
@@ -71,8 +70,7 @@ func getThermalState() string {
 	// Look for "CPU_Speed_Limit" or thermal pressure indicators
 	if strings.Contains(output, "CPU_Speed_Limit") {
 		// Extract the speed limit percentage
-		lines := strings.Split(output, "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(output) {
 			if strings.Contains(line, "CPU_Speed_Limit") {
 				// Format: CPU_Speed_Limit = 100
 				parts := strings.Split(line, "=")
@@ -95,8 +93,7 @@ func getThermalState() string {
 
 	// Check for thermal pressure level
 	if strings.Contains(output, "Thermal_Level") {
-		lines := strings.Split(output, "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(output) {
 			if strings.Contains(line, "Thermal_Level") {
 				parts := strings.Split(line, "=")
 				if len(parts) >= 2 {

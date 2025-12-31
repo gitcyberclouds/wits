@@ -9,7 +9,7 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
-          version = "0.1.0";
+          version = if self ? rev then "git-${builtins.substring 0 7 self.rev}" else "dirty";
           commit = if self ? rev then self.rev else "dirty";
           buildDate = pkgs.lib.concatStringsSep "-" [
             (builtins.substring 0 4 self.lastModifiedDate)
