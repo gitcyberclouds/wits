@@ -37,7 +37,7 @@ func main() {
 	}
 
 	rootCmd := &cobra.Command{
-		Use: "witr [process name]",
+		Use:   "witr [process name]",
 		Short: "Explain processes",
 		Long:  "witr explains processes and their ancestry, showing how they were started and what they are doing.",
 		Args:  cobra.MaximumNArgs(1),
@@ -135,15 +135,15 @@ func main() {
 
 			pid := pids[0]
 
-      ancestry, err := procpkg.ResolveAncestry(pid)
-      if err != nil {
-        fmt.Println()
-        fmt.Println("Error:")
-        fmt.Printf("  %s\n", err.Error())
-        fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
-        fmt.Println("For usage and options, run: witr --help")
-        os.Exit(1)
-      }
+			ancestry, err := procpkg.ResolveAncestry(pid)
+			if err != nil {
+				fmt.Println()
+				fmt.Println("Error:")
+				fmt.Printf("  %s\n", err.Error())
+				fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
+				fmt.Println("For usage and options, run: witr --help")
+				os.Exit(1)
+			}
 
 			src := source.Detect(ancestry)
 
