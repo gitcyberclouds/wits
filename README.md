@@ -170,7 +170,7 @@ Only **one primary source** is selected.
 
 - Working directory
 - Git repository name and branch
-- Docker container name / image
+- Container name / image (docker, podman, kubernetes, colima, containerd)
 - Public vs private bind
 
 #### Warnings
@@ -354,6 +354,7 @@ The script will:
 - Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
 - Install the man page to `/usr/local/share/man/man1/witr.1`
+- Pass INSTALL_PREFIX to override default install path
 
 You may be prompted for your password to write to system directories.
 
@@ -465,7 +466,7 @@ sudo rm -f /usr/local/share/man/man1/witr.1
 If you use Nix, you can build **witr** from source and run without installation:
 
 ```bash
-nix run github:pranshuparmar/witr -- --port 5000
+nix run github:pranshuparmar/witr -- --help
 ```
 
 ---
@@ -496,14 +497,14 @@ nix run github:pranshuparmar/witr -- --port 5000
 | launchd | ❌ | ✅ | macOS only |
 | Supervisor | ✅ | ✅ | |
 | Cron | ✅ | ✅ | |
-| Docker/containers | ✅ | ⚠️ | macOS: Docker Desktop runs in VM |
+| Containers | ✅ | ⚠️ | macOS: Docker Desktop, Podman, Colima run in VM |
 | **Health & Diagnostics** |
 | CPU usage detection | ✅ | ✅ | |
 | Memory usage detection | ✅ | ✅ | |
 | Zombie process detection | ✅ | ✅ | |
 | **Context** |
 | Git repo/branch detection | ✅ | ✅ | |
-| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop |
+| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop, Podman, Colima |
 
 **Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
 

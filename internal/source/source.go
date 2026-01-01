@@ -7,8 +7,10 @@ func DetectPrimary(chain []model.Process) string {
 		switch p.Command {
 		case "systemd":
 			return "systemd"
-		case "dockerd", "containerd":
+		case "dockerd", "containerd", "kubelet":
 			return "docker"
+		case "podman":
+			return "podman"
 		case "pm2":
 			return "pm2"
 		case "cron":

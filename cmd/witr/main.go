@@ -11,7 +11,6 @@ import (
 
 	"github.com/pranshuparmar/witr/internal/output"
 	procpkg "github.com/pranshuparmar/witr/internal/proc"
-	"github.com/pranshuparmar/witr/internal/process"
 	"github.com/pranshuparmar/witr/internal/source"
 	"github.com/pranshuparmar/witr/internal/target"
 	"github.com/pranshuparmar/witr/pkg/model"
@@ -136,11 +135,15 @@ func main() {
 
 			pid := pids[0]
 
-			ancestry, err := process.BuildAncestry(pid)
-			if err != nil {
-				errorMsg := fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.", err.Error())
-				return errors.New(errorMsg)
-			}
+      ancestry, err := procpkg.ResolveAncestry(pid)
+      if err != nil {
+        fmt.Println()
+        fmt.Println("Error:")
+        fmt.Printf("  %s\n", err.Error())
+        fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
+        fmt.Println("For usage and options, run: witr --help")
+        os.Exit(1)
+      }
 
 			src := source.Detect(ancestry)
 

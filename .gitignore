@@ -34,3 +34,6 @@ go.work.sum
 
 # Nix
 result
+
+# Binary files
+witr
