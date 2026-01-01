@@ -54,6 +54,13 @@ jobs:
           BIN="${PROJECT_NAME}-${{ matrix.os }}-${{ matrix.arch }}"
           strip dist/${BIN} || true
 
+      - name: Compress linux binary with UPX
+        if: matrix.os == 'linux'
+        run: |
+          BIN="${PROJECT_NAME}-${{ matrix.os }}-${{ matrix.arch }}"
+          sudo apt-get update && sudo apt-get install -y upx
+          upx --best --lzma dist/${BIN} || true
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v6
         with:
