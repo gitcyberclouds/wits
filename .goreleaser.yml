@@ -56,5 +56,3 @@ release:
   github:
     owner: pranshuparmar
     name: witr
-    draft: false
-    prerelease: auto
