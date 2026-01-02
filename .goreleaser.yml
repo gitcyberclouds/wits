@@ -1,6 +1,32 @@
+
 version: 2
 
-dist: pkg-dist
+project_name: witr
+builds:
+  - id: witr
+    main: ./cmd/witr
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .Commit }} -X 'main.buildDate={{ .Date }}'
+    env:
+      - CGO_ENABLED=0
+    binary: witr
+
+archives:
+  - id: default
+    builds:
+      - witr
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - docs/**
 
 nfpms:
   - id: witr
@@ -8,16 +34,27 @@ nfpms:
     formats:
       - deb
       - rpm
-
     maintainer: Pranshu Parmar <pranshu.parmar@gmail.com>
     description: witr explains why a process or port is running by tracing its ancestry.
     homepage: https://github.com/pranshuparmar/witr
     license: Apache-2.0
-
     bindir: /usr/local/bin
-
     contents:
-      - src: pkg-dist/witr-linux-{{ .Arch }}
+      - src: dist/witr_{{ .Version }}_linux_{{ .Arch }}/witr
         dst: /usr/local/bin/witr
         file_info:
           mode: 0755
+
+changelog:
+  sort: desc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+release:
+  github:
+    owner: pranshuparmar
+    name: witr
+    draft: false
+    prerelease: auto
