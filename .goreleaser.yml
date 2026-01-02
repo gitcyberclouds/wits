@@ -1,5 +1,7 @@
 version: 2
 
+dist: pkg-dist
+
 nfpms:
   - id: witr
     package_name: witr
