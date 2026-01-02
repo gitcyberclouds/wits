@@ -1,37 +1,41 @@
-
 version: 2
 
 project_name: witr
+
 builds:
   - id: witr
     main: ./cmd/witr
+    binary: witr-{{ .Os }}-{{ .Arch }}
     goos:
       - linux
       - darwin
     goarch:
       - amd64
       - arm64
-    ldflags:
-      - -s -w -X main.version={{ .Version }} -X main.commit={{ .Commit }} -X 'main.buildDate={{ .Date }}'
     env:
       - CGO_ENABLED=0
-    binary: witr
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.buildDate={{ .Date }}
 
 archives:
-  - id: default
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE
-      - README.md
-      - docs/**
-      - docs/witr.1
+  - id: witr
+    formats:
+    - 'binary'
+    ids:
+      - witr
+    name_template: "{{ .Binary }}"
+
 checksum:
-  name_template: "SHA256SUMS"
+  name_template: SHA256SUMS
   algorithm: sha256
 
 nfpms:
   - id: witr
     package_name: witr
+    file_name_template: "witr-{{ .Os }}-{{ .Arch }}"
     formats:
       - deb
       - rpm
@@ -41,17 +45,14 @@ nfpms:
     license: Apache-2.0
     bindir: /usr/local/bin
     contents:
-      - src: dist/witr_{{ .Os }}_{{ .Arch }}*/witr
+      - src: dist/*/witr-linux-{{ .Arch }}*
         dst: /usr/local/bin/witr
         file_info:
           mode: 0755
-
-changelog:
-  sort: desc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
+      - src: docs/cli/witr.1
+        dst: /usr/share/man/man1/witr.1
+        file_info:
+          mode: 0644
 
 release:
   github:
