@@ -37,3 +37,4 @@ witr
 
 # Ignore build artifacts
 dist/
+pkg-dist/
