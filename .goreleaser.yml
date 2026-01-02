@@ -28,8 +28,6 @@ archives:
 checksum:
   name_template: "SHA256SUMS"
   algorithm: sha256
-  files:
-    - "dist/*"
 
 nfpms:
   - id: witr
