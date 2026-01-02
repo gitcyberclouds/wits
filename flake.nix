@@ -40,6 +40,7 @@
                   "/pkg"
                   "/cmd"
                   "/doc"
+                  "/vendor"
                 ];
             };
 
