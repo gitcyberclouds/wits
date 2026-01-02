@@ -19,14 +19,17 @@ builds:
 
 archives:
   - id: default
-    builds:
-      - witr
-    format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
       - docs/**
+      - docs/witr.1
+checksum:
+  name_template: "SHA256SUMS"
+  algorithm: sha256
+  files:
+    - "dist/*"
 
 nfpms:
   - id: witr
@@ -40,7 +43,7 @@ nfpms:
     license: Apache-2.0
     bindir: /usr/local/bin
     contents:
-      - src: dist/witr_{{ .Version }}_linux_{{ .Arch }}/witr
+      - src: dist/witr_{{ .Os }}_{{ .Arch }}*/witr
         dst: /usr/local/bin/witr
         file_info:
           mode: 0755
