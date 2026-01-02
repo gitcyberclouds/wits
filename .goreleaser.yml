@@ -1,0 +1,21 @@
+version: 2
+
+nfpms:
+  - id: witr
+    package_name: witr
+    formats:
+      - deb
+      - rpm
+
+    maintainer: Pranshu Parmar <pranshu.parmar@gmail.com>
+    description: witr explains why a process or port is running by tracing its ancestry.
+    homepage: https://github.com/pranshuparmar/witr
+    license: Apache-2.0
+
+    bindir: /usr/local/bin
+
+    contents:
+      - src: dist/witr-linux-{{ .Arch }}
+        dst: /usr/local/bin/witr
+        file_info:
+          mode: 0755
