@@ -46,19 +46,39 @@ jobs:
           mkdir -p dist
           CGO_ENABLED=0 \
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} \
-          go build -trimpath -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X 'main.buildDate=${DATE}'" -o dist/${BIN} ./cmd/witr
+          go build -trimpath \
+            -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X 'main.buildDate=${DATE}'" \
+            -o dist/${BIN} ./cmd/witr
 
-      - name: Strip linux binary for smaller size
+      - name: Strip linux binary
         if: matrix.os == 'linux'
         run: |
-          BIN="${PROJECT_NAME}-${{ matrix.os }}-${{ matrix.arch }}"
-          strip dist/${BIN} || true
+          strip dist/${PROJECT_NAME}-linux-${{ matrix.arch }} || true
 
-      - name: Upload binary artifact
+      - name: Compress linux binary with UPX
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y upx
+          upx --best --lzma dist/${PROJECT_NAME}-linux-${{ matrix.arch }} || true
+
+      - name: Build deb and rpm packages
+        if: matrix.os == 'linux'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --skip-publish --single-target --nfpm-only
+        env:
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
           name: ${{ env.PROJECT_NAME }}-${{ matrix.os }}-${{ matrix.arch }}
-          path: dist/${{ env.PROJECT_NAME }}-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            dist/${{ env.PROJECT_NAME }}-${{ matrix.os }}-${{ matrix.arch }}
+            dist/**/*.deb
+            dist/**/*.rpm
 
   publish:
     name: Publish Release
