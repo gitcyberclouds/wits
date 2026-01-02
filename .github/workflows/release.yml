@@ -66,7 +66,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: release
+          args: release --dist pkg-dist
         env:
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,8 +77,8 @@ jobs:
           name: ${{ env.PROJECT_NAME }}-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             dist/${{ env.PROJECT_NAME }}-${{ matrix.os }}-${{ matrix.arch }}
-            dist/**/*.deb
-            dist/**/*.rpm
+            pkg-dist/**/*.deb
+            pkg-dist/**/*.rpm
 
   publish:
     name: Publish Release

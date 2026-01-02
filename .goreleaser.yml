@@ -15,7 +15,7 @@ nfpms:
     bindir: /usr/local/bin
 
     contents:
-      - src: dist/witr-linux-{{ .Arch }}
+      - src: pkg-dist/witr-linux-{{ .Arch }}
         dst: /usr/local/bin/witr
         file_info:
           mode: 0755
