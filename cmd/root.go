@@ -27,8 +27,8 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "witr [process name]",
-	Short: "Explain processes",
-	Long:  "witr explains processes and their ancestry, showing how they were started and what they are doing.",
+	Short: "Why is this running?",
+	Long:  "witr explains why a process or port is running by tracing its ancestry.",
 	Args:  cobra.MaximumNArgs(1),
 	CompletionOptions: cobra.CompletionOptions{
 		HiddenDefaultCmd:  false,
@@ -69,11 +69,11 @@ func _genExamples() string {
   # Output machine-readable JSON
   witr chrome --json
 
-  # Combine flags: inspect port, show ancestry, output JSON
-  witr --port 8080 --tree --json
+  # Combine flags: inspect port, show environment variables, output JSON
+  witr --port 8080 --env --json
 `
-
 }
+
 func Execute() {
 
 	err := rootCmd.Execute()
@@ -84,7 +84,7 @@ func Execute() {
 
 func init() {
 	if version == "" {
-		version = "dev"
+		version = "v0.0.0-dev"
 	}
 	if commit == "" {
 		commit = "unknown"
@@ -101,12 +101,12 @@ func init() {
 
 	rootCmd.Flags().String("pid", "", "pid to look up")
 	rootCmd.Flags().String("port", "", "port to look up")
-	rootCmd.Flags().Bool("short", false, "short output")
-	rootCmd.Flags().Bool("tree", false, "tree output")
-	rootCmd.Flags().Bool("json", false, "output as JSON")
+	rootCmd.Flags().Bool("short", false, "show only ancestry")
+	rootCmd.Flags().Bool("tree", false, "show only ancestry as a tree")
+	rootCmd.Flags().Bool("json", false, "show result as JSON")
 	rootCmd.Flags().Bool("warnings", false, "show only warnings")
 	rootCmd.Flags().Bool("no-color", false, "disable colorized output")
-	rootCmd.Flags().Bool("env", false, "show only environment variables for the process")
+	rootCmd.Flags().Bool("env", false, "show environment variables for the process")
 
 }
 
@@ -114,6 +114,11 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	envFlag, _ := cmd.Flags().GetBool("env")
 	pidFlag, _ := cmd.Flags().GetString("pid")
 	portFlag, _ := cmd.Flags().GetString("port")
+	// Show help if no arguments or relevant flags are provided
+	if !envFlag && pidFlag == "" && portFlag == "" && len(args) == 0 {
+		cmd.Help()
+		return nil
+	}
 	shortFlag, _ := cmd.Flags().GetBool("short")
 	treeFlag, _ := cmd.Flags().GetBool("tree")
 	jsonFlag, _ := cmd.Flags().GetBool("json")
@@ -186,7 +191,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		if strings.Contains(errStr, "socket found but owning process not detected") {
 			errorMsg = fmt.Sprintf("%s\n\nA socket was found for the port, but the owning process could not be detected.\nThis may be due to insufficient permissions. Try running with sudo:\n  sudo %s", errStr, strings.Join(os.Args, " "))
 		} else {
-			errorMsg = fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.", errStr)
+			errorMsg = fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.\nFor usage and options, run: witr --help", errStr)
 		}
 		return errors.New(errorMsg)
 	}
@@ -206,12 +211,8 @@ func runRoot(cmd *cobra.Command, args []string) error {
 
 	ancestry, err := procpkg.ResolveAncestry(pid)
 	if err != nil {
-		fmt.Println()
-		fmt.Println("Error:")
-		fmt.Printf("  %s\n", err.Error())
-		fmt.Println("\nNo matching process or service found. Please check your query or try a different name/port/PID.")
-		fmt.Println("For usage and options, run: witr --help")
-		os.Exit(1)
+		errorMsg := fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.\nFor usage and options, run: witr --help", err.Error())
+		return errors.New(errorMsg)
 	}
 
 	src := source.Detect(ancestry)
@@ -279,7 +280,7 @@ func SetVersionBuildCommitString(Version string, Commit string, BuildDate string
 	buildDate = BuildDate
 
 	if version == "" {
-		version = "dev"
+		version = "v0.0.0-dev"
 	}
 	if commit == "" {
 		commit = "unknown"
@@ -292,4 +293,5 @@ func SetVersionBuildCommitString(Version string, Commit string, BuildDate string
 
 	rootCmd.SetVersionTemplate(fmt.Sprintf("witr {{.Version}} (commit %s, built %s)\n", commit, buildDate))
 
+	rootCmd.SilenceUsage = true
 }

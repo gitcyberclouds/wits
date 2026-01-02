@@ -2,7 +2,7 @@
 .TH "WITR" "1" "Jan 2026" "" ""
 
 .SH NAME
-witr - Explain processes
+witr - Why is this running?
 
 
 .SH SYNOPSIS
@@ -10,12 +10,12 @@ witr - Explain processes
 
 
 .SH DESCRIPTION
-witr explains processes and their ancestry, showing how they were started and what they are doing.
+witr explains why a process or port is running by tracing its ancestry.
 
 
 .SH OPTIONS
 \fB--env\fP[=false]
-	show only environment variables for the process
+	show environment variables for the process
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
@@ -23,7 +23,7 @@ witr explains processes and their ancestry, showing how they were started and wh
 
 .PP
 \fB--json\fP[=false]
-	output as JSON
+	show result as JSON
 
 .PP
 \fB--no-color\fP[=false]
@@ -39,11 +39,11 @@ witr explains processes and their ancestry, showing how they were started and wh
 
 .PP
 \fB--short\fP[=false]
-	short output
+	show only ancestry
 
 .PP
 \fB--tree\fP[=false]
-	tree output
+	show only ancestry as a tree
 
 .PP
 \fB--warnings\fP[=false]
@@ -80,7 +80,7 @@ witr explains processes and their ancestry, showing how they were started and wh
   # Output machine-readable JSON
   witr chrome --json
 
-  # Combine flags: inspect port, show ancestry, output JSON
-  witr --port 8080 --tree --json
+  # Combine flags: inspect port, show environment variables, output JSON
+  witr --port 8080 --env --json
 
 .EE

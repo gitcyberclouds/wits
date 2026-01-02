@@ -1,10 +1,10 @@
 ## witr
 
-Explain processes
+Why is this running?
 
 ### Synopsis
 
-witr explains processes and their ancestry, showing how they were started and what they are doing.
+witr explains why a process or port is running by tracing its ancestry.
 
 ```
 witr [process name] [flags]
@@ -41,22 +41,22 @@ witr [process name] [flags]
   # Output machine-readable JSON
   witr chrome --json
 
-  # Combine flags: inspect port, show ancestry, output JSON
-  witr --port 8080 --tree --json
+  # Combine flags: inspect port, show environment variables, output JSON
+  witr --port 8080 --env --json
 
 ```
 
 ### Options
 
 ```
-      --env           show only environment variables for the process
+      --env           show environment variables for the process
   -h, --help          help for witr
-      --json          output as JSON
+      --json          show result as JSON
       --no-color      disable colorized output
       --pid string    pid to look up
       --port string   port to look up
-      --short         short output
-      --tree          tree output
+      --short         show only ancestry
+      --tree          show only ancestry as a tree
       --warnings      show only warnings
 ```
 
