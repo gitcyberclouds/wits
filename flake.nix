@@ -3,9 +3,9 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
   };
   outputs =
-    {
-      self,
-      nixpkgs,
+    { self
+    , nixpkgs
+    ,
     }:
     let
       inherit (nixpkgs) lib;
@@ -63,5 +63,7 @@
           };
         }
       );
+
+      formatter = lib.genAttrs [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ] (system: nixpkgs.legacyPackages.${system}.nixpkgs-fmt);
     };
 }
