@@ -81,9 +81,9 @@ func ResolvePort(port int) ([]int, error) {
 				continue
 			}
 
-			if strings.HasPrefix(link, "socket:[") {
-				inode := strings.TrimSuffix(strings.TrimPrefix(link, "socket:["), "]")
-				if inodes[inode] {
+			if rest, ok := strings.CutPrefix(link, "socket:["); ok {
+				inode, ok := strings.CutSuffix(rest, "]")
+				if ok && inodes[inode] {
 					pidSet[pid] = true
 				}
 			}
