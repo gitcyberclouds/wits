@@ -185,6 +185,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	pids, err := target.Resolve(t)
+	if err == nil && len(pids) == 0 {
+		err = fmt.Errorf("no matching process found")
+	}
 	if err != nil {
 		errStr := err.Error()
 		var errorMsg string
