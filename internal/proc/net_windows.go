@@ -13,19 +13,19 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 	// But findstr is not perfect.
 	// Better: netstat -ano
 	// Parse output.
-	
+
 	out, err := exec.Command("netstat", "-ano").Output()
 	if err != nil {
 		return nil, nil
 	}
-	
+
 	lines := strings.Split(string(out), "\n")
 	var ports []int
 	var addrs []string
 	seen := make(map[int]bool)
-	
+
 	pidStr := strconv.Itoa(pid)
-	
+
 	for _, line := range lines {
 		fields := strings.Fields(line)
 		// Proto Local Address Foreign Address State PID
@@ -39,7 +39,7 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 		if fields[4] != pidStr {
 			continue
 		}
-		
+
 		localAddr := fields[1]
 		// Parse IP:Port
 		lastColon := strings.LastIndex(localAddr, ":")
@@ -48,7 +48,7 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 		}
 		portStr := localAddr[lastColon+1:]
 		ip := localAddr[:lastColon]
-		
+
 		port, err := strconv.Atoi(portStr)
 		if err == nil {
 			if !seen[port] {
