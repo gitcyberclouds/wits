@@ -506,36 +506,37 @@ nix run github:pranshuparmar/witr -- --help
 
 - **Linux** (x86_64, arm64) - Uses `/proc` filesystem for process information
 - **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, and `sysctl` for process information
+- **Windows** (x86_64) - Uses `wmic`, `tasklist`, and `netstat` for process information
 
 ---
 
 ### 9.1 Feature Compatibility Matrix
 
-| Feature | Linux | macOS | Notes |
-|---------|:-----:|:-----:|-------|
+| Feature | Linux | macOS | Windows | Notes |
+|---------|:-----:|:-----:|:-------:|-------|
 | **Process Inspection** |
-| Basic process info (PID, PPID, user, command) | ✅ | ✅ | |
-| Full command line | ✅ | ✅ | |
-| Process start time | ✅ | ✅ | |
-| Working directory | ✅ | ✅ | Linux: `/proc`, macOS: `lsof` |
-| Environment variables | ✅ | ⚠️ | macOS: partial via `ps -E`, limited by SIP |
+| Basic process info (PID, PPID, user, command) | ✅ | ✅ | ✅ | |
+| Full command line | ✅ | ✅ | ✅ | |
+| Process start time | ✅ | ✅ | ✅ | |
+| Working directory | ✅ | ✅ | ❌ | Hard to get on Windows without injection |
+| Environment variables | ✅ | ⚠️ | ❌ | macOS: partial via `ps -E`, limited by SIP |
 | **Network** |
-| Listening ports | ✅ | ✅ | |
-| Bind addresses | ✅ | ✅ | |
-| Port → PID resolution | ✅ | ✅ | Linux: `/proc/net/tcp`, macOS: `lsof`/`netstat` |
+| Listening ports | ✅ | ✅ | ✅ | |
+| Bind addresses | ✅ | ✅ | ✅ | |
+| Port → PID resolution | ✅ | ✅ | ✅ | Linux: `/proc/net/tcp`, macOS: `lsof`/`netstat` |
 | **Service Detection** |
-| systemd | ✅ | ❌ | Linux only |
-| launchd | ❌ | ✅ | macOS only |
-| Supervisor | ✅ | ✅ | |
-| Cron | ✅ | ✅ | |
-| Containers | ✅ | ⚠️ | macOS: Docker Desktop, Podman, Colima run in VM |
+| systemd | ✅ | ❌ | ❌ | Linux only |
+| launchd | ❌ | ✅ | ❌ | macOS only |
+| Supervisor | ✅ | ✅ | ✅ | |
+| Cron | ✅ | ✅ | ❌ | Windows Task Scheduler not yet supported |
+| Containers | ✅ | ⚠️ | ❌ | macOS/Windows: Docker runs in VM |
 | **Health & Diagnostics** |
-| CPU usage detection | ✅ | ✅ | |
-| Memory usage detection | ✅ | ✅ | |
-| Zombie process detection | ✅ | ✅ | |
+| CPU usage detection | ✅ | ✅ | ✅ | |
+| Memory usage detection | ✅ | ✅ | ✅ | |
+| Zombie process detection | ✅ | ✅ | ❌ | |
 | **Context** |
-| Git repo/branch detection | ✅ | ✅ | |
-| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop, Podman, Colima |
+| Git repo/branch detection | ✅ | ✅ | ❌ | Requires working directory |
+| Container detection | ✅ | ⚠️ | ❌ | macOS: limited to Docker Desktop, Podman, Colima |
 
 **Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
 
@@ -562,6 +563,15 @@ sudo witr [your arguments]
 ```
 
 Note: Due to macOS System Integrity Protection (SIP), some system process details may not be accessible even with sudo.
+
+#### Windows
+
+On Windows, witr uses `wmic`, `tasklist`, and `netstat`. To see details for processes owned by other users or system services, you must run the terminal as **Administrator**.
+
+```powershell
+# Run in Administrator PowerShell
+./witr.exe [your arguments]
+```
 
 ---
 

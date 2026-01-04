@@ -49,6 +49,10 @@ jobs:
             arch: amd64
           - os: darwin
             arch: arm64
+          - os: freebsd
+            arch: amd64
+          - os: freebsd
+            arch: arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

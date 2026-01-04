@@ -22,6 +22,9 @@ case "$OS" in
     darwin)
         OS=darwin
         ;;
+    freebsd)
+        OS=freebsd
+        ;;
     *)
         echo "Unsupported OS: $OS" >&2
         exit 1
