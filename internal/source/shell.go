@@ -7,6 +7,10 @@ var shells = map[string]bool{
 	"zsh":  true,
 	"sh":   true,
 	"fish": true,
+	"csh":  true,
+	"tcsh": true,
+	"ksh":  true,
+	"dash": true,
 }
 
 func detectShell(ancestry []model.Process) *model.Source {
