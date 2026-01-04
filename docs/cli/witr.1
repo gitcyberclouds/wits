@@ -14,6 +14,14 @@ witr explains why a process or port is running by tracing its ancestry.
 
 
 .SH OPTIONS
+\fB--children\fP[=false]
+	show direct child processes
+
+.PP
+\fB--descendants\fP[=false]
+	show descendant process tree
+
+.PP
 \fB--env\fP[=false]
 	show environment variables for the process
 
@@ -64,6 +72,12 @@ witr explains why a process or port is running by tracing its ancestry.
 
   # Show the full process ancestry (who started whom)
   witr postgres --tree
+
+  # List direct child processes of a target
+  witr nginx --children
+
+  # Show full descendant tree (children, grandchildren, ...)
+  witr nginx --descendants
 
   # Show only warnings (suspicious env, arguments, parents)
   witr docker --warnings

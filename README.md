@@ -182,6 +182,8 @@ Non‑blocking observations such as:
 --port <n>        Explain port usage
 --short           One-line summary
 --tree            Show full process ancestry tree
+--children        Show direct child processes
+--descendants     Show full descendant process tree
 --json            Output result as JSON
 --warnings        Show only warnings
 --no-color        Disable colorized output

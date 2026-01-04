@@ -54,6 +54,12 @@ func _genExamples() string {
   # Show the full process ancestry (who started whom)
   witr postgres --tree
 
+  # List direct child processes of a target
+  witr nginx --children
+
+  # Show full descendant tree (children, grandchildren, ...)
+  witr nginx --descendants
+
   # Show only warnings (suspicious env, arguments, parents)
   witr docker --warnings
 
@@ -103,6 +109,8 @@ func init() {
 	rootCmd.Flags().String("port", "", "port to look up")
 	rootCmd.Flags().Bool("short", false, "show only ancestry")
 	rootCmd.Flags().Bool("tree", false, "show only ancestry as a tree")
+	rootCmd.Flags().Bool("children", false, "show direct child processes")
+	rootCmd.Flags().Bool("descendants", false, "show descendant process tree")
 	rootCmd.Flags().Bool("json", false, "show result as JSON")
 	rootCmd.Flags().Bool("warnings", false, "show only warnings")
 	rootCmd.Flags().Bool("no-color", false, "disable colorized output")
@@ -121,9 +129,17 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 	shortFlag, _ := cmd.Flags().GetBool("short")
 	treeFlag, _ := cmd.Flags().GetBool("tree")
+	childrenFlag, _ := cmd.Flags().GetBool("children")
+	descendantsFlag, _ := cmd.Flags().GetBool("descendants")
 	jsonFlag, _ := cmd.Flags().GetBool("json")
 	warnFlag, _ := cmd.Flags().GetBool("warnings")
 	noColorFlag, _ := cmd.Flags().GetBool("no-color")
+	if childrenFlag && descendantsFlag {
+		return fmt.Errorf("use only one of --children or --descendants")
+	}
+	if (childrenFlag || descendantsFlag) && (shortFlag || treeFlag || warnFlag) {
+		return fmt.Errorf("use --children/--descendants without --short, --tree, or --warnings")
+	}
 
 	if envFlag {
 		var t model.Target
@@ -234,12 +250,29 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		lastCmd = procA.Command
 	}
 
+	var children []model.Process
+	var descendants *model.ProcessTree
+	if childrenFlag {
+		children, err = procpkg.ResolveChildren(proc.PID)
+		if err != nil {
+			return fmt.Errorf("error: %v", err)
+		}
+	}
+	if descendantsFlag {
+		descendants, err = procpkg.ResolveDescendants(proc)
+		if err != nil {
+			return fmt.Errorf("error: %v", err)
+		}
+	}
+
 	res := model.Result{
 		Target:         t,
 		ResolvedTarget: resolvedTarget,
 		Process:        proc,
 		RestartCount:   restartCount,
 		Ancestry:       ancestry,
+		Children:       children,
+		Descendants:    descendants,
 		Source:         src,
 		Warnings:       source.Warnings(ancestry),
 	}
@@ -264,6 +297,10 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		fmt.Println(importJSON)
 	} else if warnFlag {
 		output.RenderWarnings(res.Warnings, !noColorFlag)
+	} else if descendantsFlag {
+		output.PrintDescendants(*res.Descendants, !noColorFlag)
+	} else if childrenFlag {
+		output.PrintChildren(res.Process, res.Children, !noColorFlag)
 	} else if treeFlag {
 		output.PrintTree(res.Ancestry, !noColorFlag)
 	} else if shortFlag {

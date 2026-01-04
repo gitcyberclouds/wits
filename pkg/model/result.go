@@ -6,6 +6,8 @@ type Result struct {
 	Process        Process
 	RestartCount   int
 	Ancestry       []Process
+	Children       []Process
+	Descendants    *ProcessTree
 	Source         Source
 	Warnings       []string
 
