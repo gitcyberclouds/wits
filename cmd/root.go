@@ -297,16 +297,20 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		fmt.Println(importJSON)
 	} else if warnFlag {
 		output.RenderWarnings(res.Warnings, !noColorFlag)
-	} else if descendantsFlag {
-		output.PrintDescendants(*res.Descendants, !noColorFlag)
-	} else if childrenFlag {
-		output.PrintChildren(res.Process, res.Children, !noColorFlag)
 	} else if treeFlag {
 		output.PrintTree(res.Ancestry, !noColorFlag)
 	} else if shortFlag {
 		output.RenderShort(res, !noColorFlag)
 	} else {
 		output.RenderStandard(res, !noColorFlag)
+		if childrenFlag {
+			fmt.Println("")
+			output.PrintChildren(res.Process, res.Children, !noColorFlag)
+		}
+		if descendantsFlag && res.Descendants != nil {
+			fmt.Println("")
+			output.PrintDescendants(*res.Descendants, !noColorFlag)
+		}
 	}
 	return nil
 }

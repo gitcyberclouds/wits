@@ -31,6 +31,11 @@ func PrintChildren(root model.Process, children []model.Process, colorEnabled bo
 }
 
 func PrintDescendants(tree model.ProcessTree, colorEnabled bool) {
+	if colorEnabled {
+		fmt.Printf("%sDescendants%s:\n", colorMagentaTree, colorResetTree)
+	} else {
+		fmt.Println("Descendants:")
+	}
 	fmt.Printf("%s\n", formatProcessLine(tree.Process, colorEnabled))
 	for i, child := range tree.Children {
 		isLast := i == len(tree.Children)-1
