@@ -303,6 +303,24 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 
 	// Resource context (thermal state, sleep prevention)
 	if r.ResourceContext != nil {
+		// Display CPU/Memory if we have data (Memory > 0 implies we fetched usage stats)
+		if r.ResourceContext.MemoryUsage > 0 || r.ResourceContext.CPUUsage > 0 {
+			if colorEnabled {
+				fmt.Printf("%sCPU%s         : %.1f%%\n", colorRed, colorReset, r.ResourceContext.CPUUsage)
+			} else {
+				fmt.Printf("CPU         : %.1f%%\n", r.ResourceContext.CPUUsage)
+			}
+
+			if r.ResourceContext.MemoryUsage > 0 {
+				memStr := formatBytes(r.ResourceContext.MemoryUsage)
+				if colorEnabled {
+					fmt.Printf("%sMemory%s      : %s\n", colorRed, colorReset, memStr)
+				} else {
+					fmt.Printf("Memory      : %s\n", memStr)
+				}
+			}
+		}
+
 		if r.ResourceContext.PreventsSleep {
 			if colorEnabled {
 				fmt.Printf("%sEnergy%s      : %sPreventing system sleep%s\n", colorRed, colorReset, colorDimYellow, colorReset)
@@ -362,4 +380,17 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 			}
 		}
 	}
+}
+
+func formatBytes(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := uint64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
