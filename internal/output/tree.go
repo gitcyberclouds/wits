@@ -1,42 +1,34 @@
 package output
 
 import (
-	"fmt"
+	"io"
+	"strings"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
 var (
-	colorResetTree   = "\033[0m"
-	colorMagentaTree = "\033[35m"
-	colorBoldTree    = "\033[2m"
+	colorResetTree   = ansiString("\033[0m")
+	colorMagentaTree = ansiString("\033[35m")
+	colorBoldTree    = ansiString("\033[2m")
 )
 
-func PrintTree(chain []model.Process, colorEnabled bool) {
-	colorReset := ""
-	colorMagenta := ""
-	colorBold := ""
-	if colorEnabled {
-		colorReset = colorResetTree
-		colorMagenta = colorMagentaTree
-		colorBold = colorBoldTree
-	}
-	for i, p := range chain {
-		prefix := ""
-		for j := 0; j < i; j++ {
-			prefix += "  "
-		}
+func PrintTree(w io.Writer, chain []model.Process, colorEnabled bool) {
+	p := NewPrinter(w)
+
+	for i, proc := range chain {
+		indent := strings.Repeat("  ", i)
 		if i > 0 {
 			if colorEnabled {
-				prefix += colorMagenta + "└─ " + colorReset
+				p.Printf("%s%s└─ %s", indent, colorMagentaTree, colorResetTree)
 			} else {
-				prefix += "└─ "
+				p.Printf("%s└─ ", indent)
 			}
 		}
 		if colorEnabled {
-			fmt.Printf("%s%s (%spid %d%s)\n", prefix, p.Command, colorBold, p.PID, colorReset)
+			p.Printf("%s (%spid %d%s)\n", proc.Command, colorBoldTree, proc.PID, colorResetTree)
 		} else {
-			fmt.Printf("%s%s (pid %d)\n", prefix, p.Command, p.PID)
+			p.Printf("%s (pid %d)\n", proc.Command, proc.PID)
 		}
 	}
 }
