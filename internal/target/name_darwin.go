@@ -37,8 +37,7 @@ func ResolveName(name string) ([]int, error) {
 		return nil, fmt.Errorf("failed to list processes: %w", err)
 	}
 
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(string(out)) {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -165,8 +164,7 @@ func resolveLaunchdServicePID(name string) (int, error) {
 		if err == nil {
 			// Parse output to find PID
 			// Look for "pid = <number>"
-			lines := strings.Split(string(out), "\n")
-			for _, line := range lines {
+			for line := range strings.Lines(string(out)) {
 				line = strings.TrimSpace(line)
 				if strings.HasPrefix(line, "pid = ") {
 					pidStr := strings.TrimPrefix(line, "pid = ")

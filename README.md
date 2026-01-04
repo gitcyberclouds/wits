@@ -10,31 +10,21 @@
 - [2. Goals](#2-goals)
 - [3. Core Concept](#3-core-concept)
 - [4. Supported Targets](#4-supported-targets)
-  - [4.1 Name (process or service)](#41-name-process-or-service)
-  - [4.2 PID](#42-pid)
-  - [4.3 Port](#43-port)
 - [5. Output Behavior](#5-output-behavior)
-  - [5.1 Output Principles](#51-output-principles)
-  - [5.2 Standard Output Sections](#52-standard-output-sections)
 - [6. Flags & Options](#6-flags--options)
 - [7. Example Outputs](#7-example-outputs)
-  - [7.1 Name Based Query](#71-name-based-query)
-  - [7.2 Short Output](#72-short-output)
-  - [7.3 Tree Output](#73-tree-output)
-  - [7.4 Multiple Matches](#74-multiple-matches)
 - [8. Installation](#8-installation)
   - [8.1 Homebrew (macOS & Linux)](#81-homebrew-macos--linux)
   - [8.2 Arch Linux (AUR)](#82-arch-linux-aur)
   - [8.3 Script Installation (Recommended)](#83-script-installation-recommended)
-  - [8.4 Manual Installation](#84-manual-installation)
-  - [8.5 Verify Installation](#85-verify-installation)
-  - [8.6 Uninstallation](#86-uninstallation)
-  - [8.7 Nix Flake](#87-nix-flake)
+  - [8.4 Prebuilt Packages (deb, rpm, apk)](#84-prebuilt-packages-deb-rpm-apk)
+  - [8.5 Go Install (cross-platform)](#85-go-install-cross-platform)
+  - [8.6 Manual Installation](#86-manual-installation)
+  - [8.7 Verify Installation](#87-verify-installation)
+  - [8.8 Uninstallation](#88-uninstallation)
+  - [8.9 Nix Flake](#89-nix-flake)
 - [9. Platform Support](#9-platform-support)
-  - [9.1 Feature Compatibility Matrix](#91-feature-compatibility-matrix)
-  - [9.2 Permissions Note](#92-permissions-note)
 - [10. Success Criteria](#10-success-criteria)
-- [11. AI Assistance Disclaimer](#11-ai-assistance-disclaimer)
 
 ---
 
@@ -170,7 +160,7 @@ Only **one primary source** is selected.
 
 - Working directory
 - Git repository name and branch
-- Docker container name / image
+- Container name / image (docker, podman, kubernetes, colima, containerd)
 - Public vs private bind
 
 #### Warnings
@@ -354,10 +344,52 @@ The script will:
 - Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
 - Install the man page to `/usr/local/share/man/man1/witr.1`
+- Pass INSTALL_PREFIX to override default install path
 
 You may be prompted for your password to write to system directories.
 
-### 8.4 Manual Installation
+---
+
+### 8.4 Prebuilt Packages (deb, rpm, apk)
+
+**witr** provides native packages for major Linux distributions. You can download the latest `.deb`, `.rpm`, or `.apk` package from the [GitHub Releases page](https://github.com/pranshuparmar/witr/releases/latest).
+
+- Generic download command using `curl`:
+  ```bash
+  # Replace <package name with the actual package that you need>
+  curl -LO https://github.com/pranshuparmar/witr/releases/latest/download/<package-name>
+  ```
+
+- **Debian/Ubuntu (.deb):**
+  ```bash
+  sudo dpkg -i ./witr-*.deb
+  # Or, using apt for dependency resolution:
+  sudo apt install ./witr-*.deb
+  ```
+- **Fedora/RHEL/CentOS (.rpm):**
+  ```bash
+  sudo rpm -i ./witr-<version>.x86_64.rpm
+  ```
+- **Alpine Linux (.apk):**
+  ```bash
+  sudo apk add --allow-untrusted ./witr-<version>.apk
+  ```
+
+---
+
+### 8.5 Go Install (cross-platform)
+
+You can install the latest version directly from source:
+
+```bash
+go install github.com/pranshuparmar/witr/cmd/witr@latest
+```
+
+This will place the `witr` binary in your `$GOPATH/bin` or `$HOME/go/bin` directory. Make sure this directory is in your `PATH`.
+
+---
+
+### 8.6 Manual Installation
 
 If you prefer manual installation, follow these simple steps for your platform:
 
@@ -444,14 +476,14 @@ sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/w
 - Rename to witr, make it executable, and move to your PATH.
 - Install man page.
 
-### 8.5 Verify Installation:
+### 8.7 Verify Installation:
 
 ```bash
 witr --version
 man witr
 ```
 
-### 8.6 Uninstallation
+### 8.8 Uninstallation
 
 To completely remove **witr**:
 
@@ -460,12 +492,12 @@ sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
 ```
 
-### 8.7 Nix Flake
+### 8.9 Nix Flake
 
 If you use Nix, you can build **witr** from source and run without installation:
 
 ```bash
-nix run github:pranshuparmar/witr -- --port 5000
+nix run github:pranshuparmar/witr -- --help
 ```
 
 ---
@@ -496,14 +528,14 @@ nix run github:pranshuparmar/witr -- --port 5000
 | launchd | ❌ | ✅ | macOS only |
 | Supervisor | ✅ | ✅ | |
 | Cron | ✅ | ✅ | |
-| Docker/containers | ✅ | ⚠️ | macOS: Docker Desktop runs in VM |
+| Containers | ✅ | ⚠️ | macOS: Docker Desktop, Podman, Colima run in VM |
 | **Health & Diagnostics** |
 | CPU usage detection | ✅ | ✅ | |
 | Memory usage detection | ✅ | ✅ | |
 | Zombie process detection | ✅ | ✅ | |
 | **Context** |
 | Git repo/branch detection | ✅ | ✅ | |
-| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop |
+| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop, Podman, Colima |
 
 **Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
 
@@ -541,11 +573,5 @@ witr is successful if:
 - It reduces reliance on multiple tools
 - Output is understandable under stress
 - Users trust it during incidents
-
----
-
-## 11. AI Assistance Disclaimer
-
-This project was developed with assistance from AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), supervised by humans who occasionally knew what they were doing.
 
 ---
