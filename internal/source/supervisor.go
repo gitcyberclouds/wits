@@ -40,6 +40,15 @@ var knownSupervisors = map[string]string{
 }
 
 func detectSupervisor(ancestry []model.Process) *model.Source {
+	// Check if there's a shell in the ancestry
+	hasShell := false
+	for _, p := range ancestry {
+		if shells[p.Command] {
+			hasShell = true
+			break
+		}
+	}
+
 	for _, p := range ancestry {
 		// Normalize: remove spaces, lowercase
 		pname := strings.ReplaceAll(strings.ToLower(p.Command), " ", "")
@@ -52,6 +61,11 @@ func detectSupervisor(ancestry []model.Process) *model.Source {
 			}
 		}
 		if label, ok := knownSupervisors[strings.ToLower(p.Command)]; ok {
+			// Skip "init" if there's a shell in the ancestry
+			// This allows shell-launched processes to be detected as shell rather than init
+			if label == "init" && hasShell {
+				continue
+			}
 			return &model.Source{
 				Type:       model.SourceSupervisor,
 				Name:       label,
@@ -61,6 +75,10 @@ func detectSupervisor(ancestry []model.Process) *model.Source {
 		// Also match on command line for supervisor keywords
 		for sup, label := range knownSupervisors {
 			if strings.Contains(strings.ToLower(p.Cmdline), sup) {
+				// Skip "init" if there's a shell in the ancestry
+				if label == "init" && hasShell {
+					continue
+				}
 				return &model.Source{
 					Type:       model.SourceSupervisor,
 					Name:       label,
