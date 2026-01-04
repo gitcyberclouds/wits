@@ -42,7 +42,8 @@ func GetSocketStates(port int) ([]model.SocketInfo, error) {
 		remoteAddr := fields[4]
 
 		// Parse local address
-		address, _ := parseSockstatAddr(localAddr)
+		proto := fields[0] // tcp4 or tcp6
+		address, _ := parseSockstatAddr(localAddr, proto)
 
 		info := model.SocketInfo{
 			Port:       port,
