@@ -31,12 +31,12 @@ func GetFileContext(pid int) *model.FileContext {
 }
 
 func getFileLimit(pid int) int {
-	const LINUX_DEFAULT_MAX_OPEN_FILES = 0 // TODO: Find real max.
+	var linuxDefaultMaxOpenFile = getDefaultMaxOpenFiles()
 
 	// Read /proc/<pid>/limits for file limit
 	data, err := os.ReadFile(fmt.Sprintf("/proc/%v/limits", pid))
 	if err != nil {
-		return LINUX_DEFAULT_MAX_OPEN_FILES
+		return linuxDefaultMaxOpenFile
 	}
 
 	dataString := string(data)
@@ -49,13 +49,30 @@ func getFileLimit(pid int) int {
 		fields := strings.Fields(line)
 		softLimit, err := strconv.Atoi(fields[3])
 		if err != nil {
-			return LINUX_DEFAULT_MAX_OPEN_FILES
+			return linuxDefaultMaxOpenFile
 		}
 
 		return softLimit
 	}
 
 	return 0
+}
+
+func getDefaultMaxOpenFiles() int {
+	// This seems to be a common default for many systems.
+	const REASONABLE_DEFAULT int = 1024
+
+	output, err := exec.Command("ulimit", "-Sn").Output()
+	if err != nil {
+		return REASONABLE_DEFAULT
+	}
+
+	softLimit, err := strconv.Atoi(string(output))
+	if err != nil {
+		return REASONABLE_DEFAULT
+	}
+
+	return softLimit
 }
 
 func getLockedFiles(pid int) []string {
