@@ -7,6 +7,12 @@ func DetectPrimary(chain []model.Process) string {
 		switch p.Command {
 		case "systemd":
 			return "systemd"
+		case "init", "/sbin/init":
+			// Check if this is a FreeBSD rc.d service
+			if p.Service != "" {
+				return p.Service
+			}
+			return "bsdrc"
 		case "dockerd", "containerd", "kubelet":
 			return "docker"
 		case "podman":
@@ -15,6 +21,10 @@ func DetectPrimary(chain []model.Process) string {
 			return "pm2"
 		case "cron":
 			return "cron"
+		}
+		// Also check Service field directly
+		if p.Service != "" {
+			return p.Service
 		}
 	}
 	return "manual"

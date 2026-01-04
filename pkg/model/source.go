@@ -6,6 +6,7 @@ const (
 	SourceContainer  SourceType = "container"
 	SourceSystemd    SourceType = "systemd"
 	SourceLaunchd    SourceType = "launchd"
+	SourceBsdRc      SourceType = "bsdrc"
 	SourceSupervisor SourceType = "supervisor"
 	SourceCron       SourceType = "cron"
 	SourceShell      SourceType = "shell"
