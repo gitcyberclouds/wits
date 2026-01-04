@@ -53,7 +53,7 @@ If you then still feel the need to ask a question and need clarification, we rec
 
 - Open an [Issue](https://github.com/pranshuparmar/witr/issues/new).
 - Provide as much context as you can about what you're running into.
-- Provide project and platform versions (nodejs, npm, etc), depending on what seems relevant.
+- Provide project and platform versions (witr version, OS, Shell, target service (if possible) etc.), depending on what seems relevant.
 
 We will then answer as soon as possible.
 
@@ -61,38 +61,6 @@ We will then answer as soon as possible.
 
 > ### Legal Notice
 > When contributing to this project, you must agree that you have authored 100% of the content, that you have the necessary rights to the content and that the content you contribute may be provided under the project license.
-
-### Reporting Bugs
-
-#### Before Submitting a Bug Report
-
-A good bug report shouldn't leave others needing to chase you up for more information. Therefore, we ask you to investigate carefully, collect information and describe the issue in detail in your report. Please complete the following steps in advance to help us fix any potential bug as fast as possible.
-
-- Make sure that you are using the latest version.
-- Determine if your bug is really a bug and not an error on your side e.g. using incompatible environment components/versions (Make sure that you have read the [documentation](README.md). If you are looking for support, you might want to check [this section](#i-have-a-question)).
-- To see if other users have experienced (and potentially already solved) the same issue you are having, check if there is not already a bug report existing for your bug or error in the [bug tracker](https://github.com/pranshuparmar/witr/issues?q=label%3Abug).
-- Also make sure to search the internet (including Stack Overflow) to see if users outside of the GitHub community have discussed the issue.
-- Collect information about your stack:
-  - OS, Platform and Version
-  - Version of the Service
-  - Version of the dependencies
-  - Possibly your input and the output
-  - Can you reliably reproduce the issue? And can you also reproduce it with older versions?
-
-#### How Do I Submit a Good Bug Report?
-
-> You must never report security related issues, vulnerabilities or bugs including sensitive information to the issue tracker, or elsewhere in public. Instead sensitive bugs must be sent by email to .
-> See our [Security Policy](SECURITY.md) for more details.
-
-We use GitHub issues to track bugs and errors. If you run into an issue with the project:
-
-- Open an [Issue](https://github.com/pranshuparmar/witr/issues/new). (Since we can't be sure at this point whether it is a bug or not, we ask you not to talk about a bug yet and not to label the issue.)
-- Explain the behavior you would expect and the actual behavior.
-- Please provide as much context as possible and describe the *reproduction steps* that someone else can follow to recreate the issue on their own. This usually includes your code. For good bug reports you should isolate the problem and create a reduced test case.
-- Provide the information you collected in the previous section to help us identify the cause.
-- Did you receive an error message? Please provide the full error message and the stack trace.
-- If the issue is related to a GUI, add screenshots or screen recordings that help explain the issue.
-- If you find a bug and can provide a fix, for example as a Pull Request, that's very welcome.
 
 ### Suggesting Enhancements
 
@@ -138,7 +106,7 @@ Enhancement suggestions are tracked as [GitHub issues](https://github.com/pransh
 3. **Open a PR**: Open a PR against the `staging` branch, not `main`.
 4. **Use the Template**: Fill out the PR template completely.
 5. **Review**: Wait for a maintainer to review your PR. Address any feedback promptly.
-6. **Merge**: Once approved, a maintainer will merge your PR. We **strictly use Squash and Merge** to keep the `main` history clean. The PR title will become the final commit message, so ensure it follows our [Commit Messages](#commit-messages) guide.
+6. **Merge**: Once approved, a maintainer will merge your PR. We **strictly use Squash and Merge** to keep the `main` history clean.
 
 ### Improving Documentation
 
@@ -163,10 +131,6 @@ Types:
 - `build`: Changes that affect the build system or external dependencies
 - `ci`: Changes to our CI configuration files and scripts
 - `chore`: Other changes that don't modify src or test files
-
-## Join The Project Team
-
-If you are interested in becoming a regular contributor or maintainer, please reach out to us!
 
 ## License
 
