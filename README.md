@@ -188,6 +188,7 @@ Non‑blocking observations such as:
 --no-color        Disable colorized output
 --env             Show only environment variables for the process
 --help            Show this help message
+--verbose         Show extended process information
 ```
 
 A single positional argument (without flags) is treated as a process or service name.
