@@ -229,6 +229,20 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		resolvedTarget = proc.Command
 	}
 
+	if verboseFlag && len(ancestry) > 0 {
+		memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, err := procpkg.ReadExtendedInfo(pid)
+		if err == nil {
+			proc.Memory = memInfo
+			proc.IO = ioStats
+			proc.FileDescs = fileDescs
+			proc.FDCount = fdCount
+			proc.FDLimit = fdLimit
+			proc.Children = children
+			proc.ThreadCount = threadCount
+			ancestry[len(ancestry)-1] = proc
+		}
+	}
+
 	// Calculate restart count (consecutive same-command entries)
 	restartCount := 0
 	lastCmd := ""
