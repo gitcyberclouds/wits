@@ -66,5 +66,10 @@
       );
 
       formatter = lib.genAttrs [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ] (system: nixpkgs.legacyPackages.${system}.nixpkgs-fmt);
+
+      apps = lib.genAttrs [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ] (system: {
+        type = "app";
+        program = self.packages.${system}.default + "/bin/witr";
+      });
     };
 }
