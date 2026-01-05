@@ -4,6 +4,7 @@ package proc
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -48,7 +49,13 @@ func getFileLimit(pid int) int {
 
 		// Data in format: "Max open files $SOFT_LOCK_NUMBER $HARD_LOCK_NUMBER files"
 		fields := strings.Fields(line)
-		softLimit, err := strconv.Atoi(fields[3])
+		softLimitString := fields[3]
+
+		if softLimitString == "unlimited" {
+			return math.MaxInt
+		}
+
+		softLimit, err := strconv.Atoi(softLimitString)
 		if err != nil {
 			return linuxDefaultMaxOpenFile
 		}
