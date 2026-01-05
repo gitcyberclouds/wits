@@ -23,6 +23,7 @@
   - [8.7 Verify Installation](#87-verify-installation)
   - [8.8 Uninstallation](#88-uninstallation)
   - [8.9 Nix Flake](#89-nix-flake)
+  - [8.10 Conda-forge](#810-conda-forge-macos--linux)
 - [9. Platform Support](#9-platform-support)
 - [10. Success Criteria](#10-success-criteria)
 
@@ -498,6 +499,17 @@ If you use Nix, you can build **witr** from source and run without installation:
 
 ```bash
 nix run github:pranshuparmar/witr -- --help
+```
+
+### 8.10 Conda-forge (macOS & Linux)
+
+You can install **witr** from the [conda package](https://prefix.dev/channels/conda-forge/packages/witr) using [pixi](https://pixi.prefix.dev/latest/) or [conda](https://docs.conda.io/en/latest/).
+You can also use it without installation by using `pixi exec`.
+
+```bash
+pixi global install witr
+# no installation
+pixi exec witr --pid <pid>
 ```
 
 ---
