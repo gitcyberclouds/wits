@@ -368,12 +368,6 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 
 	// Extended information for verbose mode
 	if verbose {
-		if colorEnabled {
-			fmt.Printf("\n%sExtended Information%s:\n", colorMagenta, colorReset)
-		} else {
-			fmt.Println("\nExtended Information:")
-		}
-
 		// Memory information
 		if proc.Memory.VMS > 0 {
 			if colorEnabled {
