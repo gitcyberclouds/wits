@@ -70,7 +70,6 @@ func getDefaultMaxOpenFiles() int {
 		return reasonableDefault
 	}
 
-	fmt.Println(rlimit)
 	return int(rlimit.Max)
 }
 
