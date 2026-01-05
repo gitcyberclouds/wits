@@ -14,16 +14,16 @@
 - [6. Flags & Options](#6-flags--options)
 - [7. Example Outputs](#7-example-outputs)
 - [8. Installation](#8-installation)
-  - [8.1 Homebrew (macOS & Linux)](#81-homebrew-macos--linux)
-  - [8.2 Arch Linux (AUR)](#82-arch-linux-aur)
-  - [8.3 Script Installation (Recommended)](#83-script-installation-recommended)
-  - [8.4 Prebuilt Packages (deb, rpm, apk)](#84-prebuilt-packages-deb-rpm-apk)
-  - [8.5 Go Install (cross-platform)](#85-go-install-cross-platform)
-  - [8.6 Manual Installation](#86-manual-installation)
-  - [8.7 Verify Installation](#87-verify-installation)
-  - [8.8 Uninstallation](#88-uninstallation)
-  - [8.9 Nix Flake](#89-nix-flake)
-  - [8.10 Conda-forge](#810-conda-forge-macos--linux)
+  - [8.1 Script Installation (Recommended)](#81-script-installation-recommended)
+  - [8.2 Homebrew (macOS & Linux)](#82-homebrew-macos--linux)
+  - [8.3 Conda (macOS & Linux)](#83-conda-macos--linux)
+  - [8.4 Arch Linux (AUR)](#84-arch-linux-aur)
+  - [8.5 Prebuilt Packages (deb, rpm, apk)](#85-prebuilt-packages-deb-rpm-apk)
+  - [8.6 Go (cross-platform)](#86-go-cross-platform)
+  - [8.7 Manual Installation](#87-manual-installation)
+  - [8.8 Verify Installation](#88-verify-installation)
+  - [8.9 Uninstallation](#89-uninstallation)
+  - [8.10 Run Without Installation](#810-run-without-installation)
 - [9. Platform Support](#9-platform-support)
 - [10. Success Criteria](#10-success-criteria)
 
@@ -297,29 +297,7 @@ witr is distributed as a single static binary for Linux and macOS.
 
 ---
 
-
-### 8.1 Homebrew (macOS & Linux)
-
-You can install **witr** using [Homebrew](https://brew.sh/) on macOS or Linux:
-
-```bash
-brew install witr
-```
-
-See the [Homebrew Formula page](https://formulae.brew.sh/formula/witr#default) for more details.
-
-### 8.2 Arch Linux (AUR)
-
-On Arch Linux and derivatives, install from the [AUR package](https://aur.archlinux.org/packages/witr-bin):
-
-```bash
-yay -S witr-bin
-# or use your preferred AUR helper
-```
-
----
-
-### 8.3 Script Installation (Recommended)
+### 8.1 Script Installation (Recommended)
 
 The easiest way to install **witr** is via the install script.
 
@@ -349,11 +327,40 @@ The script will:
 
 You may be prompted for your password to write to system directories.
 
----
+### 8.2 Homebrew (macOS & Linux)
 
-### 8.4 Prebuilt Packages (deb, rpm, apk)
+You can install **witr** using [Homebrew](https://brew.sh/) on macOS or Linux:
 
-**witr** provides native packages for major Linux distributions. You can download the latest `.deb`, `.rpm`, or `.apk` package from the [GitHub Releases page](https://github.com/pranshuparmar/witr/releases/latest).
+```bash
+brew install witr
+```
+
+See the [Homebrew Formula page](https://formulae.brew.sh/formula/witr#default) for more details.
+
+### 8.3 Conda (macOS & Linux)
+
+You can install **witr** using [conda](https://docs.conda.io/en/latest/) or using [pixi](https://pixi.prefix.dev/latest/) on macOS or Linux:
+
+```bash
+conda install conda-forge::witr
+# alternatively using pixi
+pixi global install witr
+```
+
+### 8.4 Arch Linux (AUR)
+
+On Arch Linux and derivatives, install from the [AUR package](https://aur.archlinux.org/packages/witr-bin):
+
+```bash
+yay -S witr-bin
+# alternatively using paru
+paru -S witr-bin
+# or use your preferred AUR helper
+```
+
+### 8.5 Prebuilt Packages (deb, rpm, apk)
+
+**witr** provides native packages for major Linux distributions. You can download the latest `.deb`, `.rpm`, or `.apk` package from the [GitHub releases page](https://github.com/pranshuparmar/witr/releases/latest).
 
 - Generic download command using `curl`:
   ```bash
@@ -376,9 +383,7 @@ You may be prompted for your password to write to system directories.
   sudo apk add --allow-untrusted ./witr-<version>.apk
   ```
 
----
-
-### 8.5 Go Install (cross-platform)
+### 8.6 Go (cross-platform)
 
 You can install the latest version directly from source:
 
@@ -388,9 +393,7 @@ go install github.com/pranshuparmar/witr/cmd/witr@latest
 
 This will place the `witr` binary in your `$GOPATH/bin` or `$HOME/go/bin` directory. Make sure this directory is in your `PATH`.
 
----
-
-### 8.6 Manual Installation
+### 8.7 Manual Installation
 
 If you prefer manual installation, follow these simple steps for your platform:
 
@@ -477,14 +480,14 @@ sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/w
 - Rename to witr, make it executable, and move to your PATH.
 - Install man page.
 
-### 8.7 Verify Installation:
+### 8.8 Verify Installation:
 
 ```bash
 witr --version
 man witr
 ```
 
-### 8.8 Uninstallation
+### 8.9 Uninstallation
 
 To completely remove **witr**:
 
@@ -493,7 +496,9 @@ sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
 ```
 
-### 8.9 Nix Flake
+### 8.10 Run Without Installation
+
+#### Nix Flake
 
 If you use Nix, you can build **witr** from source and run without installation:
 
@@ -501,15 +506,12 @@ If you use Nix, you can build **witr** from source and run without installation:
 nix run github:pranshuparmar/witr -- --help
 ```
 
-### 8.10 Conda-forge (macOS & Linux)
+#### Pixi
 
-You can install **witr** from the [conda package](https://prefix.dev/channels/conda-forge/packages/witr) using [pixi](https://pixi.prefix.dev/latest/) or [conda](https://docs.conda.io/en/latest/).
-You can also use it without installation by using `pixi exec`.
+If you use [pixi](https://pixi.prefix.dev/latest/), you can run without installation on macOS or Linux:
 
 ```bash
-pixi global install witr
-# no installation
-pixi exec witr --pid <pid>
+pixi exec witr --help
 ```
 
 ---
