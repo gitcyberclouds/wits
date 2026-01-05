@@ -13,9 +13,8 @@ func detectShell(ancestry []model.Process) *model.Source {
 	for _, p := range ancestry {
 		if shells[p.Command] {
 			return &model.Source{
-				Type:       model.SourceShell,
-				Name:       p.Command,
-				Confidence: 0.5,
+				Type: model.SourceShell,
+				Name: p.Command,
 			}
 		}
 	}
