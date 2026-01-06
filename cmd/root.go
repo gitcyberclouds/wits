@@ -243,6 +243,13 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	var verboseChildren []model.Process
+	if verboseFlag && proc.PID > 0 {
+		if children, err := procpkg.ResolveChildren(proc.PID); err == nil {
+			verboseChildren = children
+		}
+	}
+
 	// Calculate restart count (consecutive same-command entries)
 	restartCount := 0
 	lastCmd := ""
@@ -261,6 +268,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		Ancestry:       ancestry,
 		Source:         src,
 		Warnings:       source.Warnings(ancestry),
+	}
+	if verboseFlag && len(verboseChildren) > 0 {
+		res.ChildProcesses = verboseChildren
 	}
 
 	// Add socket state info for port queries
