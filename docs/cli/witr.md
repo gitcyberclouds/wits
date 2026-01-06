@@ -26,11 +26,8 @@ witr [process name] [flags]
   # Show the full process ancestry (who started whom)
   witr postgres --tree
 
-  # List direct child processes of a target
-  witr nginx --children
-
-  # Show full descendant tree (children, grandchildren, ...)
-  witr nginx --descendants
+  # Show extended stats and child processes
+  witr nginx --verbose
 
   # Show only warnings (suspicious env, arguments, parents)
   witr docker --warnings
@@ -55,8 +52,6 @@ witr [process name] [flags]
 ### Options
 
 ```
-      --children      show direct child processes
-      --descendants   show descendant process tree
       --env           show environment variables for the process
   -h, --help          help for witr
       --json          show result as JSON
@@ -65,5 +60,6 @@ witr [process name] [flags]
       --port string   port to look up
       --short         show only ancestry
       --tree          show only ancestry as a tree
+      --verbose       show extended process information
       --warnings      show only warnings
 ```
