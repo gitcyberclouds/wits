@@ -57,7 +57,7 @@ func RenderWarnings(warnings []string, colorEnabled bool) {
 	}
 }
 
-func RenderStandard(r model.Result, colorEnabled bool, verbose bool, verboseChildren []model.Process) {
+func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 	// Target
 	target := "unknown"
 	if len(r.Ancestry) > 0 {
@@ -448,21 +448,17 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool, verboseChil
 		}
 
 		// Children and threads
-		if proc.ThreadCount > 1 {
+		if proc.ThreadCount > 1 || len(r.ChildProcesses) > 0 {
 			if colorEnabled {
 				fmt.Printf("\n%sProcess Details%s:\n", colorGreen, colorReset)
-				if proc.ThreadCount > 1 {
-					fmt.Printf("  Threads: %d\n", proc.ThreadCount)
-				}
 			} else {
 				fmt.Printf("\nProcess Details:\n")
-				if proc.ThreadCount > 1 {
-					fmt.Printf("  Threads: %d\n", proc.ThreadCount)
-				}
 			}
+			if proc.ThreadCount > 1 {
+				fmt.Printf("  Threads: %d\n", proc.ThreadCount)
+			}
+			fmt.Println("")
+			PrintChildren(r.Process, r.ChildProcesses, colorEnabled)
 		}
-
-		fmt.Println("")
-		PrintChildren(r.Process, verboseChildren, colorEnabled)
 	}
 }

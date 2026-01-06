@@ -269,6 +269,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		Source:         src,
 		Warnings:       source.Warnings(ancestry),
 	}
+	if verboseFlag && len(verboseChildren) > 0 {
+		res.ChildProcesses = verboseChildren
+	}
 
 	// Add socket state info for port queries
 	if t.Type == model.TargetPort {
@@ -295,7 +298,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	} else if shortFlag {
 		output.RenderShort(res, !noColorFlag)
 	} else {
-		output.RenderStandard(res, !noColorFlag, verboseFlag, verboseChildren)
+		output.RenderStandard(res, !noColorFlag, verboseFlag)
 	}
 	return nil
 }
