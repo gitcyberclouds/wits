@@ -2,9 +2,9 @@
 
 ## Supported Versions
 
-We currently support the following versions of **witr** with security updates:              |
+We currently support the following versions of **witr** with security updates:
 
-| Feature | Supported |
+| OS | Supported |
 | ------- | --------- |
 | macOS   | :white_check_mark: |
 | Linux   | :white_check_mark: |
@@ -16,9 +16,11 @@ See our [Feature Compatibility Matrix](README.md#91-feature-compatibility-matrix
 
 We take the security of **witr** seriously. If you believe you have found a security vulnerability, please report it to us responsibly.
 
-### What to include in your report
+**How to report:**
 
-To help us understand and resolve the issue quickly, please include as much information as possible:
+Use the "Report a vulnerability" button in the repository’s [Security](https://github.com/pranshuparmar/witr/security) tab on GitHub to submit your report privately. Only maintainers and the reporter will see the submission.
+
+**What to include in your report:**
 
 - A description of the vulnerability.
 - Steps to reproduce the issue (including any sample code or configuration).

@@ -23,13 +23,6 @@ body:
       placeholder: |
         1. Run '...'
         2. See error
-    validations:
-      required: true
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots
-      description: If applicable, add screenshots to help explain your problem.
   - type: input
     id: os
     attributes:
@@ -42,10 +35,8 @@ body:
     id: version
     attributes:
       label: Version
-      description: e.g. 0.1.0
-      placeholder: 0.1.0
-    validations:
-      required: true
+      description: e.g. v0.1.0
+      placeholder: v0.1.0
   - type: input
     id: arch
     attributes:
