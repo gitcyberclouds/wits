@@ -450,7 +450,7 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 		// Children and threads
 		if proc.ThreadCount > 1 || len(r.ChildProcesses) > 0 {
 			if proc.ThreadCount > 1 {
-				fmt.Printf("  Threads: %d\n", proc.ThreadCount)
+				fmt.Printf("Threads: %d\n", proc.ThreadCount)
 			}
 			fmt.Println("")
 			PrintChildren(r.Process, r.ChildProcesses, colorEnabled)
