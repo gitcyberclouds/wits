@@ -26,9 +26,6 @@ witr [process name] [flags]
   # Show the full process ancestry (who started whom)
   witr postgres --tree
 
-  # Show extended stats and child processes
-  witr nginx --verbose
-
   # Show only warnings (suspicious env, arguments, parents)
   witr docker --warnings
 
@@ -66,3 +63,4 @@ witr [process name] [flags]
       --verbose       show extended process information
       --warnings      show only warnings
 ```
+
