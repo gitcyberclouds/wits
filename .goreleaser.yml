@@ -50,9 +50,10 @@ nfpms:
         file_info:
           mode: 0644
 
+changelog:
+  sort: asc
+  use: github-native
+
 release:
-  github:
-    owner: pranshuparmar
-    name: witr
   extra_files:
     - glob: docs/cli/witr.1
