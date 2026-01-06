@@ -4,7 +4,6 @@ package proc
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -52,7 +51,7 @@ func getFileLimit(pid int) int {
 		softLimitString := fields[3]
 
 		if softLimitString == "unlimited" {
-			return math.MaxInt
+			return 0
 		}
 
 		softLimit, err := strconv.Atoi(softLimitString)
