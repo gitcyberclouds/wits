@@ -46,25 +46,22 @@ func detectSupervisor(ancestry []model.Process) *model.Source {
 		pcmd := strings.ReplaceAll(strings.ToLower(p.Cmdline), " ", "")
 		if strings.Contains(pname, "pm2") || strings.Contains(pcmd, "pm2") {
 			return &model.Source{
-				Type:       model.SourceSupervisor,
-				Name:       "pm2",
-				Confidence: 0.9,
+				Type: model.SourceSupervisor,
+				Name: "pm2",
 			}
 		}
 		if label, ok := knownSupervisors[strings.ToLower(p.Command)]; ok {
 			return &model.Source{
-				Type:       model.SourceSupervisor,
-				Name:       label,
-				Confidence: 0.7,
+				Type: model.SourceSupervisor,
+				Name: label,
 			}
 		}
 		// Also match on command line for supervisor keywords
 		for sup, label := range knownSupervisors {
 			if strings.Contains(strings.ToLower(p.Cmdline), sup) {
 				return &model.Source{
-					Type:       model.SourceSupervisor,
-					Name:       label,
-					Confidence: 0.7,
+					Type: model.SourceSupervisor,
+					Name: label,
 				}
 			}
 		}
