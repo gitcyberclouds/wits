@@ -10,6 +10,7 @@ var (
 	colorResetShort   = "\033[0m"
 	colorMagentaShort = "\033[35m"
 	colorBoldShort    = "\033[2m"
+	colorGreenShort   = "\033[32m"
 )
 
 func RenderShort(r model.Result, colorEnabled bool) {
@@ -21,8 +22,14 @@ func RenderShort(r model.Result, colorEnabled bool) {
 				fmt.Print(" → ")
 			}
 		}
+
 		if colorEnabled {
-			fmt.Printf("%s (%spid %d%s)", p.Command, colorBoldShort, p.PID, colorResetShort)
+			nameColor := ""
+			if i == len(r.Ancestry)-1 {
+				nameColor = colorGreenShort
+			}
+
+			fmt.Printf("%s%s%s (%spid %d%s)", nameColor, p.Command, colorResetShort, colorBoldShort, p.PID, colorResetShort)
 		} else {
 			fmt.Printf("%s (pid %d)", p.Command, p.PID)
 		}

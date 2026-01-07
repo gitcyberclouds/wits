@@ -23,8 +23,17 @@ func PrintChildren(root model.Process, children []model.Process, colorEnabled bo
 		return
 	}
 
+	limit := 10
+	count := len(children)
 	for i, child := range children {
-		isLast := i == len(children)-1
+		if i >= limit {
+			remaining := count - limit
+			prefix := treeConnector(true, colorEnabled)
+			fmt.Printf("  %s... and %d more\n", prefix, remaining)
+			break
+		}
+
+		isLast := (i == count-1) || (i == limit-1 && count <= limit)
 		prefix := treeConnector(isLast, colorEnabled)
 		fmt.Printf("  %s%s\n", prefix, formatProcessLine(child, colorEnabled))
 	}
