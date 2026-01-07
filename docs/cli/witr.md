@@ -26,6 +26,9 @@ witr [process name] [flags]
   # Show the full process ancestry (who started whom)
   witr postgres --tree
 
+  # Show extended stats and child processes
+  witr nginx --verbose
+
   # Show only warnings (suspicious env, arguments, parents)
   witr docker --warnings
 
@@ -40,6 +43,9 @@ witr [process name] [flags]
 
   # Output machine-readable JSON
   witr chrome --json
+
+  # Show extended process information (memory, I/O, file descriptors)
+  witr mysql --verbose
 
   # Combine flags: inspect port, show environment variables, output JSON
   witr --port 8080 --env --json
@@ -57,6 +63,6 @@ witr [process name] [flags]
       --port string   port to look up
       --short         show only ancestry
       --tree          show only ancestry as a tree
+      --verbose       show extended process information
       --warnings      show only warnings
 ```
-

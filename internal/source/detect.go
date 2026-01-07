@@ -58,8 +58,7 @@ func Detect(ancestry []model.Process) model.Source {
 	}
 
 	return model.Source{
-		Type:       model.SourceUnknown,
-		Confidence: 0.2,
+		Type: model.SourceUnknown,
 	}
 }
 

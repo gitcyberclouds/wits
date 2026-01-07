@@ -38,11 +38,6 @@ checksum:
   name_template: SHA256SUMS
   algorithm: sha256
 
-changelog:
-  sort: asc
-  use: github-native
-
-
 nfpms:
   - id: witr
     package_name: witr
@@ -61,7 +56,11 @@ nfpms:
         file_info:
           mode: 0644
 
+changelog:
+  sort: asc
+  use: github-native
 
 release:
   extra_files:
     - glob: docs/cli/witr.1
+

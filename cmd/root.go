@@ -69,6 +69,9 @@ func _genExamples() string {
   # Output machine-readable JSON
   witr chrome --json
 
+  # Show extended process information (memory, I/O, file descriptors)
+  witr mysql --verbose
+
   # Combine flags: inspect port, show environment variables, output JSON
   witr --port 8080 --env --json
 `
@@ -107,6 +110,7 @@ func init() {
 	rootCmd.Flags().Bool("warnings", false, "show only warnings")
 	rootCmd.Flags().Bool("no-color", false, "disable colorized output")
 	rootCmd.Flags().Bool("env", false, "show environment variables for the process")
+	rootCmd.Flags().Bool("verbose", false, "show extended process information")
 
 }
 
@@ -124,6 +128,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	jsonFlag, _ := cmd.Flags().GetBool("json")
 	warnFlag, _ := cmd.Flags().GetBool("warnings")
 	noColorFlag, _ := cmd.Flags().GetBool("no-color")
+	verboseFlag, _ := cmd.Flags().GetBool("verbose")
 
 	if envFlag {
 		var t model.Target
@@ -227,6 +232,27 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		resolvedTarget = proc.Command
 	}
 
+	if verboseFlag && len(ancestry) > 0 {
+		memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, err := procpkg.ReadExtendedInfo(pid)
+		if err == nil {
+			proc.Memory = memInfo
+			proc.IO = ioStats
+			proc.FileDescs = fileDescs
+			proc.FDCount = fdCount
+			proc.FDLimit = fdLimit
+			proc.Children = children
+			proc.ThreadCount = threadCount
+			ancestry[len(ancestry)-1] = proc
+		}
+	}
+
+	var verboseChildren []model.Process
+	if verboseFlag && proc.PID > 0 {
+		if children, err := procpkg.ResolveChildren(proc.PID); err == nil {
+			verboseChildren = children
+		}
+	}
+
 	// Calculate restart count (consecutive same-command entries)
 	restartCount := 0
 	lastCmd := ""
@@ -245,6 +271,9 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		Ancestry:       ancestry,
 		Source:         src,
 		Warnings:       source.Warnings(ancestry),
+	}
+	if verboseFlag && len(verboseChildren) > 0 {
+		res.ChildProcesses = verboseChildren
 	}
 
 	// Add socket state info for port queries
@@ -272,7 +301,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	} else if shortFlag {
 		output.RenderShort(res, !noColorFlag)
 	} else {
-		output.RenderStandard(res, !noColorFlag)
+		output.RenderStandard(res, !noColorFlag, verboseFlag)
 	}
 	return nil
 }

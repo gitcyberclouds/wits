@@ -14,8 +14,7 @@ const (
 )
 
 type Source struct {
-	Type       SourceType
-	Name       string
-	Confidence float64
-	Details    map[string]string
+	Type    SourceType
+	Name    string
+	Details map[string]string
 }

@@ -2,6 +2,8 @@ package output
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
@@ -55,7 +57,7 @@ func RenderWarnings(warnings []string, colorEnabled bool) {
 	}
 }
 
-func RenderStandard(r model.Result, colorEnabled bool) {
+func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 	// Target
 	target := "unknown"
 	if len(r.Ancestry) > 0 {
@@ -263,17 +265,18 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 			addr := proc.BindAddresses[i]
 			port := proc.ListeningPorts[i]
 			if addr != "" && port > 0 {
+				hostPort := net.JoinHostPort(addr, strconv.Itoa(port))
 				if colorEnabled {
 					if i == 0 {
-						fmt.Printf("%sListening%s   : %s:%d\n", colorGreen, colorReset, addr, port)
+						fmt.Printf("%sListening%s   : %s\n", colorGreen, colorReset, hostPort)
 					} else {
-						fmt.Printf("              %s:%d\n", addr, port)
+						fmt.Printf("              %s\n", hostPort)
 					}
 				} else {
 					if i == 0 {
-						fmt.Printf("Listening   : %s:%d\n", addr, port)
+						fmt.Printf("Listening   : %s\n", hostPort)
 					} else {
-						fmt.Printf("              %s:%d\n", addr, port)
+						fmt.Printf("              %s\n", hostPort)
 					}
 				}
 			}
@@ -378,6 +381,97 @@ func RenderStandard(r model.Result, colorEnabled bool) {
 			for _, w := range r.Warnings {
 				fmt.Printf("  • %s\n", w)
 			}
+		}
+	}
+
+	// Extended information for verbose mode
+	if verbose {
+		// Memory information
+		if proc.Memory.VMS > 0 {
+			if colorEnabled {
+				fmt.Printf("\n%sMemory%s:\n", colorGreen, colorReset)
+				fmt.Printf("  Virtual: %.1f MB\n", proc.Memory.VMSMB)
+				fmt.Printf("  Resident: %.1f MB\n", proc.Memory.RSSMB)
+				if proc.Memory.Shared > 0 {
+					fmt.Printf("  Shared: %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
+				}
+			} else {
+				fmt.Printf("\nMemory:\n")
+				fmt.Printf("  Virtual: %.1f MB\n", proc.Memory.VMSMB)
+				fmt.Printf("  Resident: %.1f MB\n", proc.Memory.RSSMB)
+				if proc.Memory.Shared > 0 {
+					fmt.Printf("  Shared: %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
+				}
+			}
+		}
+
+		// I/O statistics
+		if proc.IO.ReadBytes > 0 || proc.IO.WriteBytes > 0 {
+			if colorEnabled {
+				fmt.Printf("\n%sI/O Statistics%s:\n", colorGreen, colorReset)
+				if proc.IO.ReadBytes > 0 {
+					fmt.Printf("  Read: %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
+				}
+				if proc.IO.WriteBytes > 0 {
+					fmt.Printf("  Write: %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
+				}
+			} else {
+				fmt.Printf("\nI/O Statistics:\n")
+				if proc.IO.ReadBytes > 0 {
+					fmt.Printf("  Read: %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
+				}
+				if proc.IO.WriteBytes > 0 {
+					fmt.Printf("  Write: %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
+				}
+			}
+		}
+
+		// File descriptors
+		if proc.FDCount > 0 {
+			if colorEnabled {
+				if proc.FDLimit == 0 {
+					fmt.Printf("\n%sFile Descriptors%s: %d/unlimited\n", colorGreen, colorReset, proc.FDCount)
+				} else {
+					fmt.Printf("\n%sFile Descriptors%s: %d/%d\n", colorGreen, colorReset, proc.FDCount, proc.FDLimit)
+				}
+				if len(proc.FileDescs) > 0 && len(proc.FileDescs) <= 10 {
+					for _, fd := range proc.FileDescs {
+						fmt.Printf("  %s\n", fd)
+					}
+				} else if len(proc.FileDescs) > 10 {
+					fmt.Printf("  Showing first 10 of %d descriptors:\n", len(proc.FileDescs))
+					for i := 0; i < 10; i++ {
+						fmt.Printf("  %s\n", proc.FileDescs[i])
+					}
+					fmt.Printf("  ... and %d more\n", len(proc.FileDescs)-10)
+				}
+			} else {
+				if proc.FDLimit == 0 {
+					fmt.Printf("\nFile Descriptors: %d/unlimited\n", proc.FDCount)
+				} else {
+					fmt.Printf("\nFile Descriptors: %d/%d\n", proc.FDCount, proc.FDLimit)
+				}
+				if len(proc.FileDescs) > 0 && len(proc.FileDescs) <= 10 {
+					for _, fd := range proc.FileDescs {
+						fmt.Printf("  %s\n", fd)
+					}
+				} else if len(proc.FileDescs) > 10 {
+					fmt.Printf("  Showing first 10 of %d descriptors:\n", len(proc.FileDescs))
+					for i := 0; i < 10; i++ {
+						fmt.Printf("  %s\n", proc.FileDescs[i])
+					}
+					fmt.Printf("  ... and %d more\n", len(proc.FileDescs)-10)
+				}
+			}
+		}
+
+		// Children and threads
+		if proc.ThreadCount > 1 || len(r.ChildProcesses) > 0 {
+			if proc.ThreadCount > 1 {
+				fmt.Printf("Threads: %d\n", proc.ThreadCount)
+			}
+			fmt.Println("")
+			PrintChildren(r.Process, r.ChildProcesses, colorEnabled)
 		}
 	}
 }
