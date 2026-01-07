@@ -1,12 +1,9 @@
 # witr (why-is-this-running)
 
-
 [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr)](https://goreportcard.com/report/github.com/pranshuparmar/witr)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr)](https://github.com/pranshuparmar/witr/blob/main/go.mod)
 [![Build Status](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml/badge.svg)](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml)
 [![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr)](https://github.com/pranshuparmar/witr/releases/latest)
-
-
 
 <img width="631" height="445" alt="witr" src="https://github.com/user-attachments/assets/e51cace3-0070-4200-9d1f-c4c9fbc81b8d" />
 
@@ -18,18 +15,9 @@
 - [2. Goals](#2-goals)
 - [3. Core Concept](#3-core-concept)
 - [4. Supported Targets](#4-supported-targets)
-  - [4.1 Name (process or service)](#41-name-process-or-service)
-  - [4.2 PID](#42-pid)
-  - [4.3 Port](#43-port)
 - [5. Output Behavior](#5-output-behavior)
-  - [5.1 Output Principles](#51-output-principles)
-  - [5.2 Standard Output Sections](#52-standard-output-sections)
 - [6. Flags & Options](#6-flags--options)
 - [7. Example Outputs](#7-example-outputs)
-  - [7.1 Name Based Query](#71-name-based-query)
-  - [7.2 Short Output](#72-short-output)
-  - [7.3 Tree Output](#73-tree-output)
-  - [7.4 Multiple Matches](#74-multiple-matches)
 - [8. Installation](#8-installation)
   - [8.1 Script Installation (Recommended)](#81-script-installation-recommended)
   - [8.2 Homebrew (macOS & Linux)](#82-homebrew-macos--linux)
@@ -42,10 +30,7 @@
   - [8.9 Uninstallation](#89-uninstallation)
   - [8.10 Run Without Installation](#810-run-without-installation)
 - [9. Platform Support](#9-platform-support)
-  - [9.1 Feature Compatibility Matrix](#91-feature-compatibility-matrix)
-  - [9.2 Permissions Note](#92-permissions-note)
 - [10. Success Criteria](#10-success-criteria)
-- [11. AI Assistance Disclaimer](#11-ai-assistance-disclaimer)
 
 ---
 
@@ -181,7 +166,7 @@ Only **one primary source** is selected.
 
 - Working directory
 - Git repository name and branch
-- Docker container name / image
+- Container name / image (docker, podman, kubernetes, colima, containerd)
 - Public vs private bind
 
 #### Warnings
@@ -202,7 +187,7 @@ Non‑blocking observations such as:
 --pid <n>         Explain a specific PID
 --port <n>        Explain port usage
 --short           One-line summary
---tree            Show full process ancestry tree
+--tree            Show ancestry tree with child processes
 --json            Output result as JSON
 --warnings        Show only warnings
 --no-color        Disable colorized output
@@ -259,14 +244,23 @@ systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
 ### 7.3 Tree Output
 
 ```bash
-witr --pid 1482060 --tree
+witr --pid 143895 --tree
 ```
 
 ```
 systemd (pid 1)
-  └─ PM2 v5.3.1: God (pid 1481580)
-    └─ python (pid 1482060)
+  └─ init-systemd(Ub (pid 2)
+    └─ SessionLeader (pid 143858)
+      └─ Relay(143860) (pid 143859)
+        └─ bash (pid 143860)
+          └─ sh (pid 143886)
+            └─ node (pid 143895)
+              ├─ node (pid 143930)
+              ├─ node (pid 144189)
+              └─ node (pid 144234)
 ```
+
+_Note: Tree view now includes child processes (up to 10) and highlights the target process._
 
 ---
 
@@ -314,7 +308,7 @@ Please re-run with an explicit PID:
 
 ## 8. Installation
 
-witr is distributed as a single static binary for Linux and macOS.
+witr is distributed as a single static binary for Linux, macOS, FreeBSD and Windows.
 
 ---
 
@@ -322,13 +316,15 @@ witr is distributed as a single static binary for Linux and macOS.
 
 The easiest way to install **witr** is via the install script.
 
-#### Quick install
+#### Unix (Linux, macOS, FreeBSD)
+
+**Quick install:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash
 ```
 
-#### Review before install
+**Review before install:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh -o install.sh
@@ -339,13 +335,27 @@ chmod +x install.sh
 
 The script will:
 
-- Detect your operating system (`linux` or `darwin`/macOS)
+- Detect your operating system (`linux`, `darwin` or `freebsd`)
 - Detect your CPU architecture (`amd64` or `arm64`)
 - Download the latest released binary and man page
 - Install it to `/usr/local/bin/witr`
 - Install the man page to `/usr/local/share/man/man1/witr.1`
+- Pass INSTALL_PREFIX to override default install path
 
 You may be prompted for your password to write to system directories.
+
+#### Windows (PowerShell)
+
+**Quick install:**
+
+```powershell
+irm https://raw.githubusercontent.com/pranshuparmar/witr/main/install.ps1 | iex
+```
+
+This will:
+- Download the latest release (zip) and verify checksum.
+- Extract `witr.exe` to `%LocalAppData%\witr\bin`.
+- Add the bin directory to your User `PATH`.
 
 ### 8.2 Homebrew (macOS & Linux)
 
@@ -417,88 +427,61 @@ This will place the `witr` binary in your `$GOPATH/bin` or `$HOME/go/bin` direct
 
 If you prefer manual installation, follow these simple steps for your platform:
 
-#### Linux amd64 (most PCs/servers):
+#### Unix (Linux, macOS, FreeBSD)
 
 ```bash
-# Download the binary
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-amd64 -o witr-linux-amd64
+# 1. Determine OS and Architecture
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+[ "$ARCH" = "x86_64" ] && ARCH="amd64"
+[ "$ARCH" = "aarch64" ] && ARCH="arm64"
 
-# Verify checksum (Optional, should print OK)
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
-grep witr-linux-amd64 SHA256SUMS | sha256sum -c -
+# 2. Download the binary
+curl -fsSL "https://github.com/pranshuparmar/witr/releases/latest/download/witr-${OS}-${ARCH}" -o witr
 
-# Rename and install
-mv witr-linux-amd64 witr && chmod +x witr
+# 3. Rename and install
+chmod +x witr
 sudo mv witr /usr/local/bin/witr
 
-# Install the man page (Optional)
-sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
-sudo mandb >/dev/null 2>&1 || true
-```
-
-#### Linux arm64 (Raspberry Pi, ARM servers):
-
-```bash
-# Download the binary
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-linux-arm64 -o witr-linux-arm64
-
-# Verify checksum (Optional, should print OK)
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
-grep witr-linux-arm64 SHA256SUMS | sha256sum -c -
-
-# Rename and install
-mv witr-linux-arm64 witr && chmod +x witr
-sudo mv witr /usr/local/bin/witr
-
-# Install the man page (Optional)
-sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
-sudo mandb >/dev/null 2>&1 || true
-```
-
-#### macOS arm64 (Apple Silicon - M1/M2/M3):
-
-```bash
-# Download the binary
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-darwin-arm64 -o witr-darwin-arm64
-
-# Verify checksum (Optional, should print OK)
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
-grep witr-darwin-arm64 SHA256SUMS | shasum -a 256 -c -
-
-# Rename and install
-mv witr-darwin-arm64 witr && chmod +x witr
-sudo mv witr /usr/local/bin/witr
-
-# Install the man page (Optional)
+# 4. Install man page (Optional)
 sudo mkdir -p /usr/local/share/man/man1
 sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
 ```
 
-#### macOS amd64 (Intel Macs):
+#### Windows (PowerShell)
 
-```bash
-# Download the binary
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr-darwin-amd64 -o witr-darwin-amd64
+```powershell
+# Open PowerShell as Administrator
 
-# Verify checksum (Optional, should print OK)
-curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS -o SHA256SUMS
-grep witr-darwin-amd64 SHA256SUMS | shasum -a 256 -c -
+# 1. Determine Architecture
+if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") {
+    $ZipName = "witr-windows-amd64.zip"
+} elseif ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+    $ZipName = "witr-windows-arm64.zip"
+} else {
+    Write-Error "Unsupported architecture: $($env:PROCESSOR_ARCHITECTURE)"
+    exit 1
+}
 
-# Rename and install
-mv witr-darwin-amd64 witr && chmod +x witr
-sudo mv witr /usr/local/bin/witr
+# 2. Download the zip
+Invoke-WebRequest -Uri "https://github.com/pranshuparmar/witr/releases/latest/download/$ZipName" -OutFile "witr.zip"
 
-# Install the man page (Optional)
-sudo mkdir -p /usr/local/share/man/man1
-sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
+# 3. Extract the binary
+Expand-Archive -Path "witr.zip" -DestinationPath "." -Force
+
+# 4. Verify checksum (Optional)
+Invoke-WebRequest -Uri "https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS" -OutFile "SHA256SUMS"
+$hash = Get-FileHash -Algorithm SHA256 .\witr.zip
+$expected = Select-String -Path .\SHA256SUMS -Pattern $ZipName
+if ($expected -and $hash.Hash.ToLower() -eq $expected.Line.Split(' ')[0]) { Write-Host "Checksum OK" } else { Write-Host "Checksum Mismatch" }
+
+# 5. Move to a directory in your PATH (e.g. C:\Windows\System32 or a custom bin folder)
+Move-Item .\witr.exe C:\Windows\System32\witr.exe
+
+# 6. Cleanup
+Remove-Item witr.zip
+Remove-Item SHA256SUMS
 ```
-
-**Explanation:**
-
-- Download only the binary for your platform/architecture and the SHA256SUMS file.
-- Verify the checksum for your binary only (prints OK if valid).
-- Rename to witr, make it executable, and move to your PATH.
-- Install man page.
 
 ### 8.8 Verify Installation:
 
@@ -511,9 +494,17 @@ man witr
 
 To completely remove **witr**:
 
+#### Unix (Linux, macOS, FreeBSD)
+
 ```bash
 sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
+```
+
+#### Windows
+
+```powershell
+Remove-Item -Recurse -Force "$env:LocalAppData\witr"
 ```
 
 ### 8.10 Run Without Installation
@@ -523,7 +514,7 @@ sudo rm -f /usr/local/share/man/man1/witr.1
 If you use Nix, you can build **witr** from source and run without installation:
 
 ```bash
-nix run github:pranshuparmar/witr -- --port 5000
+nix run github:pranshuparmar/witr -- --help
 ```
 
 #### Pixi
@@ -538,38 +529,40 @@ pixi exec witr --help
 
 ## 9. Platform Support
 
-- **Linux** (x86_64, arm64) - Uses `/proc` filesystem for process information
-- **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, and `sysctl` for process information
+- **Linux** (x86_64, arm64) - Full feature support (`/proc`).
+- **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, `sysctl`, `pgrep`.
+- **Windows** (x86_64) - Uses `wmic`, `tasklist`, `netstat`.
+- **FreeBSD** (x86_64) - Uses `procstat`, `ps`, `lsof`.
 
 ---
 
 ### 9.1 Feature Compatibility Matrix
 
-| Feature | Linux | macOS | Notes |
-|---------|:-----:|:-----:|-------|
+| Feature | Linux | macOS | Windows | FreeBSD | Notes |
+|---------|:-----:|:-----:|:-------:|:-------:|-------|
 | **Process Inspection** |
-| Basic process info (PID, PPID, user, command) | ✅ | ✅ | |
-| Full command line | ✅ | ✅ | |
-| Process start time | ✅ | ✅ | |
-| Working directory | ✅ | ✅ | Linux: `/proc`, macOS: `lsof` |
-| Environment variables | ✅ | ⚠️ | macOS: partial via `ps -E`, limited by SIP |
+| Basic process info (PID, PPID, user, command) | ✅ | ✅ | ✅ | ✅ | |
+| Full command line | ✅ | ✅ | ✅ | ✅ | |
+| Process start time | ✅ | ✅ | ✅ | ✅ | |
+| Working directory | ✅ | ✅ | ❌ | ✅ | Windows: hard to get without injection |
+| Environment variables | ✅ | ⚠️ | ❌ | ✅ | Windows: not supported. macOS: partial. |
 | **Network** |
-| Listening ports | ✅ | ✅ | |
-| Bind addresses | ✅ | ✅ | |
-| Port → PID resolution | ✅ | ✅ | Linux: `/proc/net/tcp`, macOS: `lsof`/`netstat` |
+| Listening ports | ✅ | ✅ | ✅ | ✅ | |
+| Bind addresses | ✅ | ✅ | ✅ | ✅ | |
+| Port → PID resolution | ✅ | ✅ | ✅ | ✅ | |
 | **Service Detection** |
-| systemd | ✅ | ❌ | Linux only |
-| launchd | ❌ | ✅ | macOS only |
-| Supervisor | ✅ | ✅ | |
-| Cron | ✅ | ✅ | |
-| Docker/containers | ✅ | ⚠️ | macOS: Docker Desktop runs in VM |
+| systemd | ✅ | ❌ | ❌ | ❌ | Linux only |
+| launchd | ❌ | ✅ | ❌ | ❌ | macOS only |
+| rc.d | ❌ | ❌ | ❌ | ✅ | FreeBSD only |
+| Supervisor | ✅ | ✅ | ✅ | ✅ | |
+| Containers | ✅ | ⚠️ | ❌ | ✅ | Windows/macOS: Docker detects VM context. FreeBSD: Jails. |
 | **Health & Diagnostics** |
-| CPU usage detection | ✅ | ✅ | |
-| Memory usage detection | ✅ | ✅ | |
-| Zombie process detection | ✅ | ✅ | |
+| CPU usage detection | ✅ | ✅ | ✅ | ✅ | |
+| Memory usage detection | ✅ | ✅ | ✅ | ✅ | |
+| Health status detection | ✅ | ✅ | ✅ | ✅ | Windows checks process Status (WMI). |
+| Open Files / Handles | ✅ | ✅ | ✅ | ✅ | Verbose mode only. |
 | **Context** |
-| Git repo/branch detection | ✅ | ✅ | |
-| Container detection | ✅ | ⚠️ | macOS: limited to Docker Desktop |
+| Git repo/branch detection | ✅ | ✅ | ❌ | ✅ | Requires working directory |
 
 **Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
 
@@ -577,11 +570,11 @@ pixi exec witr --help
 
 ### 9.2 Permissions Note
 
-#### Linux
+#### Linux/FreeBSD
 
-witr inspects `/proc` and may require elevated permissions to explain certain processes.
+witr inspects system directories which may require elevated permissions.
 
-If you are not seeing the expected information (e.g., missing process ancestry, user, working directory or environment details), try running witr with sudo for elevated permissions:
+If you are not seeing the expected information, try running witr with sudo:
 
 ```bash
 sudo witr [your arguments]
@@ -597,6 +590,15 @@ sudo witr [your arguments]
 
 Note: Due to macOS System Integrity Protection (SIP), some system process details may not be accessible even with sudo.
 
+#### Windows
+
+On Windows, witr uses `wmic`, `tasklist`, and `netstat`. To see details for processes owned by other users or system services, you must run the terminal as **Administrator**.
+
+```powershell
+# Run in Administrator PowerShell
+./witr.exe [your arguments]
+```
+
 ---
 
 ## 10. Success Criteria
@@ -607,19 +609,5 @@ witr is successful if:
 - It reduces reliance on multiple tools
 - Output is understandable under stress
 - Users trust it during incidents
-
----
-
-## 11. AI Assistance Disclaimer
-
-This project was developed with assistance from AI/LLMs (including GitHub Copilot, ChatGPT, and related tools), supervised by humans who occasionally knew what they were doing.
-
----
-
-## Contributors
-
-<a href="https://github.com/pranshuparmar/witr/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=pranshuparmar/witr" />
-</a>
 
 ---

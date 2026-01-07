@@ -72,7 +72,7 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 	// Process
 	var proc = r.Ancestry[len(r.Ancestry)-1]
 	if colorEnabled {
-		fmt.Printf("%sProcess%s     : %s (%spid %d%s)", colorBlue, colorReset, proc.Command, colorBold, proc.PID, colorReset)
+		fmt.Printf("%sProcess%s     : %s%s%s (%spid %d%s)", colorBlue, colorReset, colorGreen, proc.Command, colorReset, colorBold, proc.PID, colorReset)
 	} else {
 		fmt.Printf("Process     : %s (pid %d)", proc.Command, proc.PID)
 	}
@@ -181,7 +181,13 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 			if name == "" && p.Cmdline != "" {
 				name = p.Cmdline
 			}
-			fmt.Printf("%s (%spid %d%s)", name, colorBold, p.PID, colorReset)
+
+			nameColor := ""
+			if i == len(r.Ancestry)-1 {
+				nameColor = colorGreen
+			}
+
+			fmt.Printf("%s%s%s (%spid %d%s)", nameColor, name, colorReset, colorBold, p.PID, colorReset)
 			if i < len(r.Ancestry)-1 {
 				fmt.Printf(" %s\u2192%s ", colorMagenta, colorReset)
 			}
@@ -236,7 +242,7 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 
 	// Context group
 	if colorEnabled {
-		if proc.WorkingDir != "" {
+		if proc.WorkingDir != "" && proc.WorkingDir != "unknown" {
 			fmt.Printf("\n%sWorking Dir%s : %s\n", colorGreen, colorReset, proc.WorkingDir)
 		}
 		if proc.GitRepo != "" {
@@ -247,7 +253,7 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 			}
 		}
 	} else {
-		if proc.WorkingDir != "" {
+		if proc.WorkingDir != "" && proc.WorkingDir != "unknown" {
 			fmt.Printf("\nWorking Dir : %s\n", proc.WorkingDir)
 		}
 		if proc.GitRepo != "" {
@@ -283,74 +289,6 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 		}
 	}
 
-	// Socket state (for port queries)
-	if r.SocketInfo != nil {
-		if colorEnabled {
-			fmt.Printf("%sSocket%s      : %s\n", colorCyan, colorReset, r.SocketInfo.State)
-			if r.SocketInfo.Explanation != "" {
-				fmt.Printf("              %s\n", r.SocketInfo.Explanation)
-			}
-			if r.SocketInfo.Workaround != "" {
-				fmt.Printf("              %s%s%s\n", colorDimYellow, r.SocketInfo.Workaround, colorReset)
-			}
-		} else {
-			fmt.Printf("Socket      : %s\n", r.SocketInfo.State)
-			if r.SocketInfo.Explanation != "" {
-				fmt.Printf("              %s\n", r.SocketInfo.Explanation)
-			}
-			if r.SocketInfo.Workaround != "" {
-				fmt.Printf("              %s\n", r.SocketInfo.Workaround)
-			}
-		}
-	}
-
-	// Resource context (thermal state, sleep prevention)
-	if r.ResourceContext != nil {
-		if r.ResourceContext.PreventsSleep {
-			if colorEnabled {
-				fmt.Printf("%sEnergy%s      : %sPreventing system sleep%s\n", colorRed, colorReset, colorDimYellow, colorReset)
-			} else {
-				fmt.Printf("Energy      : Preventing system sleep\n")
-			}
-		}
-		if r.ResourceContext.ThermalState != "" {
-			if colorEnabled {
-				fmt.Printf("%sThermal%s     : %s%s%s\n", colorRed, colorReset, colorDimYellow, r.ResourceContext.ThermalState, colorReset)
-			} else {
-				fmt.Printf("Thermal     : %s\n", r.ResourceContext.ThermalState)
-			}
-		}
-	}
-
-	// File context (open files, locks)
-	if r.FileContext != nil {
-		if r.FileContext.OpenFiles > 0 && r.FileContext.FileLimit > 0 {
-			usagePercent := float64(r.FileContext.OpenFiles) / float64(r.FileContext.FileLimit) * 100
-			if colorEnabled {
-				if usagePercent > 80 {
-					fmt.Printf("%sOpen Files%s  : %s%d of %d (%.0f%%)%s\n", colorRed, colorReset, colorDimYellow, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent, colorReset)
-				} else {
-					fmt.Printf("%sOpen Files%s  : %d of %d (%.0f%%)\n", colorCyan, colorReset, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
-				}
-			} else {
-				fmt.Printf("Open Files  : %d of %d (%.0f%%)\n", r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
-			}
-		}
-		if len(r.FileContext.LockedFiles) > 0 {
-			if colorEnabled {
-				fmt.Printf("%sLocks%s       : %s\n", colorCyan, colorReset, r.FileContext.LockedFiles[0])
-				for _, f := range r.FileContext.LockedFiles[1:] {
-					fmt.Printf("              %s\n", f)
-				}
-			} else {
-				fmt.Printf("Locks       : %s\n", r.FileContext.LockedFiles[0])
-				for _, f := range r.FileContext.LockedFiles[1:] {
-					fmt.Printf("              %s\n", f)
-				}
-			}
-		}
-	}
-
 	// Warnings
 	if len(r.Warnings) > 0 {
 		if colorEnabled {
@@ -368,21 +306,60 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 
 	// Extended information for verbose mode
 	if verbose {
+		fmt.Println("")
+
+		// Resource context (thermal state, sleep prevention, CPU)
+		if r.ResourceContext != nil {
+			// Display CPU if valid
+			if r.ResourceContext.CPUUsage > 0 {
+				if colorEnabled {
+					if r.ResourceContext.CPUUsage > 70 {
+						fmt.Printf("%sCPU%s         : %s%.1f%%%s\n", colorRed, colorReset, colorDimYellow, r.ResourceContext.CPUUsage, colorReset)
+					} else {
+						fmt.Printf("%sCPU%s         : %.1f%%\n", colorGreen, colorReset, r.ResourceContext.CPUUsage)
+					}
+				} else {
+					fmt.Printf("CPU         : %.1f%%\n", r.ResourceContext.CPUUsage)
+				}
+			}
+
+			if r.ResourceContext.PreventsSleep {
+				if colorEnabled {
+					fmt.Printf("%sEnergy%s      : %sPreventing system sleep%s\n", colorRed, colorReset, colorDimYellow, colorReset)
+				} else {
+					fmt.Printf("Energy      : Preventing system sleep\n")
+				}
+			}
+			if r.ResourceContext.ThermalState != "" {
+				if colorEnabled {
+					fmt.Printf("%sThermal%s     : %s%s%s\n", colorRed, colorReset, colorDimYellow, r.ResourceContext.ThermalState, colorReset)
+				} else {
+					fmt.Printf("Thermal     : %s\n", r.ResourceContext.ThermalState)
+				}
+			}
+		}
+
 		// Memory information
 		if proc.Memory.VMS > 0 {
 			if colorEnabled {
 				fmt.Printf("\n%sMemory%s:\n", colorGreen, colorReset)
-				fmt.Printf("  Virtual: %.1f MB\n", proc.Memory.VMSMB)
-				fmt.Printf("  Resident: %.1f MB\n", proc.Memory.RSSMB)
+				fmt.Printf("  Virtual  : %.1f MB\n", proc.Memory.VMSMB)
+				fmt.Printf("  Resident : %.1f MB\n", proc.Memory.RSSMB)
+				if r.ResourceContext != nil && r.ResourceContext.MemoryUsage > 0 {
+					fmt.Printf("  Private  : %.1f MB\n", float64(r.ResourceContext.MemoryUsage)/(1024*1024))
+				}
 				if proc.Memory.Shared > 0 {
-					fmt.Printf("  Shared: %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
+					fmt.Printf("  Shared   : %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
 				}
 			} else {
 				fmt.Printf("\nMemory:\n")
-				fmt.Printf("  Virtual: %.1f MB\n", proc.Memory.VMSMB)
-				fmt.Printf("  Resident: %.1f MB\n", proc.Memory.RSSMB)
+				fmt.Printf("  Virtual  : %.1f MB\n", proc.Memory.VMSMB)
+				fmt.Printf("  Resident : %.1f MB\n", proc.Memory.RSSMB)
+				if r.ResourceContext != nil && r.ResourceContext.MemoryUsage > 0 {
+					fmt.Printf("  Private  : %.1f MB\n", float64(r.ResourceContext.MemoryUsage)/(1024*1024))
+				}
 				if proc.Memory.Shared > 0 {
-					fmt.Printf("  Shared: %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
+					fmt.Printf("  Shared   : %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
 				}
 			}
 		}
@@ -392,18 +369,47 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 			if colorEnabled {
 				fmt.Printf("\n%sI/O Statistics%s:\n", colorGreen, colorReset)
 				if proc.IO.ReadBytes > 0 {
-					fmt.Printf("  Read: %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
+					fmt.Printf("  Read  : %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
 				}
 				if proc.IO.WriteBytes > 0 {
-					fmt.Printf("  Write: %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
+					fmt.Printf("  Write : %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
 				}
 			} else {
 				fmt.Printf("\nI/O Statistics:\n")
 				if proc.IO.ReadBytes > 0 {
-					fmt.Printf("  Read: %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
+					fmt.Printf("  Read  : %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
 				}
 				if proc.IO.WriteBytes > 0 {
-					fmt.Printf("  Write: %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
+					fmt.Printf("  Write : %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
+				}
+			}
+		}
+
+		// File context (open files, locks)
+		if r.FileContext != nil {
+			if r.FileContext.OpenFiles > 0 && r.FileContext.FileLimit > 0 {
+				usagePercent := float64(r.FileContext.OpenFiles) / float64(r.FileContext.FileLimit) * 100
+				if colorEnabled {
+					if usagePercent > 80 {
+						fmt.Printf("%sOpen Files%s  : %s%d of %d (%.0f%%)%s\n", colorRed, colorReset, colorDimYellow, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent, colorReset)
+					} else {
+						fmt.Printf("%sOpen Files%s  : %d of %d (%.0f%%)\n", colorGreen, colorReset, r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
+					}
+				} else {
+					fmt.Printf("Open Files  : %d of %d (%.0f%%)\n", r.FileContext.OpenFiles, r.FileContext.FileLimit, usagePercent)
+				}
+			}
+			if len(r.FileContext.LockedFiles) > 0 {
+				if colorEnabled {
+					fmt.Printf("%sLocks%s       : %s\n", colorCyan, colorReset, r.FileContext.LockedFiles[0])
+					for _, f := range r.FileContext.LockedFiles[1:] {
+						fmt.Printf("              %s\n", f)
+					}
+				} else {
+					fmt.Printf("Locks       : %s\n", r.FileContext.LockedFiles[0])
+					for _, f := range r.FileContext.LockedFiles[1:] {
+						fmt.Printf("              %s\n", f)
+					}
 				}
 			}
 		}
@@ -447,25 +453,40 @@ func RenderStandard(r model.Result, colorEnabled bool, verbose bool) {
 			}
 		}
 
-		// Children and threads
-		if proc.ThreadCount > 1 || len(proc.Children) > 0 {
+		// Socket state (for port queries)
+		if r.SocketInfo != nil {
 			if colorEnabled {
-				fmt.Printf("\n%sProcess Details%s:\n", colorGreen, colorReset)
-				if proc.ThreadCount > 1 {
-					fmt.Printf("  Threads: %d\n", proc.ThreadCount)
+				fmt.Printf("%sSocket%s      : %s\n", colorCyan, colorReset, r.SocketInfo.State)
+				if r.SocketInfo.Explanation != "" {
+					fmt.Printf("              %s\n", r.SocketInfo.Explanation)
 				}
-				if len(proc.Children) > 0 {
-					fmt.Printf("  Children: %v\n", proc.Children)
+				if r.SocketInfo.Workaround != "" {
+					fmt.Printf("              %s%s%s\n", colorDimYellow, r.SocketInfo.Workaround, colorReset)
 				}
 			} else {
-				fmt.Printf("\nProcess Details:\n")
-				if proc.ThreadCount > 1 {
-					fmt.Printf("  Threads: %d\n", proc.ThreadCount)
+				fmt.Printf("Socket      : %s\n", r.SocketInfo.State)
+				if r.SocketInfo.Explanation != "" {
+					fmt.Printf("              %s\n", r.SocketInfo.Explanation)
 				}
-				if len(proc.Children) > 0 {
-					fmt.Printf("  Children: %v\n", proc.Children)
+				if r.SocketInfo.Workaround != "" {
+					fmt.Printf("              %s\n", r.SocketInfo.Workaround)
 				}
 			}
+		}
+
+		// Threads
+		if proc.ThreadCount > 1 {
+			if colorEnabled {
+				fmt.Printf("\n%sThreads%s: %d\n", colorGreen, colorReset, proc.ThreadCount)
+			} else {
+				fmt.Printf("\nThreads: %d\n", proc.ThreadCount)
+			}
+		}
+
+		// Child processes
+		if len(r.ChildProcesses) > 0 {
+			fmt.Println("")
+			PrintChildren(r.Process, r.ChildProcesses, colorEnabled)
 		}
 	}
 }
