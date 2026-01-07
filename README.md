@@ -1,11 +1,15 @@
-# witr (why-is-this-running)
+<div align="center">
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr)](https://goreportcard.com/report/github.com/pranshuparmar/witr)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr)](https://github.com/pranshuparmar/witr/blob/main/go.mod)
-[![Build Status](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml/badge.svg)](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml)
-[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr)](https://github.com/pranshuparmar/witr/releases/latest)
+# witr
+
+### Why is this running?
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue)](https://github.com/pranshuparmar/witr) <br>
+[![Build Status](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml/badge.svg)](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml) [![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release)](https://github.com/pranshuparmar/witr/releases/latest) [![Homebrew](https://img.shields.io/homebrew/v/witr)](https://formulae.brew.sh/formula/witr) [![AUR](https://img.shields.io/aur/version/witr-bin)](https://aur.archlinux.org/packages/witr-bin) [![Conda](https://img.shields.io/conda/vn/conda-forge/witr)](https://anaconda.org/conda-forge/witr)
 
 <img width="631" height="445" alt="witr" src="https://github.com/user-attachments/assets/e51cace3-0070-4200-9d1f-c4c9fbc81b8d" />
+
+</div>
 
 ---
 
