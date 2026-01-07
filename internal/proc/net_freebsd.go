@@ -51,13 +51,14 @@ func parseSockstatOutput(output string, sockets map[string]Socket) {
 		}
 
 		pid := fields[2]
+		proto := fields[4] // tcp4 or tcp6
 		localAddr := fields[5]
 
-		// Parse local address
-		address, port := parseSockstatAddr(localAddr)
+		// Parse local address with protocol information
+		address, port := parseSockstatAddr(localAddr, proto)
 		if port > 0 {
-			// Use PID:port as pseudo-inode
-			inode := pid + ":" + strconv.Itoa(port)
+			// Use PID:port:address as pseudo-inode to distinguish IPv4 and IPv6
+			inode := pid + ":" + strconv.Itoa(port) + ":" + address
 			sockets[inode] = Socket{
 				Inode:   inode,
 				Port:    port,
@@ -86,8 +87,13 @@ func readListeningSocketsNetstat() (map[string]Socket, error) {
 			continue
 		}
 		// Local address is typically field 3 (0-indexed)
+		// First field (0) is proto like "tcp4" or "tcp6"
+		proto := ""
+		if len(fields) > 0 {
+			proto = fields[0]
+		}
 		localAddr := fields[3]
-		address, port := parseSockstatAddr(localAddr)
+		address, port := parseSockstatAddr(localAddr, proto)
 		if port > 0 {
 			// Generate a unique key
 			inode := "netstat:" + localAddr
@@ -103,7 +109,8 @@ func readListeningSocketsNetstat() (map[string]Socket, error) {
 }
 
 // parseSockstatAddr parses addresses like "*:80", "127.0.0.1:8080", "[::1]:8080"
-func parseSockstatAddr(addr string) (string, int) {
+// proto is the protocol field from sockstat (tcp4 or tcp6) to distinguish IPv4 vs IPv6
+func parseSockstatAddr(addr string, proto string) (string, int) {
 	// Handle IPv6 format [::]:port or [::1]:port
 	if strings.HasPrefix(addr, "[") {
 		bracketEnd := strings.LastIndex(addr, "]")
@@ -116,19 +123,23 @@ func parseSockstatAddr(addr string) (string, int) {
 		if len(rest) > 1 && rest[0] == ':' {
 			port, err := strconv.Atoi(rest[1:])
 			if err == nil {
-				if ip == "::" || ip == "" {
-					return "::", port
-				}
-				return ip, port
+				// Return IPv6 address with brackets for proper formatting
+				return "[" + ip + "]", port
 			}
 		}
 		return "", 0
 	}
 
 	// Handle wildcard format "*:port"
+	// Distinguish between IPv4 and IPv6 based on protocol
 	if strings.HasPrefix(addr, "*:") {
 		port, err := strconv.Atoi(addr[2:])
 		if err == nil {
+			// If proto is tcp6, return IPv6 any address with brackets
+			if strings.Contains(proto, "6") {
+				return "[::]", port
+			}
+			// Default to IPv4 any address
 			return "0.0.0.0", port
 		}
 		return "", 0
@@ -142,7 +153,15 @@ func parseSockstatAddr(addr string) (string, int) {
 		port, err := strconv.Atoi(portStr)
 		if err == nil {
 			if ip == "*" {
+				// Check protocol for IPv6 vs IPv4
+				if strings.Contains(proto, "6") {
+					return "[::]", port
+				}
 				return "0.0.0.0", port
+			}
+			// If IP contains colons (IPv6), wrap with brackets
+			if strings.Contains(ip, ":") {
+				return "[" + ip + "]", port
 			}
 			return ip, port
 		}

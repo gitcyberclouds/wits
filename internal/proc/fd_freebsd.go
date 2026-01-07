@@ -41,10 +41,11 @@ func socketsForPID(pid int) []string {
 			}
 
 			localAddr := fields[5]
-			_, port := parseSockstatAddr(localAddr)
+			proto := fields[4] // tcp4 or tcp6
+			address, port := parseSockstatAddr(localAddr, proto)
 			if port > 0 {
 				// Create pseudo-inode matching the format in readListeningSockets
-				inode := pidStr + ":" + strconv.Itoa(port)
+				inode := pidStr + ":" + strconv.Itoa(port) + ":" + address
 				inodes = append(inodes, inode)
 			}
 		}

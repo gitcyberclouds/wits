@@ -33,17 +33,21 @@ var (
 )
 
 func Detect(ancestry []model.Process) model.Source {
-	// Prefer supervisor over systemd/launchd if both are present
+	// Detection order prioritizes platform-specific init systems
+	// over generic supervisor detection to avoid false positives
 	if src := detectContainer(ancestry); src != nil {
-		return *src
-	}
-	if src := detectSupervisor(ancestry); src != nil {
 		return *src
 	}
 	if src := detectSystemd(ancestry); src != nil {
 		return *src
 	}
 	if src := detectLaunchd(ancestry); src != nil {
+		return *src
+	}
+	if src := detectBsdRc(ancestry); src != nil {
+		return *src
+	}
+	if src := detectSupervisor(ancestry); src != nil {
 		return *src
 	}
 	if src := detectCron(ancestry); src != nil {

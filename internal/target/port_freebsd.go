@@ -4,7 +4,9 @@ package target
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -13,7 +15,9 @@ func ResolvePort(port int) ([]int, error) {
 	// Use sockstat to find the process listening on this port
 	// sockstat -4 -l -P tcp -p <port>
 	// sockstat -6 -l -P tcp -p <port>
-	pidSet := make(map[int]bool)
+
+	// Map: bind address (IP:port) -> list of PIDs
+	addressToPIDs := make(map[string][]int)
 
 	for _, flag := range []string{"-4", "-6"} {
 		out, err := exec.Command("sockstat", flag, "-l", "-P", "tcp", "-p", strconv.Itoa(port)).Output()
@@ -24,6 +28,7 @@ func ResolvePort(port int) ([]int, error) {
 		// Parse sockstat output
 		// USER     COMMAND    PID   FD PROTO  LOCAL ADDRESS         FOREIGN ADDRESS
 		// root     nginx      1234  6  tcp4   *:80                  *:*
+		// root     sshd       34    3  tcp4   192.168.1.2:22        *:*
 		for line := range strings.Lines(string(out)) {
 			fields := strings.Fields(line)
 			if len(fields) < 6 {
@@ -36,27 +41,44 @@ func ResolvePort(port int) ([]int, error) {
 			}
 
 			pid, err := strconv.Atoi(fields[2])
-			if err == nil && pid > 0 {
-				pidSet[pid] = true
+			if err != nil || pid <= 0 {
+				continue
 			}
+
+			// Extract LOCAL ADDRESS (field index 5)
+			localAddr := fields[5]
+			addressToPIDs[localAddr] = append(addressToPIDs[localAddr], pid)
 		}
 	}
 
-	if len(pidSet) == 0 {
+	if len(addressToPIDs) == 0 {
 		// Try netstat as fallback
 		return resolvePortNetstat(port)
 	}
 
-	// Return the lowest PID (the main listener, not forked children)
-	var result []int
-	minPID := 0
-	for pid := range pidSet {
-		if minPID == 0 || pid < minPID {
-			minPID = pid
+	// For each unique bind address, keep only the smallest PID
+	// (to handle master/worker pattern like nginx)
+	uniqueAddresses := make(map[string]int) // address -> min PID
+	for addr, pids := range addressToPIDs {
+		minPID := pids[0]
+		for _, pid := range pids {
+			if pid < minPID {
+				minPID = pid
+			}
 		}
+		uniqueAddresses[addr] = minPID
 	}
-	if minPID > 0 {
-		result = append(result, minPID)
+
+	// If multiple different addresses are listening, show ambiguity and exit
+	// (this indicates separate services, not master/worker)
+	if len(uniqueAddresses) > 1 {
+		return handlePortAmbiguity(port, uniqueAddresses)
+	}
+
+	// Single address: return the PID
+	var result []int
+	for _, pid := range uniqueAddresses {
+		result = append(result, pid)
 	}
 
 	if len(result) == 0 {
@@ -139,4 +161,55 @@ func resolvePortFstat(port int) ([]int, error) {
 	}
 
 	return result, nil
+}
+
+// handlePortAmbiguity displays disambiguation information when multiple services
+// are listening on different addresses for the same port
+func handlePortAmbiguity(port int, addressToPID map[string]int) ([]int, error) {
+	fmt.Fprintf(os.Stderr, "Ambiguous port query: %d\n\n", port)
+	fmt.Fprintln(os.Stderr, "Multiple services are listening on different addresses:")
+	fmt.Fprintln(os.Stderr, "")
+
+	// Sort addresses for consistent output
+	type addrPID struct {
+		addr string
+		pid  int
+	}
+	var entries []addrPID
+	for addr, pid := range addressToPID {
+		entries = append(entries, addrPID{addr, pid})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].pid < entries[j].pid
+	})
+
+	// Display each service
+	for i, entry := range entries {
+		// Get command name
+		cmdline := "(unknown)"
+		out, err := exec.Command("ps", "-p", strconv.Itoa(entry.pid), "-o", "args").Output()
+		if err == nil {
+			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+			if len(lines) >= 2 {
+				cmdline = strings.TrimSpace(lines[1])
+			}
+		}
+
+		// Check if in jail
+		context := ""
+		jailOut, err := exec.Command("jls", "-j", strconv.Itoa(entry.pid)).Output()
+		if err == nil && strings.TrimSpace(string(jailOut)) != "" {
+			context = " (jail)"
+		}
+
+		fmt.Fprintf(os.Stderr, "[%d] PID %d   %s   %s%s\n",
+			i+1, entry.pid, entry.addr, cmdline, context)
+	}
+
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "witr cannot determine intent safely.")
+	fmt.Fprintln(os.Stderr, "Please re-run with an explicit PID:")
+	fmt.Fprintln(os.Stderr, "  witr --pid <pid>")
+
+	return nil, fmt.Errorf("multiple services listening on port %d", port)
 }
