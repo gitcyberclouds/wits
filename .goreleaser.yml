@@ -26,7 +26,6 @@ archives:
   - id: binaries
     formats:
       - binary
-      - tar.gz
     format_overrides:
       - goos: windows
         formats: [ 'zip' ]

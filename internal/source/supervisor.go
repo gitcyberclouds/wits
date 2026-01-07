@@ -27,7 +27,6 @@ var knownSupervisors = map[string]string{
 	"systemd":      "systemd service",
 	"systemctl":    "systemd service",
 	"daemontools":  "daemontools",
-	"init":         "init",
 	"initctl":      "upstart",
 	"tini":         "tini",
 	"docker-init":  "docker-init",
@@ -59,6 +58,19 @@ func detectSupervisor(ancestry []model.Process) *model.Source {
 				Name: "pm2",
 			}
 		}
+
+		// Special handling for init to avoid false positives
+		// Only match if command is exactly "init" or "/sbin/init" etc
+		if p.Command == "init" || strings.HasSuffix(p.Command, "/init") {
+			// Skip "init" if there's a shell in the ancestry
+			if !hasShell {
+				return &model.Source{
+					Type: model.SourceSupervisor,
+					Name: "init",
+				}
+			}
+		}
+
 		if label, ok := knownSupervisors[strings.ToLower(p.Command)]; ok {
 			// Skip "init" if there's a shell in the ancestry
 			// This allows shell-launched processes to be detected as shell rather than init

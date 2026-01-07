@@ -3,6 +3,7 @@
 package target
 
 import (
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -23,6 +24,9 @@ func ResolveName(name string) ([]int, error) {
 	var currentName string
 	var currentCmd string
 
+	selfPid := os.Getpid()
+	parentPid := os.Getppid()
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -39,6 +43,15 @@ func ResolveName(name string) ([]int, error) {
 
 			// Check match
 			if currentPID != 0 {
+				// Exclude self and parent
+				if currentPID == selfPid || currentPID == parentPid {
+					// Reset
+					currentPID = 0
+					currentName = ""
+					currentCmd = ""
+					continue
+				}
+
 				if strings.Contains(strings.ToLower(currentName), lowerName) ||
 					strings.Contains(strings.ToLower(currentCmd), lowerName) {
 					pids = append(pids, currentPID)

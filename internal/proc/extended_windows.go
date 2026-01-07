@@ -22,7 +22,7 @@ func ReadExtendedInfo(pid int) (model.MemoryInfo, model.IOStats, []string, int, 
 	var fdLimit uint64
 
 	// Use wmic to get process details
-	cmd := exec.Command("wmic", "process", "where", fmt.Sprintf("ProcessId=%d", pid), "get", "ReadOperationCount,ReadTransferCount,ThreadCount,VirtualSize,WorkingSetSize,WriteOperationCount,WriteTransferCount", "/format:list")
+	cmd := exec.Command("wmic", "process", "where", fmt.Sprintf("ProcessId=%d", pid), "get", "HandleCount,ReadOperationCount,ReadTransferCount,ThreadCount,VirtualSize,WorkingSetSize,WriteOperationCount,WriteTransferCount", "/format:list")
 	out, err := cmd.Output()
 	if err != nil {
 		return memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, fmt.Errorf("wmic extended info: %w", err)
@@ -58,6 +58,8 @@ func ReadExtendedInfo(pid int) (model.MemoryInfo, model.IOStats, []string, int, 
 		case "WorkingSetSize":
 			memInfo.RSS, _ = strconv.ParseUint(val, 10, 64)
 			memInfo.RSSMB = float64(memInfo.RSS) / (1024 * 1024)
+		case "HandleCount":
+			fdCount, _ = strconv.Atoi(val)
 		}
 	}
 

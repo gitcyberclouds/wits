@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pranshuparmar/witr/cmd"
+	"github.com/pranshuparmar/witr/internal/app"
 	"github.com/spf13/cobra/doc"
 )
 
@@ -24,7 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	root := cmd.Root()
+	root := app.Root()
 	root.DisableAutoGenTag = true // stable, reproducible files (no timestamp footer)
 
 	switch *format {
