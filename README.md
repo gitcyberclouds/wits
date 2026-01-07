@@ -320,7 +320,7 @@ witr is distributed as a single static binary for Linux, macOS, FreeBSD and Wind
 
 The easiest way to install **witr** is via the install script.
 
-#### Unix (Linux, macOS, FreeBSD)
+#### 8.1.1 Unix (Linux, macOS, FreeBSD)
 
 **Quick install:**
 
@@ -348,7 +348,7 @@ The script will:
 
 You may be prompted for your password to write to system directories.
 
-#### Windows (PowerShell)
+#### 8.1.2 Windows (PowerShell)
 
 **Quick install:**
 
@@ -410,11 +410,11 @@ paru -S witr-bin
   ```
 - **Fedora/RHEL/CentOS (.rpm):**
   ```bash
-  sudo rpm -i ./witr-<version>.x86_64.rpm
+  sudo rpm -i ./witr-*.rpm
   ```
 - **Alpine Linux (.apk):**
   ```bash
-  sudo apk add --allow-untrusted ./witr-<version>.apk
+  sudo apk add --allow-untrusted ./witr-*.apk
   ```
 
 ### 8.6 Go (cross-platform)
@@ -431,7 +431,7 @@ This will place the `witr` binary in your `$GOPATH/bin` or `$HOME/go/bin` direct
 
 If you prefer manual installation, follow these simple steps for your platform:
 
-#### Unix (Linux, macOS, FreeBSD)
+#### 8.7.1 Unix (Linux, macOS, FreeBSD)
 
 ```bash
 # 1. Determine OS and Architecture
@@ -443,20 +443,23 @@ ARCH=$(uname -m)
 # 2. Download the binary
 curl -fsSL "https://github.com/pranshuparmar/witr/releases/latest/download/witr-${OS}-${ARCH}" -o witr
 
-# 3. Rename and install
+# 3. Verify checksum (Optional)
+curl -fsSL "https://github.com/pranshuparmar/witr/releases/latest/download/SHA256SUMS" -o SHA256SUMS
+grep "witr-${OS}-${ARCH}" SHA256SUMS | (sha256sum -c - 2>/dev/null || shasum -a 256 -c - 2>/dev/null)
+rm SHA256SUMS
+
+# 4. Rename and install
 chmod +x witr
 sudo mv witr /usr/local/bin/witr
 
-# 4. Install man page (Optional)
+# 5. Install man page (Optional)
 sudo mkdir -p /usr/local/share/man/man1
 sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
 ```
 
-#### Windows (PowerShell)
+#### 8.7.2 Windows (PowerShell)
 
 ```powershell
-# Open PowerShell as Administrator
-
 # 1. Determine Architecture
 if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") {
     $ZipName = "witr-windows-amd64.zip"
@@ -479,10 +482,20 @@ $hash = Get-FileHash -Algorithm SHA256 .\witr.zip
 $expected = Select-String -Path .\SHA256SUMS -Pattern $ZipName
 if ($expected -and $hash.Hash.ToLower() -eq $expected.Line.Split(' ')[0]) { Write-Host "Checksum OK" } else { Write-Host "Checksum Mismatch" }
 
-# 5. Move to a directory in your PATH (e.g. C:\Windows\System32 or a custom bin folder)
-Move-Item .\witr.exe C:\Windows\System32\witr.exe
+# 5. Install to local bin directory
+$InstallDir = "$env:LocalAppData\witr\bin"
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+Move-Item .\witr.exe $InstallDir\witr.exe -Force
 
-# 6. Cleanup
+# 6. Add to User Path (Persistent)
+$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($UserPath -notlike "*$InstallDir*") {
+    [Environment]::SetEnvironmentVariable("Path", "$UserPath;$InstallDir", "User")
+    $env:Path += ";$InstallDir"
+    Write-Host "Added to Path. You may need to restart PowerShell."
+}
+
+# 7. Cleanup
 Remove-Item witr.zip
 Remove-Item SHA256SUMS
 ```
@@ -498,14 +511,14 @@ man witr
 
 To completely remove **witr**:
 
-#### Unix (Linux, macOS, FreeBSD)
+#### 8.9.1 Unix (Linux, macOS, FreeBSD)
 
 ```bash
 sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
 ```
 
-#### Windows
+#### 8.9.2 Windows
 
 ```powershell
 Remove-Item -Recurse -Force "$env:LocalAppData\witr"
