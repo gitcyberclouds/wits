@@ -26,19 +26,16 @@ func loadShellsFromEtc() map[string]bool {
 		shells[s] = true
 	}
 
-	// Read /etc/shells
 	data, err := os.ReadFile("/etc/shells")
 	if err != nil {
 		return shells
 	}
 
-	// Parse /etc/shells (one shell per line, skip comments)
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// Extract basename (e.g., /bin/bash -> bash)
 		shellName := filepath.Base(line)
 		shells[shellName] = true
 	}
@@ -46,7 +43,6 @@ func loadShellsFromEtc() map[string]bool {
 	return shells
 }
 
-// getShells returns the cached shell list
 func getShells() map[string]bool {
 	shellCacheOnce.Do(func() {
 		shellCache = loadShellsFromEtc()
@@ -59,9 +55,8 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 	for _, p := range ancestry {
 		if p.Service != "" {
 			return &model.Source{
-				Type:       model.SourceBsdRc,
-				Name:       p.Service,
-				Confidence: 0.8,
+				Type: model.SourceBsdRc,
+				Name: p.Service,
 				Details: map[string]string{
 					"service": p.Service,
 				},
@@ -75,7 +70,6 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 		target := ancestry[len(ancestry)-1]
 		shells := getShells()
 
-		// Check if any ancestor (excluding target) is a shell
 		hasShell := false
 		for i := 0; i < len(ancestry)-1; i++ {
 			if shells[ancestry[i].Command] {
@@ -84,12 +78,10 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 			}
 		}
 
-		// If target is a direct child of init (PPID=1) and no shell in ancestry
 		if target.PPID == 1 && !hasShell {
 			return &model.Source{
-				Type:       model.SourceBsdRc,
-				Name:       "bsdrc",
-				Confidence: 0.6,
+				Type: model.SourceBsdRc,
+				Name: "bsdrc",
 			}
 		}
 	}
