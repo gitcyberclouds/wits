@@ -1,5 +1,10 @@
 # witr (why-is-this-running)
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr)](https://goreportcard.com/report/github.com/pranshuparmar/witr)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr)](https://github.com/pranshuparmar/witr/blob/main/go.mod)
+[![Build Status](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml/badge.svg)](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml)
+[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr)](https://github.com/pranshuparmar/witr/releases/latest)
+
 <img width="631" height="445" alt="witr" src="https://github.com/user-attachments/assets/e51cace3-0070-4200-9d1f-c4c9fbc81b8d" />
 
 ---
