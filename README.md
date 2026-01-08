@@ -25,7 +25,7 @@
 - [8. Installation](#8-installation)
   - [8.1 Script Installation (Recommended)](#81-script-installation-recommended)
   - [8.2 Homebrew (macOS & Linux)](#82-homebrew-macos--linux)
-  - [8.3 Conda (macOS, Linux, Windows)](#83-conda-macos--linux--windows)
+  - [8.3 Conda (macOS, Linux, Windows)](#83-conda-macos-linux-windows)
   - [8.4 Arch Linux (AUR)](#84-arch-linux-aur)
   - [8.5 Prebuilt Packages (deb, rpm, apk)](#85-prebuilt-packages-deb-rpm-apk)
   - [8.6 Go (cross-platform)](#86-go-cross-platform)
