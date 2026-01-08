@@ -168,7 +168,10 @@ func runApp(cmd *cobra.Command, args []string) error {
 				Env     []string `json:"Env"`
 			}
 			out := envOut{Command: procInfo.Cmdline, Env: procInfo.Env}
-			enc, _ := json.MarshalIndent(out, "", "  ")
+			enc, err := json.MarshalIndent(out, "", "  ")
+			if err != nil {
+				return fmt.Errorf("failed to marshal json: %w", err)
+			}
 			fmt.Println(string(enc))
 		} else {
 			output.RenderEnvOnly(procInfo, !noColorFlag)
@@ -296,7 +299,10 @@ func runApp(cmd *cobra.Command, args []string) error {
 	}
 
 	if jsonFlag {
-		importJSON, _ := output.ToJSON(res)
+		importJSON, err := output.ToJSON(res)
+		if err != nil {
+			return fmt.Errorf("failed to generate json output: %w", err)
+		}
 		fmt.Println(importJSON)
 	} else if warnFlag {
 		output.RenderWarnings(res.Warnings, !noColorFlag)

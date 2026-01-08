@@ -41,9 +41,8 @@ func detectLaunchd(ancestry []model.Process) *model.Source {
 
 	// Build the source with details
 	source := &model.Source{
-		Type: model.SourceLaunchd,
-		Name: info.Label,
-		// 夥計修正：在這裡初始化 Details，避免 nil map panic
+		Type:    model.SourceLaunchd,
+		Name:    info.Label,
 		Details: make(map[string]string),
 	}
 
