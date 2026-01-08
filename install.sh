@@ -107,10 +107,10 @@ if [[ "$need_sudo" == "1" ]]; then
 fi
 
 # Install
-"${SUDO[@]}" install -m 755 "$TMP" "$INSTALL_PATH"
+${SUDO[@]+"${SUDO[@]}"} install -m 755 "$TMP" "$INSTALL_PATH"
 
 # Install man page
-"${SUDO[@]}" mkdir -p "$INSTALL_MAN_DIR"
-"${SUDO[@]}" install -m 644 "$MAN_TMP" "$MAN_PATH"
+${SUDO[@]+"${SUDO[@]}"} mkdir -p "$INSTALL_MAN_DIR"
+${SUDO[@]+"${SUDO[@]}"} install -m 644 "$MAN_TMP" "$MAN_PATH"
 echo "witr installed successfully to $INSTALL_PATH (version: $LATEST, os: $OS, arch: $ARCH)"
 echo "Man page installed to $MAN_PATH"
