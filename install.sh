@@ -92,7 +92,7 @@ fi
 
 SUDO=()
 if [[ "$need_sudo" == "1" ]]; then
-    # checking for sudo becouse alpine using doas and people like me started to use run0
+    # checking for sudo because alpine using doas and people like me started to use run0
     if command -v sudo >/dev/null 2>&1; then
         # echo "sudo is available"
         SUDO=(sudo)

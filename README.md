@@ -25,7 +25,7 @@
 - [8. Installation](#8-installation)
   - [8.1 Script Installation (Recommended)](#81-script-installation-recommended)
   - [8.2 Homebrew (macOS & Linux)](#82-homebrew-macos--linux)
-  - [8.3 Conda (macOS & Linux)](#83-conda-macos--linux)
+  - [8.3 Conda (macOS, Linux & Windows)](#83-conda-macos-linux--windows)
   - [8.4 Arch Linux (AUR)](#84-arch-linux-aur)
   - [8.5 Prebuilt Packages (deb, rpm, apk)](#85-prebuilt-packages-deb-rpm-apk)
   - [8.6 Go (cross-platform)](#86-go-cross-platform)
@@ -371,12 +371,14 @@ brew install witr
 
 See the [Homebrew Formula page](https://formulae.brew.sh/formula/witr#default) for more details.
 
-### 8.3 Conda (macOS & Linux)
+### 8.3 Conda (macOS, Linux & Windows)
 
-You can install **witr** using [conda](https://docs.conda.io/en/latest/) or using [pixi](https://pixi.prefix.dev/latest/) on macOS or Linux:
+You can install **witr** using [conda](https://docs.conda.io/en/latest/), [mamba](https://mamba.readthedocs.io/en/latest/), or [pixi](https://pixi.prefix.dev/latest/) on macOS, Linux, and Windows:
 
 ```bash
-conda install conda-forge::witr
+conda install -c conda-forge witr
+# alternatively using mamba
+mamba install -c conda-forge witr
 # alternatively using pixi
 pixi global install witr
 ```
@@ -450,6 +452,7 @@ rm SHA256SUMS
 
 # 4. Rename and install
 chmod +x witr
+sudo mkdir -p /usr/local/bin
 sudo mv witr /usr/local/bin/witr
 
 # 5. Install man page (Optional)
@@ -548,8 +551,8 @@ pixi exec witr --help
 
 - **Linux** (x86_64, arm64) - Full feature support (`/proc`).
 - **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, `sysctl`, `pgrep`.
-- **Windows** (x86_64) - Uses `wmic`, `tasklist`, `netstat`.
-- **FreeBSD** (x86_64) - Uses `procstat`, `ps`, `lsof`.
+- **Windows** (x86_64, arm64) - Uses `wmic`, `tasklist`, `netstat`.
+- **FreeBSD** (x86_64, arm64) - Uses `procstat`, `ps`, `lsof`.
 
 ---
 
