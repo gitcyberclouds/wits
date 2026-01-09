@@ -12,8 +12,6 @@ import (
 )
 
 // ReadExtendedInfo assembles the additional process facts.
-// Without /proc, we lean on native utilities (ps, lsof, pgrep, launchctl)
-
 func ReadExtendedInfo(pid int) (model.MemoryInfo, model.IOStats, []string, int, uint64, []int, int, error) {
 	memInfo, threadCount, memErr := readDarwinTaskInfo(pid)
 	fdCount, fileDescs, fdErr := readDarwinFDs(pid)
