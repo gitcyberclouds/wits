@@ -26,16 +26,3 @@ func TestParseLaunchctlLimitLine(t *testing.T) {
 		})
 	}
 }
-
-func TestSummarizeLsofLine(t *testing.T) {
-	t.Parallel()
-	line := "witr    1234 neo    txt   REG                1,4        0 12345 /tmp/witr"
-	want := "txt REG  /tmp/witr"
-	if got := summarizeLsofLine(line); got != want {
-		t.Fatalf("summarizeLsofLine() = %q, want %q", got, want)
-	}
-
-	if got := summarizeLsofLine("short"); got != "" {
-		t.Fatalf("summarizeLsofLine(short) = %q, want empty", got)
-	}
-}

@@ -4,7 +4,6 @@ package proc
 
 import (
 	"errors"
-	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -14,95 +13,19 @@ import (
 
 // ReadExtendedInfo assembles the additional process facts.
 // Without /proc, we lean on native utilities (ps, lsof, pgrep, launchctl)
+
 func ReadExtendedInfo(pid int) (model.MemoryInfo, model.IOStats, []string, int, uint64, []int, int, error) {
-	memInfo, threadCount, memErr := readDarwinMemory(pid)
-	fdCount, fileDescs, fdErr := collectDarwinFDs(pid)
+	memInfo, threadCount, memErr := readDarwinTaskInfo(pid)
+	fdCount, fileDescs, fdErr := readDarwinFDs(pid)
+	ioStats, ioErr := readDarwinIO(pid)
 	fdLimit := detectDarwinFileLimit()
 	children := listDarwinChildren(pid)
 
-	// macOS only exposes I/O counters via private APIs that require entitlements
-	// we do not have. Leave ioStats zeroed.
-	// TODO: teach ReadExtendedInfo to use proc_pid_rusage when we can ship the
-	// necessary cgo shim without elevated privileges.
-	var ioStats model.IOStats
-
-	if memErr != nil && fdErr != nil {
-		return memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, errors.Join(memErr, fdErr)
+	if memErr != nil && fdErr != nil && ioErr != nil {
+		return memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, errors.Join(memErr, fdErr, ioErr)
 	}
 
 	return memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, nil
-}
-
-// readDarwinMemory asks ps(1) for RSS, VMS and thread counts.
-func readDarwinMemory(pid int) (model.MemoryInfo, int, error) {
-	var memInfo model.MemoryInfo
-	cmd := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "rss=,vsz=,thcount=")
-	cmd.Env = buildEnvForPS()
-	out, err := cmd.Output()
-	if err != nil {
-		return memInfo, 0, fmt.Errorf("ps rss/vsz: %w", err)
-	}
-	fields := strings.Fields(strings.TrimSpace(string(out)))
-	if len(fields) < 3 {
-		return memInfo, 0, fmt.Errorf("ps rss/vsz output missing fields: %q", strings.TrimSpace(string(out)))
-	}
-	if rss, err := strconv.ParseUint(fields[0], 10, 64); err == nil {
-		memInfo.RSS = rss * 1024
-		memInfo.RSSMB = float64(memInfo.RSS) / (1024 * 1024)
-	}
-	if vms, err := strconv.ParseUint(fields[1], 10, 64); err == nil {
-		memInfo.VMS = vms * 1024
-		memInfo.VMSMB = float64(memInfo.VMS) / (1024 * 1024)
-	}
-	threadCount, err := strconv.Atoi(fields[2])
-	if err != nil {
-		threadCount = 0
-	}
-	return memInfo, threadCount, nil
-}
-
-func collectDarwinFDs(pid int) (int, []string, error) {
-	cmd := exec.Command("lsof", "-nP", "-p", strconv.Itoa(pid))
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, nil, fmt.Errorf("lsof: %w", err)
-	}
-	var (
-		count   int
-		samples []string
-		skipHdr = true
-	)
-	for line := range strings.Lines(string(out)) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		if skipHdr {
-			skipHdr = false
-			continue
-		}
-		count++
-		if len(samples) < 10 {
-			if sample := summarizeLsofLine(trimmed); sample != "" {
-				samples = append(samples, sample)
-			}
-		}
-	}
-	return count, samples, nil
-}
-
-// summarizeLsofLine converts a single lsof(8) row into "FD TYPE TARGET" so
-// RenderStandard can display a friendly snippet without dumping dozens of
-// columns.
-func summarizeLsofLine(line string) string {
-	fields := strings.Fields(line)
-	if len(fields) < 9 {
-		return ""
-	}
-	fd := fields[3]
-	typ := fields[4]
-	name := strings.Join(fields[8:], " ")
-	return fmt.Sprintf("%s %-4s %s", fd, typ, name)
 }
 
 // detectDarwinFileLimit reads launchctl's maxfiles limit (soft cap) so we can
