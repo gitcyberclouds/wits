@@ -22,7 +22,7 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 	lines := strings.Split(string(out), "\n")
 	var ports []int
 	var addrs []string
-	seen := make(map[int]bool)
+	seen := make(map[string]bool)
 
 	pidStr := strconv.Itoa(pid)
 
@@ -48,14 +48,19 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 		}
 		portStr := localAddr[lastColon+1:]
 		ip := localAddr[:lastColon]
+		// specialized handling for [::] or [::1] on windows to avoid double bracket
+		if len(ip) > 2 && strings.HasPrefix(ip, "[") && strings.HasSuffix(ip, "]") {
+			ip = ip[1 : len(ip)-1]
+		}
 
 		port, err := strconv.Atoi(portStr)
 		if err == nil {
-			if !seen[port] {
+			key := ip + ":" + portStr
+			if !seen[key] {
 				ports = append(ports, port)
-				seen[port] = true
+				addrs = append(addrs, ip)
+				seen[key] = true
 			}
-			addrs = append(addrs, ip)
 		}
 	}
 	return ports, addrs
