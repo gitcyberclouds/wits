@@ -3,7 +3,7 @@
 package proc
 
 import (
-	"fmt"
+	"errors"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -11,77 +11,78 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// ReadExtendedInfo reads extended process information for verbose output on macOS.
-// It uses `ps` to fetch memory usage and thread counts.
+// ReadExtendedInfo assembles the additional process facts.
 func ReadExtendedInfo(pid int) (model.MemoryInfo, model.IOStats, []string, int, uint64, []int, int, error) {
-	var memInfo model.MemoryInfo
-	var ioStats model.IOStats
-	var fileDescs []string
-	var children []int
-	var threadCount int
-	var fdCount int
-	var fdLimit uint64
+	memInfo, threadCount, memErr := readDarwinTaskInfo(pid)
+	fdCount, fileDescs, fdErr := readDarwinFDs(pid)
+	ioStats, ioErr := readDarwinIO(pid)
+	fdLimit := detectDarwinFileLimit()
+	children := listDarwinChildren(pid)
 
-	// 1. Get Memory and Thread info using ps
-	// rss = resident set size in 1024 byte blocks
-	// vsz = virtual size in 1024 byte blocks
-	cmd := exec.Command("ps", "-o", "rss,vsz", "-p", strconv.Itoa(pid))
-	out, err := cmd.Output()
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-		if len(lines) >= 2 {
-			fields := strings.Fields(lines[1])
-			if len(fields) >= 2 {
-				// RSS
-				if rss, err := strconv.ParseUint(fields[0], 10, 64); err == nil {
-					memInfo.RSS = rss * 1024
-					memInfo.RSSMB = float64(memInfo.RSS) / (1024 * 1024)
-				}
-				// VSZ
-				if vsz, err := strconv.ParseUint(fields[1], 10, 64); err == nil {
-					memInfo.VMS = vsz * 1024
-					memInfo.VMSMB = float64(memInfo.VMS) / (1024 * 1024)
-				}
-			}
-		}
-	}
-
-	// 2. Scan for threads (M flag in ps shows threads, counting lines - header)
-	// ps -M -p PID
-	threadCmd := exec.Command("ps", "-M", "-p", strconv.Itoa(pid))
-	if threadOut, err := threadCmd.Output(); err == nil {
-		lines := strings.Split(strings.TrimSpace(string(threadOut)), "\n")
-		if len(lines) > 1 {
-			threadCount = len(lines) - 1
-		}
-	}
-
-	// 3. Get file descriptors using lsof
-	// lsof -p PID
-	fdCmd := exec.Command("sh", "-c", fmt.Sprintf("lsof -p %d | wc -l", pid))
-	if fdOut, err := fdCmd.Output(); err == nil {
-		str := strings.TrimSpace(string(fdOut))
-		if count, err := strconv.Atoi(str); err == nil {
-			if count > 0 {
-				fdCount = count - 1
-			}
-		}
-	}
-
-	// 4. Children resolution
-	// Using pgrep -P PID
-	childCmd := exec.Command("pgrep", "-P", strconv.Itoa(pid))
-	if childOut, err := childCmd.Output(); err == nil {
-		lines := strings.Split(strings.TrimSpace(string(childOut)), "\n")
-		for _, line := range lines {
-			if line == "" {
-				continue
-			}
-			if cpid, err := strconv.Atoi(line); err == nil {
-				children = append(children, cpid)
-			}
-		}
+	if memErr != nil && fdErr != nil && ioErr != nil {
+		return memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, errors.Join(memErr, fdErr, ioErr)
 	}
 
 	return memInfo, ioStats, fileDescs, fdCount, fdLimit, children, threadCount, nil
+}
+
+// detectDarwinFileLimit reads launchctl's maxfiles limit (soft cap) so we can
+// compute descriptor headroom, falling back to the shell's ulimit if launchctl
+// is unavailable.
+func detectDarwinFileLimit() uint64 {
+	if data, err := exec.Command("launchctl", "limit", "maxfiles").Output(); err == nil {
+		for line := range strings.Lines(string(data)) {
+			if strings.Contains(line, "maxfiles") {
+				if limit, ok := parseLaunchctlLimitLine(line); ok {
+					return limit
+				}
+			}
+		}
+	}
+	if data, err := exec.Command("sh", "-c", "ulimit -n").Output(); err == nil {
+		if limit, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64); err == nil {
+			return limit
+		}
+	}
+	return 0
+}
+
+func parseLaunchctlLimitLine(line string) (uint64, bool) {
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return 0, false
+	}
+	soft := fields[1]
+	if strings.EqualFold(soft, "unlimited") {
+		return 0, true
+	}
+	limit, err := strconv.ParseUint(soft, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return limit, true
+}
+
+// Wrapper around pgrep(1).
+func listDarwinChildren(pid int) []int {
+	cmd := exec.Command("pgrep", "-P", strconv.Itoa(pid))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return nil
+		}
+		return nil
+	}
+	var children []int
+	for line := range strings.Lines(string(out)) {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if pidVal, err := strconv.Atoi(trimmed); err == nil {
+			children = append(children, pidVal)
+		}
+	}
+	return children
 }
