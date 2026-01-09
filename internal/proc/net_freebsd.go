@@ -123,8 +123,8 @@ func parseSockstatAddr(addr string, proto string) (string, int) {
 		if len(rest) > 1 && rest[0] == ':' {
 			port, err := strconv.Atoi(rest[1:])
 			if err == nil {
-				// Return IPv6 address with brackets for proper formatting
-				return "[" + ip + "]", port
+				// Return IPv6 address without brackets for proper formatting with net.JoinHostPort
+				return ip, port
 			}
 		}
 		return "", 0
@@ -137,7 +137,7 @@ func parseSockstatAddr(addr string, proto string) (string, int) {
 		if err == nil {
 			// If proto is tcp6, return IPv6 any address with brackets
 			if strings.Contains(proto, "6") {
-				return "[::]", port
+				return "::", port
 			}
 			// Default to IPv4 any address
 			return "0.0.0.0", port
@@ -161,7 +161,7 @@ func parseSockstatAddr(addr string, proto string) (string, int) {
 			}
 			// If IP contains colons (IPv6), wrap with brackets
 			if strings.Contains(ip, ":") {
-				return "[" + ip + "]", port
+				return ip, port
 			}
 			return ip, port
 		}

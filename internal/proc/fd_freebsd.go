@@ -16,6 +16,7 @@ func socketsForPID(pid int) []string {
 	// Use sockstat to find sockets for this PID
 	// -P tcp = TCP protocol
 	// -p <pid> = specific process
+	seen := make(map[string]bool)
 	for _, flag := range []string{"-4", "-6"} {
 		out, err := exec.Command("sockstat", flag, "-P", "tcp").Output()
 		if err != nil {
@@ -46,7 +47,10 @@ func socketsForPID(pid int) []string {
 			if port > 0 {
 				// Create pseudo-inode matching the format in readListeningSockets
 				inode := pidStr + ":" + strconv.Itoa(port) + ":" + address
-				inodes = append(inodes, inode)
+				if !seen[inode] {
+					seen[inode] = true
+					inodes = append(inodes, inode)
+				}
 			}
 		}
 	}
