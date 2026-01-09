@@ -115,133 +115,133 @@ import (
 )
 
 func readDarwinIO(pid int) (model.IOStats, error) {
-    var stats model.IOStats
-    var usage C.struct_rusage_info_v4
-    errno := C.witr_proc_pid_rusage(C.int(pid), C.RUSAGE_INFO_V4, &usage)
-    if errno != 0 {
-        switch errno {
-        case C.ESRCH, C.EPERM:
-            return stats, nil
-        default:
-            return stats, fmt.Errorf("proc_pid_rusage: %d", errno)
-        }
-    }
+	var stats model.IOStats
+	var usage C.struct_rusage_info_v4
+	errno := C.witr_proc_pid_rusage(C.int(pid), C.RUSAGE_INFO_V4, &usage)
+	if errno != 0 {
+		switch errno {
+		case C.ESRCH, C.EPERM:
+			return stats, nil
+		default:
+			return stats, fmt.Errorf("proc_pid_rusage: %d", errno)
+		}
+	}
 
-    stats.ReadBytes = uint64(usage.ri_diskio_bytesread)
-    stats.WriteBytes = uint64(usage.ri_diskio_byteswritten)
-    return stats, nil
+	stats.ReadBytes = uint64(usage.ri_diskio_bytesread)
+	stats.WriteBytes = uint64(usage.ri_diskio_byteswritten)
+	return stats, nil
 }
 
 func readDarwinTaskInfo(pid int) (model.MemoryInfo, int, error) {
-    var info C.struct_proc_taskinfo
-    if errno := C.witr_proc_pidtaskinfo(C.int(pid), &info); errno != 0 {
-        switch errno {
-        case C.ESRCH, C.EPERM:
-            return model.MemoryInfo{}, 0, nil
-        default:
-            return model.MemoryInfo{}, 0, fmt.Errorf("proc_pidinfo taskinfo: %d", errno)
-        }
-    }
+	var info C.struct_proc_taskinfo
+	if errno := C.witr_proc_pidtaskinfo(C.int(pid), &info); errno != 0 {
+		switch errno {
+		case C.ESRCH, C.EPERM:
+			return model.MemoryInfo{}, 0, nil
+		default:
+			return model.MemoryInfo{}, 0, fmt.Errorf("proc_pidinfo taskinfo: %d", errno)
+		}
+	}
 
-    mem := model.MemoryInfo{
-        VMS:   uint64(info.pti_virtual_size),
-        RSS:   uint64(info.pti_resident_size),
-        VMSMB: float64(info.pti_virtual_size) / (1024 * 1024),
-        RSSMB: float64(info.pti_resident_size) / (1024 * 1024),
-    }
+	mem := model.MemoryInfo{
+		VMS:   uint64(info.pti_virtual_size),
+		RSS:   uint64(info.pti_resident_size),
+		VMSMB: float64(info.pti_virtual_size) / (1024 * 1024),
+		RSSMB: float64(info.pti_resident_size) / (1024 * 1024),
+	}
 
-    return mem, int(info.pti_threadnum), nil
+	return mem, int(info.pti_threadnum), nil
 }
 
 func readDarwinFDs(pid int) (int, []string, error) {
-    const bytesPerEntry = int(C.sizeof_struct_proc_fdinfo)
-    entries := make([]C.struct_proc_fdinfo, 256)
+	const bytesPerEntry = int(C.sizeof_struct_proc_fdinfo)
+	entries := make([]C.struct_proc_fdinfo, 256)
 
-    for {
-        var used C.int
-        errno := C.witr_proc_pidlistfds(C.int(pid), &entries[0], C.int(len(entries)*bytesPerEntry), &used)
-        if errno == C.EINVAL && len(entries) < 16384 {
-            entries = make([]C.struct_proc_fdinfo, len(entries)*2)
-            continue
-        }
-        if errno != 0 {
-            switch errno {
-            case C.ESRCH, C.EPERM:
-                return 0, nil, nil
-            default:
-                return 0, nil, fmt.Errorf("proc_pidinfo listfds: %d", errno)
-            }
-        }
-        bytesUsed := int(used)
-        if bytesUsed%bytesPerEntry != 0 {
-            return 0, nil, errors.New("listfds returned partial record")
-        }
-        count := bytesUsed / bytesPerEntry
-        return count, formatFDEntries(pid, entries[:count]), nil
-    }
+	for {
+		var used C.int
+		errno := C.witr_proc_pidlistfds(C.int(pid), &entries[0], C.int(len(entries)*bytesPerEntry), &used)
+		if errno == C.EINVAL && len(entries) < 16384 {
+			entries = make([]C.struct_proc_fdinfo, len(entries)*2)
+			continue
+		}
+		if errno != 0 {
+			switch errno {
+			case C.ESRCH, C.EPERM:
+				return 0, nil, nil
+			default:
+				return 0, nil, fmt.Errorf("proc_pidinfo listfds: %d", errno)
+			}
+		}
+		bytesUsed := int(used)
+		if bytesUsed%bytesPerEntry != 0 {
+			return 0, nil, errors.New("listfds returned partial record")
+		}
+		count := bytesUsed / bytesPerEntry
+		return count, formatFDEntries(pid, entries[:count]), nil
+	}
 }
 
 func formatFDEntries(pid int, entries []C.struct_proc_fdinfo) []string {
-    var out []string
-    for _, entry := range entries {
-        if len(out) >= 10 {
-            break
-        }
-        fd := int(entry.proc_fd)
-        label := fdTypeLabel(entry.proc_fdtype)
-        switch entry.proc_fdtype {
-        case C.PROX_FDTYPE_VNODE:
-            var vnode C.struct_vnode_fdinfowithpath
-            if errno := C.witr_proc_pidfdinfo_vnode(C.int(pid), C.int(fd), &vnode); errno == 0 {
-                path := C.GoString(&vnode.pvip.vip_path[0])
-                if path == "" {
-                    path = "<anonymous>"
-                }
-                out = append(out, fmt.Sprintf("%d -> %s", fd, path))
-                continue
-            }
-        case C.PROX_FDTYPE_SOCKET:
-            var sock C.struct_socket_fdinfo
-            if errno := C.witr_proc_pidfdinfo_socket(C.int(pid), C.int(fd), &sock); errno == 0 {
-                buf := make([]byte, 128)
-                C.witr_format_socket(&sock, (*C.char)(unsafe.Pointer(&buf[0])), C.size_t(len(buf)))
-                desc := C.GoString((*C.char)(unsafe.Pointer(&buf[0])))
-                out = append(out, fmt.Sprintf("%d -> %s", fd, desc))
-                continue
-            }
-        }
-        out = append(out, fmt.Sprintf("%d (%s)", fd, label))
-    }
-    return out
+	var out []string
+	for _, entry := range entries {
+		if len(out) >= 10 {
+			break
+		}
+		fd := int(entry.proc_fd)
+		label := fdTypeLabel(entry.proc_fdtype)
+		switch entry.proc_fdtype {
+		case C.PROX_FDTYPE_VNODE:
+			var vnode C.struct_vnode_fdinfowithpath
+			if errno := C.witr_proc_pidfdinfo_vnode(C.int(pid), C.int(fd), &vnode); errno == 0 {
+				path := C.GoString(&vnode.pvip.vip_path[0])
+				if path == "" {
+					path = "<anonymous>"
+				}
+				out = append(out, fmt.Sprintf("%d -> %s", fd, path))
+				continue
+			}
+		case C.PROX_FDTYPE_SOCKET:
+			var sock C.struct_socket_fdinfo
+			if errno := C.witr_proc_pidfdinfo_socket(C.int(pid), C.int(fd), &sock); errno == 0 {
+				buf := make([]byte, 128)
+				C.witr_format_socket(&sock, (*C.char)(unsafe.Pointer(&buf[0])), C.size_t(len(buf)))
+				desc := C.GoString((*C.char)(unsafe.Pointer(&buf[0])))
+				out = append(out, fmt.Sprintf("%d -> %s", fd, desc))
+				continue
+			}
+		}
+		out = append(out, fmt.Sprintf("%d (%s)", fd, label))
+	}
+	return out
 }
 
 func fdTypeLabel(fdType C.uint32_t) string {
-    switch fdType {
-    case C.PROX_FDTYPE_VNODE:
-        return "vnode"
-    case C.PROX_FDTYPE_SOCKET:
-        return "socket"
-    case C.PROX_FDTYPE_PIPE:
-        return "pipe"
-    case C.PROX_FDTYPE_KQUEUE:
-        return "kqueue"
-    case C.PROX_FDTYPE_FSEVENTS:
-        return "fsevents"
-    case C.PROX_FDTYPE_NEXUS:
-        return "nexus"
-    case C.PROX_FDTYPE_NETPOLICY:
-        return "netpolicy"
-    default:
-        return fmt.Sprintf("fdtype-%d", fdType)
-    }
+	switch fdType {
+	case C.PROX_FDTYPE_VNODE:
+		return "vnode"
+	case C.PROX_FDTYPE_SOCKET:
+		return "socket"
+	case C.PROX_FDTYPE_PIPE:
+		return "pipe"
+	case C.PROX_FDTYPE_KQUEUE:
+		return "kqueue"
+	case C.PROX_FDTYPE_FSEVENTS:
+		return "fsevents"
+	case C.PROX_FDTYPE_NEXUS:
+		return "nexus"
+	case C.PROX_FDTYPE_NETPOLICY:
+		return "netpolicy"
+	default:
+		return fmt.Sprintf("fdtype-%d", fdType)
+	}
 }
 
 func describeSocket(info *C.struct_socket_fdinfo) string {
-    buf := make([]byte, 128)
-    C.witr_format_socket(info, (*C.char)(unsafe.Pointer(&buf[0])), C.size_t(len(buf)))
-    desc := C.GoString((*C.char)(unsafe.Pointer(&buf[0])))
-    if desc == "" {
-        return "socket"
-    }
-    return desc
+	buf := make([]byte, 128)
+	C.witr_format_socket(info, (*C.char)(unsafe.Pointer(&buf[0])), C.size_t(len(buf)))
+	desc := C.GoString((*C.char)(unsafe.Pointer(&buf[0])))
+	if desc == "" {
+		return "socket"
+	}
+	return desc
 }
