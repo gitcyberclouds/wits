@@ -82,7 +82,9 @@ func ResolveName(name string) ([]int, error) {
 		fmt.Println("The name matches multiple entities:")
 		fmt.Println()
 		// Service entry first
-		fmt.Printf("[1] PID %d   %s: master process   (service)\n", servicePID, safeName)
+		if servicePID > 0 {
+			fmt.Printf("[1] PID %d   %s: master process   (service)\n", servicePID, safeName)
+		}
 		// Process entries (skip if PID matches servicePID)
 		idx := 2
 		for _, pid := range procPIDs {
@@ -123,7 +125,7 @@ func resolveSystemdServiceMainPID(name string) (int, error) {
 	if !strings.HasSuffix(svcName, ".service") {
 		svcName += ".service"
 	}
-	out, err := exec.Command("systemctl", "show", svcName, "-p", "MainPID", "--value").Output()
+	out, err := exec.Command("systemctl", "show", "-p", "MainPID", "--value", "--", svcName).Output()
 	if err != nil {
 		return 0, err
 	}

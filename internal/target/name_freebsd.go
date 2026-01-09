@@ -16,7 +16,7 @@ import (
 // isValidServiceLabel validates that a service name contains only
 // safe characters to prevent command injection. Valid names contain only
 // alphanumeric characters, dots, hyphens, and underscores.
-var validServiceLabelRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+var validServiceLabelRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 func isValidServiceLabel(label string) bool {
 	if len(label) == 0 || len(label) > 256 {
