@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/pranshuparmar/witr/internal/output"
 )
 
 // isValidServiceLabel validates that a launchd service label contains only
@@ -80,8 +82,7 @@ func ResolveName(name string) ([]int, error) {
 
 		// Match against full command line
 		if strings.Contains(args, lowerName) &&
-			!strings.Contains(args, "grep") &&
-			!strings.Contains(args, "witr") {
+			!strings.Contains(args, "grep") {
 			procPIDs = append(procPIDs, pid)
 		}
 	}
@@ -103,12 +104,14 @@ func ResolveName(name string) ([]int, error) {
 		uniquePIDs[pid] = true
 	}
 	if len(uniquePIDs) > 1 {
-		fmt.Printf("Ambiguous target: \"%s\"\n\n", name)
+		safeName := output.SanitizeTerminal(name)
+
+		fmt.Printf("Ambiguous target: \"%s\"\n\n", safeName)
 		fmt.Println("The name matches multiple entities:")
 		fmt.Println()
 		// Service entry first
 		if servicePID > 0 {
-			fmt.Printf("[1] PID %d   %s: launchd service   (service)\n", servicePID, name)
+			fmt.Printf("[1] PID %d   %s: launchd service   (service)\n", servicePID, safeName)
 		}
 		// Process entries (skip if PID matches servicePID)
 		idx := 2
@@ -119,7 +122,7 @@ func ResolveName(name string) ([]int, error) {
 			if pid == servicePID {
 				continue
 			}
-			fmt.Printf("[%d] PID %d   %s: process   (manual)\n", idx, pid, name)
+			fmt.Printf("[%d] PID %d   %s: process   (manual)\n", idx, pid, safeName)
 			idx++
 		}
 		fmt.Println()

@@ -53,13 +53,18 @@ func Detect(ancestry []model.Process) model.Source {
 	if src := detectCron(ancestry); src != nil {
 		return *src
 	}
+	if src := detectWindowsService(ancestry); src != nil {
+		return *src
+	}
+	if src := detectInit(ancestry); src != nil {
+		return *src
+	}
 	if src := detectShell(ancestry); src != nil {
 		return *src
 	}
 
 	return model.Source{
-		Type:       model.SourceUnknown,
-		Confidence: 0.2,
+		Type: model.SourceUnknown,
 	}
 }
 

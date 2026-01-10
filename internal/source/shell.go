@@ -3,14 +3,18 @@ package source
 import "github.com/pranshuparmar/witr/pkg/model"
 
 var shells = map[string]bool{
-	"bash": true,
-	"zsh":  true,
-	"sh":   true,
-	"fish": true,
-	"csh":  true,
-	"tcsh": true,
-	"ksh":  true,
-	"dash": true,
+	"bash":           true,
+	"zsh":            true,
+	"sh":             true,
+	"fish":           true,
+	"csh":            true,
+	"tcsh":           true,
+	"ksh":            true,
+	"dash":           true,
+	"cmd.exe":        true,
+	"powershell.exe": true,
+	"pwsh.exe":       true,
+	"explorer.exe":   true,
 }
 
 func detectShell(ancestry []model.Process) *model.Source {
@@ -19,9 +23,8 @@ func detectShell(ancestry []model.Process) *model.Source {
 	for i := len(ancestry) - 1; i >= 0; i-- {
 		if shells[ancestry[i].Command] {
 			return &model.Source{
-				Type:       model.SourceShell,
-				Name:       ancestry[i].Command,
-				Confidence: 0.5,
+				Type: model.SourceShell,
+				Name: ancestry[i].Command,
 			}
 		}
 	}
