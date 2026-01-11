@@ -292,19 +292,20 @@ Re-run with:
 #### 7.4.2 Ambiguous Name (process and service)
 
 ```bash
-witr nginx
+witr ng
 ```
 
 ```
-Ambiguous target: "nginx"
+Multiple matching processes found:
 
-The name matches multiple entities:
+[1] nginx (pid 2311)
+    nginx -g daemon off;
+[2] nginx (pid 24891)
+    nginx -g daemon off;
+[3] ngrok (pid 14233)
+    ngrok http 5000
 
-[1] PID 2311   nginx: master process   (service)
-[2] PID 24891  nginx: worker process   (manual)
-
-witr cannot determine intent safely.
-Please re-run with an explicit PID:
+Re-run with:
   witr --pid <pid>
 ```
 
