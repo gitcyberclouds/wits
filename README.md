@@ -27,12 +27,13 @@
   - [8.2 Homebrew (macOS & Linux)](#82-homebrew-macos--linux)
   - [8.3 Conda (macOS, Linux & Windows)](#83-conda-macos-linux--windows)
   - [8.4 Arch Linux (AUR)](#84-arch-linux-aur)
-  - [8.5 Prebuilt Packages (deb, rpm, apk)](#85-prebuilt-packages-deb-rpm-apk)
-  - [8.6 Go (cross-platform)](#86-go-cross-platform)
-  - [8.7 Manual Installation](#87-manual-installation)
-  - [8.8 Verify Installation](#88-verify-installation)
-  - [8.9 Uninstallation](#89-uninstallation)
-  - [8.10 Run Without Installation](#810-run-without-installation)
+  - [8.5 FreeBSD Ports](#85-freebsd-ports)
+  - [8.6 Prebuilt Packages (deb, rpm, apk)](#86-prebuilt-packages-deb-rpm-apk)
+  - [8.7 Go (cross-platform)](#87-go-cross-platform)
+  - [8.8 Manual Installation](#88-manual-installation)
+  - [8.9 Verify Installation](#89-verify-installation)
+  - [8.10 Uninstallation](#810-uninstallation)
+  - [8.11 Run Without Installation](#811-run-without-installation)
 - [9. Platform Support](#9-platform-support)
 - [10. Success Criteria](#10-success-criteria)
 
@@ -395,7 +396,24 @@ paru -S witr-bin
 # or use your preferred AUR helper
 ```
 
-### 8.5 Prebuilt Packages (deb, rpm, apk)
+### 8.5 FreeBSD Ports
+
+You can install **witr** on FreeBSD from the [FreshPorts port](https://www.freshports.org/sysutils/witr/):
+
+```bash
+pkg install witr
+# or
+pkg install sysutils/witr
+```
+
+Or build from Ports:
+
+```bash
+cd /usr/ports/sysutils/witr/
+make install clean
+```
+
+### 8.6 Prebuilt Packages (deb, rpm, apk)
 
 **witr** provides native packages for major Linux distributions. You can download the latest `.deb`, `.rpm`, or `.apk` package from the [GitHub releases page](https://github.com/pranshuparmar/witr/releases/latest).
 
@@ -420,7 +438,7 @@ paru -S witr-bin
   sudo apk add --allow-untrusted ./witr-*.apk
   ```
 
-### 8.6 Go (cross-platform)
+### 8.7 Go (cross-platform)
 
 You can install the latest version directly from source:
 
@@ -430,11 +448,11 @@ go install github.com/pranshuparmar/witr/cmd/witr@latest
 
 This will place the `witr` binary in your `$GOPATH/bin` or `$HOME/go/bin` directory. Make sure this directory is in your `PATH`.
 
-### 8.7 Manual Installation
+### 8.8 Manual Installation
 
 If you prefer manual installation, follow these simple steps for your platform:
 
-#### 8.7.1 Unix (Linux, macOS, FreeBSD)
+#### 8.8.1 Unix (Linux, macOS, FreeBSD)
 
 ```bash
 # 1. Determine OS and Architecture
@@ -461,7 +479,7 @@ sudo mkdir -p /usr/local/share/man/man1
 sudo curl -fsSL https://github.com/pranshuparmar/witr/releases/latest/download/witr.1 -o /usr/local/share/man/man1/witr.1
 ```
 
-#### 8.7.2 Windows (PowerShell)
+#### 8.8.2 Windows (PowerShell)
 
 ```powershell
 # 1. Determine Architecture
@@ -504,31 +522,31 @@ Remove-Item witr.zip
 Remove-Item SHA256SUMS
 ```
 
-### 8.8 Verify Installation:
+### 8.9 Verify Installation:
 
 ```bash
 witr --version
 man witr
 ```
 
-### 8.9 Uninstallation
+### 8.10 Uninstallation
 
 To completely remove **witr**:
 
-#### 8.9.1 Unix (Linux, macOS, FreeBSD)
+#### 8.10.1 Unix (Linux, macOS, FreeBSD)
 
 ```bash
 sudo rm -f /usr/local/bin/witr
 sudo rm -f /usr/local/share/man/man1/witr.1
 ```
 
-#### 8.9.2 Windows
+#### 8.10.2 Windows
 
 ```powershell
 Remove-Item -Recurse -Force "$env:LocalAppData\witr"
 ```
 
-### 8.10 Run Without Installation
+### 8.11 Run Without Installation
 
 #### Nix Flake
 
