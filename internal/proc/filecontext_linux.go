@@ -111,38 +111,6 @@ func getLockedFilesLslocks(pid int) ([]string, error) {
 	return locked, nil
 }
 
-// count /proc/<pid>/fd entries for open files
-// read /proc/<pid>/limits for file limit
-// count the # of Open files and maximum limit and hence usagePercent
-func getOpenFileCount(pid int) (int, int) {
-
-	out, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
-	if err != nil {
-		return 0, 0
-	}
-	openFiles := len(out)
-	fileLimit := 0
-	limitsData, err := os.ReadFile(fmt.Sprintf("/proc/%d/limits", pid))
-	if err == nil {
-		seq := strings.Split(string(limitsData), "\n")
-		for _, line := range seq {
-			if strings.HasPrefix(line, "Max open files") {
-				// format: "Max open files   1024  524288  files"
-				fields := strings.Fields(line)
-				if len(fields) >= 4 {
-					// fields[3] is the soft limit
-					if limit, err := strconv.Atoi(fields[3]); err == nil {
-						fileLimit = limit
-					}
-				}
-				break
-			}
-		}
-	}
-
-	return openFiles, fileLimit
-}
-
 // get list of locked files by the process
 func getLockedFilesProc(pid int) []string {
 	lockedFileData, err := os.ReadFile("/proc/locks")
@@ -171,7 +139,7 @@ func getLockedFilesProc(pid int) []string {
 		// consider POSIX locks (these have valid PIDs)
 		// Skip OFDLCK as PID is -1 (owned by multiple processes)
 		// skip FLOCK as it may not have valid PID association
-		if (lockPid != strconv.Itoa(-1)) && lockPid == pidStr {
+		if lockPid == pidStr {
 			// Store device:inode as identifier (resolving to file path would require scanning filesystem)
 			if !slices.Contains(result, deviceInode) {
 				result = append(result, deviceInode)
@@ -183,8 +151,37 @@ func getLockedFilesProc(pid int) []string {
 }
 
 // get list of directories being accessed by the process
-// directories being watched/accessed (detectable via lsof)
+// directories being watched/accessed (detectable via /proc/<pid>/fd)
 func getWatchedDirs(pid int) []string {
 	var result []string
+	seen := make(map[string]bool)
+
+	fdDir := fmt.Sprintf("/proc/%d/fd", pid)
+	entries, err := os.ReadDir(fdDir)
+	if err != nil {
+		return result
+	}
+
+	for _, entry := range entries {
+		path := fmt.Sprintf("%s/%s", fdDir, entry.Name())
+		target, err := os.Readlink(path)
+		if err != nil {
+			continue
+		}
+
+		// Check if target is a directory
+		info, err := os.Stat(target)
+		if err != nil {
+			continue
+		}
+
+		if info.IsDir() {
+			if !seen[target] {
+				seen[target] = true
+				result = append(result, target)
+			}
+		}
+	}
+
 	return result
 }

@@ -3,31 +3,25 @@
 package proc
 
 import (
-	"os"
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
 // GetResourceContext returns resource usage context for a process
-// Linux implementation - TODO: implement using /proc and cgroup info
-
 func GetResourceContext(pid int) *model.ResourceContext {
-	// Linux implementation could check:
-	// - /proc/<pid>/oom_score for memory pressure
-	// - cgroup CPU throttling
 	ctx := &model.ResourceContext{}
 	ctx.PreventsSleep = checkPreventsSleep(pid)
 	ctx.ThermalState = getThermalState()
-	ctx.AppNapped = getAppNapped()
+	ctx.AppNapped = getAppNapped(pid)
 	ctx.EnergyImpact = GetEnergyImpact(pid)
-  if ctx.PreventsSleep || ctx.ThermalState != "" {
-		return ctx
-	}
-	return nil
+	return ctx
 }
 
 // thermal zone info from /sys/class/thermal
@@ -39,30 +33,32 @@ func getThermalState() string {
 	}
 	readText, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Printf("Error reading thermal zone info: %v\n", err)
 		return ""
 	}
 	tempstr := strings.TrimSpace(string(readText))
 	temp, err := strconv.Atoi(tempstr)
 	if err != nil {
-		fmt.Printf("Error parsing temperature: %v\n", err)
+		return ""
 	}
-	tempC :=  temp/ 1000
+	tempC := temp / 1000
 	switch {
-		case tempC > 90:
-			return fmt.Sprintf("Critical thermal pressure %d", tempC)
-		case tempC > 70:
-			return fmt.Sprintf("High thermal pressure %d", tempC)
-		case tempC > 60:
-			return fmt.Sprintf("Warm thermal state %d", tempC)
-		default:
-			return fmt.Sprintf("Normal thermal state %d", tempC)
+	case tempC > 90:
+		return fmt.Sprintf("Critical thermal pressure %d", tempC)
+	case tempC > 70:
+		return fmt.Sprintf("High thermal pressure %d", tempC)
+	case tempC > 60:
+		return fmt.Sprintf("Warm thermal state %d", tempC)
+	default:
+		return fmt.Sprintf("Normal thermal state %d", tempC)
 	}
 }
 
 // checkPreventsSleep checks if a process has sleep prevention assertions
 func checkPreventsSleep(pid int) bool {
-	out, err := exec.Command("systemd-inhibit", "--list").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "systemd-inhibit", "--list").Output()
 	if err != nil {
 		return false
 	}
@@ -70,7 +66,7 @@ func checkPreventsSleep(pid int) bool {
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
 		// Check if this line references our PID and is a sleep prevention assertion
-		if !strings.Contains(line, pidStr){
+		if !strings.Contains(line, pidStr) {
 			continue
 		}
 		if strings.Contains(line, pidStr) {
@@ -85,42 +81,67 @@ func checkPreventsSleep(pid int) bool {
 	return false
 }
 
-// TODO: implement AppNapped detection on Linux
-func getAppNapped() bool {
-	return false
+// detect if process is in a stopped/suspended state
+func getAppNapped(pid int) bool {
+	statFile := fmt.Sprintf("/proc/%d/stat", pid)
+	data, err := os.ReadFile(statFile)
+	if err != nil {
+		return false
+	}
+
+	dataStr := string(data)
+	lastParenIndex := strings.LastIndex(dataStr, ")")
+	if lastParenIndex == -1 || lastParenIndex+2 >= len(dataStr) {
+		return false
+	}
+
+	rest := dataStr[lastParenIndex+2:]
+	fields := strings.Fields(rest)
+	if len(fields) < 1 {
+		return false
+	}
+
+	state := fields[0]
+	return state == "T" || state == "t"
 }
 
 // GetEnergyImpact attempts to get energy impact for a process
 func GetEnergyImpact(pid int, usePs ...bool) string {
 	var cpu float64
-	
+
 	shouldUsePs := len(usePs) > 0 && usePs[0]
-	
+
 	if shouldUsePs {
-		out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pcpu=").Output()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		out, err := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "pcpu=").Output()
 		if err != nil {
 			return ""
 		}
-		
+
 		cpuStr := strings.TrimSpace(string(out))
 		if cpuStr == "" {
 			return ""
 		}
-		
+
 		cpu, err = strconv.ParseFloat(cpuStr, 64)
 		if err != nil {
 			return ""
 		}
 	} else {
 		// Use top (default)
-		out, err := exec.Command("top", "-b", "-n", "1", "-p", strconv.Itoa(pid)).Output()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		out, err := exec.CommandContext(ctx, "top", "-b", "-n", "1", "-p", strconv.Itoa(pid)).Output()
 		if err != nil {
 			return ""
 		}
-		
+
 		lines := strings.Split(string(out), "\n")
 		found := false
-		
+
 		for _, line := range lines {
 			if strings.Contains(line, strconv.Itoa(pid)) {
 				fields := strings.Fields(line)
@@ -136,12 +157,12 @@ func GetEnergyImpact(pid int, usePs ...bool) string {
 				}
 			}
 		}
-		
+
 		if !found {
 			return ""
 		}
 	}
-	
+
 	switch {
 	case cpu > 50:
 		return "Very High"
