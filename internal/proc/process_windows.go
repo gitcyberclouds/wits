@@ -4,6 +4,7 @@ package proc
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -91,8 +92,17 @@ func ReadProcess(pid int) (model.Process, error) {
 		Health:         health,
 		Forked:         "unknown",
 		Env:            env,
-		Service:        serviceName,
+    Service:        serviceName,
+		ExeDeleted:     isWindowsBinaryDeleted(exe),
 	}, nil
+}
+
+func isWindowsBinaryDeleted(path string) bool {
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return os.IsNotExist(err)
 }
 
 // detectWindowsServiceSource checks if a PID belongs to a Windows Service via wmic.
