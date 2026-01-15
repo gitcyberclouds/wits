@@ -202,10 +202,29 @@ func ReadProcess(pid int) (model.Process, error) {
 	var ports []int
 	var addrs []string
 
+	// Check for IPv4 listeners first to avoid duplicates when synthesizing
+	ipv4Listeners := make(map[int]bool)
+	for _, inode := range inodes {
+		if s, ok := sockets[inode]; ok {
+			if s.Address == "0.0.0.0" {
+				ipv4Listeners[s.Port] = true
+			}
+		}
+	}
+
+	dualStackAllowed := isDualStackEnabled()
+
 	for _, inode := range inodes {
 		if s, ok := sockets[inode]; ok {
 			ports = append(ports, s.Port)
 			addrs = append(addrs, s.Address)
+
+			// Heuristic: If system allows dual-stack, we see ::, and there is NO explicit 0.0.0.0 listener,
+			// assume implicit dual-stack and show it.
+			if dualStackAllowed && s.Address == "::" && !ipv4Listeners[s.Port] {
+				ports = append(ports, s.Port)
+				addrs = append(addrs, "0.0.0.0")
+			}
 		}
 	}
 	// Full command line
@@ -295,4 +314,14 @@ func processState(fields []string) string {
 		return ""
 	}
 	return state[:1]
+}
+
+// isDualStackEnabled checks if /proc/sys/net/ipv6/bindv6only is 0 (or missing),
+// which implies that IPv6 sockets can handle IPv4 traffic by default.
+func isDualStackEnabled() bool {
+	data, err := os.ReadFile("/proc/sys/net/ipv6/bindv6only")
+	if err != nil {
+		return true
+	}
+	return strings.TrimSpace(string(data)) == "0"
 }
