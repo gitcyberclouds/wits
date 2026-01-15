@@ -29,25 +29,49 @@ func formatDetailLabel(key string) string {
 	return "              " + key
 }
 
-// RenderWarnings prints only the warnings, with color if enabled
-func RenderWarnings(w io.Writer, warnings []string, colorEnabled bool) {
+func RenderWarnings(w io.Writer, r model.Result, colorEnabled bool) {
 	out := NewPrinter(w)
-	if len(warnings) == 0 {
-		if colorEnabled {
-			out.Printf("%sNo warnings.%s\n", ColorGreen, ColorReset)
+
+	proc := r.Process
+	if len(r.Ancestry) > 0 {
+		proc = r.Ancestry[len(r.Ancestry)-1]
+	}
+
+	proc.Command = SanitizeTerminal(proc.Command)
+
+	if colorEnabled {
+		out.Printf("%sProcess%s     : %s%s%s (%spid %d%s)\n", ColorBlue, ColorReset, ColorGreen, proc.Command, ColorReset, ColorBold, proc.PID, ColorReset)
+		if proc.Cmdline != "" {
+			out.Printf("%sCommand%s     : %s\n", ColorGreen, ColorReset, proc.Cmdline)
 		} else {
-			out.Println("No warnings.")
+			out.Printf("%sCommand%s     : %s\n", ColorGreen, ColorReset, proc.Command)
+		}
+	} else {
+		out.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
+		if proc.Cmdline != "" {
+			out.Printf("Command     : %s\n", proc.Cmdline)
+		} else {
+			out.Printf("Command     : %s\n", proc.Command)
+		}
+	}
+
+	if len(r.Warnings) == 0 {
+		if colorEnabled {
+			out.Printf("%sWarnings%s    : %sNo warnings.%s\n", ColorRed, ColorReset, ColorGreen, ColorReset)
+		} else {
+			out.Println("Warnings    : No warnings.")
 		}
 		return
 	}
+
 	if colorEnabled {
-		out.Printf("%sWarnings%s:\n", ColorRed, ColorReset)
-		for _, w := range warnings {
+		out.Printf("%sWarnings%s    :\n", ColorRed, ColorReset)
+		for _, w := range r.Warnings {
 			out.Printf("  • %s\n", SanitizeTerminal(w))
 		}
 	} else {
-		out.Println("Warnings:")
-		for _, w := range warnings {
+		out.Println("Warnings    :")
+		for _, w := range r.Warnings {
 			out.Printf("  • %s\n", SanitizeTerminal(w))
 		}
 	}
@@ -545,9 +569,9 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		}
 
 		// Child processes
-		if len(r.ChildProcesses) > 0 {
+		if len(r.Children) > 0 {
 			out.Println("")
-			PrintChildren(w, r.Process, r.ChildProcesses, colorEnabled)
+			PrintChildren(w, r.Process, r.Children, colorEnabled)
 		}
 	}
 }

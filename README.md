@@ -628,8 +628,9 @@ Re-run with:
 | Memory usage detection | ✅ | ✅ | ✅ | ✅ | |
 | Health status detection | ✅ | ✅ | ✅ | ✅ | |
 | Open Files / Handles | ✅ | ✅ | ⚠️ | ✅ | Windows: count only. |
+| Deleted binary detection | ✅ | ✅ | ✅ | ✅ | Warns if executable is missing. |
 | **Context** |
-| Git repo/branch detection | ✅ | ✅ | ❌ | ✅ | |
+| Git repo/branch detection | ✅ | ✅ | ✅ | ✅ | |
 
 **Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
 
