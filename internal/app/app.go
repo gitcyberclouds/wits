@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pranshuparmar/witr/internal/output"
@@ -260,6 +261,16 @@ func runApp(cmd *cobra.Command, args []string) error {
 
 	pid := pids[0]
 
+	var systemdService string
+	// If we found systemd (PID 1) listening on a port, try to identify the actual service unit.
+	if t.Type == model.TargetPort && pid == 1 {
+		if portNum, err := strconv.Atoi(t.Value); err == nil {
+			if svc, err := procpkg.ResolveSystemdService(portNum); err == nil && svc != "" {
+				systemdService = svc
+			}
+		}
+	}
+
 	ancestry, err := procpkg.ResolveAncestry(pid)
 	if err != nil {
 		errStr := err.Error()
@@ -274,6 +285,9 @@ func runApp(cmd *cobra.Command, args []string) error {
 	if len(ancestry) > 0 {
 		proc = ancestry[len(ancestry)-1]
 		resolvedTarget = proc.Command
+		if systemdService != "" {
+			resolvedTarget = strings.TrimSuffix(systemdService, ".service")
+		}
 	}
 
 	if verboseFlag && len(ancestry) > 0 {
