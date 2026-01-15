@@ -38,6 +38,9 @@ func Detect(ancestry []model.Process) model.Source {
 	if src := detectContainer(ancestry); src != nil {
 		return *src
 	}
+	if src := detectShell(ancestry); src != nil {
+		return *src
+	}
 	if src := detectSystemd(ancestry); src != nil {
 		return *src
 	}
@@ -57,9 +60,6 @@ func Detect(ancestry []model.Process) model.Source {
 		return *src
 	}
 	if src := detectInit(ancestry); src != nil {
-		return *src
-	}
-	if src := detectShell(ancestry); src != nil {
 		return *src
 	}
 
