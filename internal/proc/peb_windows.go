@@ -98,7 +98,15 @@ func GetProcessDetailedInfo(pid int) (Win32ProcessInfo, error) {
 	// This allows getting Exe Path and Start Time for elevated processes from standard user.
 	handleLimited, err := syscall.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
 	if err != nil {
-		return info, err // Cannot even open LIMITED, truly failed.
+		// Fallback: If we can't open the process (Access Denied), try getting basic info from the snapshot.
+		ppid, exe, snapErr := getInfoFromSnapshot(pid)
+		if snapErr == nil {
+			info.PPID = ppid
+			info.Exe = exe
+			info.CommandLine = exe
+			return info, nil
+		}
+		return info, err
 	}
 	defer syscall.CloseHandle(handleLimited)
 
@@ -114,7 +122,8 @@ func GetProcessDetailedInfo(pid int) (Win32ProcessInfo, error) {
 	}
 
 	// Get PPID via Snapshot (since we can't query it from process handle easily without full rights/classes)
-	info.PPID = getPPIDFromSnapshot(pid)
+	ppid, _, _ := getInfoFromSnapshot(pid)
+	info.PPID = ppid
 
 	// Cwd and Env are unavailable without VM_READ
 	info.Cwd = ""
@@ -224,11 +233,11 @@ func getProcessImageName(handle syscall.Handle) string {
 	return syscall.UTF16ToString(buf[:size])
 }
 
-func getPPIDFromSnapshot(pid int) int {
+func getInfoFromSnapshot(pid int) (int, string, error) {
 	// CreateToolhelp32Snapshot
 	snap, _, _ := procCreateToolhelp32Snapshot.Call(uintptr(TH32CS_SNAPPROCESS), 0)
 	if syscall.Handle(snap) == syscall.InvalidHandle {
-		return 0
+		return 0, "", fmt.Errorf("failed to create snapshot")
 	}
 	defer syscall.CloseHandle(syscall.Handle(snap))
 
@@ -238,12 +247,13 @@ func getPPIDFromSnapshot(pid int) int {
 	// Process32First
 	ret, _, _ := procProcess32First.Call(snap, uintptr(unsafe.Pointer(&pe32)))
 	if ret == 0 {
-		return 0
+		return 0, "", fmt.Errorf("failed to get first process")
 	}
 
 	for {
 		if int(pe32.ProcessID) == pid {
-			return int(pe32.ParentProcessID)
+			exe := syscall.UTF16ToString(pe32.ExeFile[:])
+			return int(pe32.ParentProcessID), exe, nil
 		}
 		// Process32Next
 		ret, _, _ = procProcess32Next.Call(snap, uintptr(unsafe.Pointer(&pe32)))
@@ -251,5 +261,5 @@ func getPPIDFromSnapshot(pid int) int {
 			break
 		}
 	}
-	return 0
+	return 0, "", fmt.Errorf("process %d not found in snapshot", pid)
 }

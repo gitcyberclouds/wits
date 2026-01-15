@@ -67,7 +67,17 @@ func detectShell(ancestry []model.Process) *model.Source {
 			}
 		}
 
-		if userTools[base] {
+		// Normalize for Windows by stripping common executable extensions for the map lookup
+		lookupName := base
+		lowerBase := strings.ToLower(base)
+		for _, ext := range []string{".exe", ".cmd", ".bat", ".com"} {
+			if strings.HasSuffix(lowerBase, ext) {
+				lookupName = strings.TrimSuffix(lowerBase, ext)
+				break
+			}
+		}
+
+		if userTools[lookupName] {
 			return &model.Source{
 				Type: model.SourceShell,
 				Name: base,
