@@ -25,6 +25,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	ports, addrs := GetListeningPortsForPID(pid)
 	serviceName := detectWindowsServiceSource(pid)
+	container := detectContainer(info.CommandLine)
 
 	return model.Process{
 		PID:            pid,
@@ -41,6 +42,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		Forked:         "unknown",
 		Env:            info.Env,
 		Service:        serviceName,
+		Container:      container,
 		ExeDeleted:     isWindowsBinaryDeleted(info.Exe),
 	}, nil
 }
@@ -64,4 +66,54 @@ func detectWindowsServiceSource(pid int) string {
 	}
 
 	return strings.TrimSpace(string(out))
+}
+
+func detectContainer(cmdline string) string {
+	if cmdline == "" {
+		return ""
+	}
+	lowerCmd := strings.ToLower(cmdline)
+
+	switch {
+	case strings.Contains(lowerCmd, "docker"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "docker: " + name
+		}
+		return "docker"
+	case strings.Contains(lowerCmd, "podman"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "podman: " + name
+		}
+		return "podman"
+	case strings.Contains(lowerCmd, "minikube"):
+		if profile := extractFlagValue(cmdline, "-p", "--profile"); profile != "" {
+			return "k8s: " + profile
+		}
+		return "kubernetes"
+	case strings.Contains(lowerCmd, "kind"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "k8s: " + name
+		}
+		return "kubernetes"
+	case strings.Contains(lowerCmd, "kubepods"):
+		if id := findLongHexID(cmdline); id != "" {
+			if name := resolveContainerName(id, "crictl"); name != "" {
+				return "k8s: " + name
+			}
+			return "k8s (" + id[:12] + ")"
+		}
+		return "kubernetes"
+	case strings.Contains(lowerCmd, "nerdctl"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "containerd: " + name
+		}
+		return "containerd"
+	case strings.Contains(lowerCmd, "containerd"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "containerd: " + name
+		}
+		return "containerd"
+	}
+
+	return ""
 }

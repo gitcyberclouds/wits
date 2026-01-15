@@ -81,17 +81,66 @@ func ReadProcess(pid int) (model.Process, error) {
 	cgroupFile := fmt.Sprintf("/proc/%d/cgroup", pid)
 	if cgroupData, err := os.ReadFile(cgroupFile); err == nil {
 		cgroupStr := string(cgroupData)
+		var containerID string
 		switch {
 		case strings.Contains(cgroupStr, "docker"):
 			container = "docker"
+			containerID = extractContainerID(cgroupStr, "docker-", "docker/")
+			if containerID != "" {
+				if name := resolveContainerName(containerID, "docker"); name != "" {
+					container = name
+				} else {
+					if len(containerID) > 12 {
+						container = "docker (" + containerID[:12] + ")"
+					}
+				}
+			}
+
 		case strings.Contains(cgroupStr, "podman"), strings.Contains(cgroupStr, "libpod"):
 			container = "podman"
+			containerID = extractContainerID(cgroupStr, "libpod-", "libpod/")
+			if containerID != "" {
+				if name := resolveContainerName(containerID, "podman"); name != "" {
+					container = name
+				} else {
+					if len(containerID) > 12 {
+						container = "podman (" + containerID[:12] + ")"
+					}
+				}
+			}
+
 		case strings.Contains(cgroupStr, "kubepods"):
 			container = "kubernetes"
-		case strings.Contains(cgroupStr, "colima"):
-			container = "colima"
+			if id := findLongHexID(cgroupStr); id != "" {
+				containerID = id
+				if name := resolveContainerName(containerID, "crictl"); name != "" {
+					container = "k8s: " + name
+				} else {
+					container = "k8s (" + containerID[:12] + ")"
+				}
+			}
+
 		case strings.Contains(cgroupStr, "containerd"):
 			container = "containerd"
+			if id := findLongHexID(cgroupStr); id != "" {
+				containerID = id
+				if name := resolveContainerName(containerID, "nerdctl"); name != "" {
+					container = "containerd: " + name
+				} else {
+					container = "containerd (" + containerID[:12] + ")"
+				}
+			}
+
+		case strings.Contains(cgroupStr, "colima"):
+			container = "colima"
+			if idx := strings.Index(cgroupStr, "colima-"); idx != -1 {
+				rest := cgroupStr[idx+7:]
+				if dot := strings.Index(rest, ".scope"); dot != -1 {
+					container = "colima: " + rest[:dot]
+				}
+			} else if strings.Contains(cgroupStr, "colima") {
+				container = "colima: default"
+			}
 		}
 	}
 
@@ -324,4 +373,22 @@ func isDualStackEnabled() bool {
 		return true
 	}
 	return strings.TrimSpace(string(data)) == "0"
+}
+
+func extractContainerID(cgroup, dashPrefix, slashPrefix string) string {
+	// Pattern 1: .../prefix-<id>.scope
+	if idx := strings.Index(cgroup, dashPrefix); idx != -1 {
+		rest := cgroup[idx+len(dashPrefix):]
+		if dot := strings.Index(rest, ".scope"); dot != -1 {
+			return rest[:dot]
+		}
+	}
+	// Pattern 2: .../prefix/<id>
+	if idx := strings.Index(cgroup, slashPrefix); idx != -1 {
+		rest := cgroup[idx+len(slashPrefix):]
+		if len(rest) >= 64 {
+			return rest[:64]
+		}
+	}
+	return ""
 }
