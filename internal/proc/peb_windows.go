@@ -4,6 +4,7 @@ package proc
 
 import (
 	"fmt"
+	"path/filepath"
 	"syscall"
 	"time"
 	"unsafe"
@@ -11,16 +12,23 @@ import (
 
 // Win32 API constants and structures
 const (
-	PROCESS_QUERY_INFORMATION = 0x0400
-	PROCESS_VM_READ           = 0x0010
+	PROCESS_QUERY_INFORMATION         = 0x0400
+	PROCESS_VM_READ                   = 0x0010
+	PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+	TH32CS_SNAPPROCESS = 0x00000002
 )
 
 var (
-	modntdll            = syscall.NewLazyDLL("ntdll.dll")
-	procNtQueryInfo     = modntdll.NewProc("NtQueryInformationProcess")
-	modkernel32         = syscall.NewLazyDLL("kernel32.dll")
-	procReadProcessMem  = modkernel32.NewProc("ReadProcessMemory")
-	procGetProcessTimes = modkernel32.NewProc("GetProcessTimes")
+	modntdll                      = syscall.NewLazyDLL("ntdll.dll")
+	procNtQueryInfo               = modntdll.NewProc("NtQueryInformationProcess")
+	modkernel32                   = syscall.NewLazyDLL("kernel32.dll")
+	procReadProcessMem            = modkernel32.NewProc("ReadProcessMemory")
+	procGetProcessTimes           = modkernel32.NewProc("GetProcessTimes")
+	procQueryFullProcessImageName = modkernel32.NewProc("QueryFullProcessImageNameW")
+	procCreateToolhelp32Snapshot  = modkernel32.NewProc("CreateToolhelp32Snapshot")
+	procProcess32First            = modkernel32.NewProc("Process32FirstW")
+	procProcess32Next             = modkernel32.NewProc("Process32NextW")
 )
 
 type processBasicInformation struct {
@@ -50,6 +58,19 @@ type rtlUserProcessParameters struct {
 	Environment            uintptr
 }
 
+type PROCESSENTRY32 struct {
+	Size            uint32
+	CntUsage        uint32
+	ProcessID       uint32
+	DefaultHeapID   uintptr
+	ModuleID        uint32
+	CntThreads      uint32
+	ParentProcessID uint32
+	PriClassBase    int32
+	Flags           uint32
+	ExeFile         [260]uint16
+}
+
 type Win32ProcessInfo struct {
 	PPID        int
 	CommandLine string
@@ -61,13 +82,57 @@ type Win32ProcessInfo struct {
 
 func GetProcessDetailedInfo(pid int) (Win32ProcessInfo, error) {
 	var info Win32ProcessInfo
+
+	// 1. Try Full Access (Query Info + VM Read)
 	handle, err := syscall.OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, false, uint32(pid))
+	if err == nil {
+		defer syscall.CloseHandle(handle)
+		err := getFullProcessInfo(handle, pid, &info)
+		if err == nil {
+			return info, nil
+		}
+		// If getFullProcessInfo fails (e.g. PEB read error), fall through to limited
+	}
+
+	// 2. Fallback: Try Limited Access (Query Limited Info)
+	// This allows getting Exe Path and Start Time for elevated processes from standard user.
+	handleLimited, err := syscall.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
 	if err != nil {
+		// Fallback: If we can't open the process (Access Denied), try getting basic info from the snapshot.
+		ppid, exe, snapErr := getInfoFromSnapshot(pid)
+		if snapErr == nil {
+			info.PPID = ppid
+			info.Exe = exe
+			info.CommandLine = exe
+			return info, nil
+		}
 		return info, err
 	}
-	defer syscall.CloseHandle(handle)
+	defer syscall.CloseHandle(handleLimited)
 
 	// Get Start Time
+	info.StartedAt = getProcessStartTime(handleLimited)
+
+	// Get Exe Path via QueryFullProcessImageName (Kernel32)
+	exePath := getProcessImageName(handleLimited)
+	info.Exe = exePath
+	// Default CommandLine to Exe name if we can't read memory
+	if exePath != "" {
+		info.CommandLine = filepath.Base(exePath)
+	}
+
+	// Get PPID via Snapshot (since we can't query it from process handle easily without full rights/classes)
+	ppid, _, _ := getInfoFromSnapshot(pid)
+	info.PPID = ppid
+
+	// Cwd and Env are unavailable without VM_READ
+	info.Cwd = ""
+	info.Env = []string{}
+
+	return info, nil
+}
+
+func getFullProcessInfo(handle syscall.Handle, pid int, info *Win32ProcessInfo) error {
 	info.StartedAt = getProcessStartTime(handle)
 
 	var pbi processBasicInformation
@@ -81,41 +146,37 @@ func GetProcessDetailedInfo(pid int) (Win32ProcessInfo, error) {
 	)
 
 	if status != 0 {
-		return info, fmt.Errorf("NtQueryInformationProcess failed with status %x", status)
+		return fmt.Errorf("NtQueryInformationProcess failed with status %x", status)
 	}
 
 	info.PPID = int(pbi.InheritedFromUniqueProcessId)
 
 	if pbi.PebBaseAddress == 0 {
-		return info, fmt.Errorf("PEB Base Address is 0")
+		return fmt.Errorf("PEB Base Address is 0")
 	}
 
 	// Read PEB
 	var pebPtr uintptr
-	// PebBaseAddress + offset to ProcessParameters (0x20 on x64, 0x10 on x86)
 	paramsOffset := uintptr(0x20)
 	if unsafe.Sizeof(uintptr(0)) == 4 {
 		paramsOffset = 0x10
 	}
 
 	if !readProcessMemory(handle, pbi.PebBaseAddress+paramsOffset, unsafe.Pointer(&pebPtr), unsafe.Sizeof(pebPtr)) {
-		return info, fmt.Errorf("failed to read PEB ProcessParameters address")
+		return fmt.Errorf("failed to read PEB ProcessParameters address")
 	}
 
 	var params rtlUserProcessParameters
 	if !readProcessMemory(handle, pebPtr, unsafe.Pointer(&params), unsafe.Sizeof(params)) {
-		return info, fmt.Errorf("failed to read ProcessParameters struct")
+		return fmt.Errorf("failed to read ProcessParameters struct")
 	}
 
 	info.Cwd = readUnicodeString(handle, params.CurrentDirectoryPath)
 	info.CommandLine = readUnicodeString(handle, params.CommandLine)
 	info.Exe = readUnicodeString(handle, params.ImagePathName)
-
-	// Environment is complex to read remotely (block of null-terminated strings)
-	// Leaving empty for now as requested, matching previous behavior/capability level.
 	info.Env = []string{}
 
-	return info, nil
+	return nil
 }
 
 func readProcessMemory(handle syscall.Handle, addr uintptr, dest unsafe.Pointer, size uintptr) bool {
@@ -154,4 +215,51 @@ func getProcessStartTime(handle syscall.Handle) time.Time {
 		return time.Time{}
 	}
 	return time.Unix(0, creation.Nanoseconds())
+}
+
+func getProcessImageName(handle syscall.Handle) string {
+	buf := make([]uint16, 1024)
+	size := uint32(len(buf))
+	// QueryFullProcessImageNameW(hProcess, 0, lpExeName, lpdwSize)
+	ret, _, _ := procQueryFullProcessImageName.Call(
+		uintptr(handle),
+		0,
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(unsafe.Pointer(&size)),
+	)
+	if ret == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buf[:size])
+}
+
+func getInfoFromSnapshot(pid int) (int, string, error) {
+	// CreateToolhelp32Snapshot
+	snap, _, _ := procCreateToolhelp32Snapshot.Call(uintptr(TH32CS_SNAPPROCESS), 0)
+	if syscall.Handle(snap) == syscall.InvalidHandle {
+		return 0, "", fmt.Errorf("failed to create snapshot")
+	}
+	defer syscall.CloseHandle(syscall.Handle(snap))
+
+	var pe32 PROCESSENTRY32
+	pe32.Size = uint32(unsafe.Sizeof(pe32))
+
+	// Process32First
+	ret, _, _ := procProcess32First.Call(snap, uintptr(unsafe.Pointer(&pe32)))
+	if ret == 0 {
+		return 0, "", fmt.Errorf("failed to get first process")
+	}
+
+	for {
+		if int(pe32.ProcessID) == pid {
+			exe := syscall.UTF16ToString(pe32.ExeFile[:])
+			return int(pe32.ParentProcessID), exe, nil
+		}
+		// Process32Next
+		ret, _, _ = procProcess32Next.Call(snap, uintptr(unsafe.Pointer(&pe32)))
+		if ret == 0 {
+			break
+		}
+	}
+	return 0, "", fmt.Errorf("process %d not found in snapshot", pid)
 }

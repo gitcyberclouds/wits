@@ -104,6 +104,9 @@ jobs:
           # Start a background process
           sleep 60 &
           TEST_PID=$!
+          if [[ "${{ matrix.os }}" == "windows" ]]; then
+            TEST_PID=$(cat /proc/$TEST_PID/winpid)
+          fi
           echo "Testing against PID: $TEST_PID"
           
           # Basic PID lookup
@@ -150,6 +153,9 @@ jobs:
           
           TEST_PID=$(cat pid.txt)
           rm pid.txt
+          if [[ "${{ matrix.os }}" == "windows" ]]; then
+            TEST_PID=$(cat /proc/$TEST_PID/winpid)
+          fi
           echo "Testing against PID: $TEST_PID"
           
           # Tree view

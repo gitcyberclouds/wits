@@ -92,6 +92,9 @@ func ResolvePort(port int) ([]int, error) {
 
 	result := make([]int, 0, len(pidSet))
 	for pid := range pidSet {
+		if len(pidSet) > 1 && pid == 1 {
+			continue
+		}
 		result = append(result, pid)
 	}
 	sort.Ints(result)

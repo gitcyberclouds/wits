@@ -3,10 +3,10 @@
 package app
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pranshuparmar/witr/internal/output"
@@ -182,19 +182,20 @@ func runApp(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("error: %v", err)
 		}
+
+		resEnv := model.Result{
+			Process:  procInfo,
+			Ancestry: []model.Process{procInfo},
+		}
+
 		if jsonFlag {
-			type envOut struct {
-				Command string   `json:"Command"`
-				Env     []string `json:"Env"`
-			}
-			out := envOut{Command: procInfo.Cmdline, Env: procInfo.Env}
-			enc, err := json.MarshalIndent(out, "", "  ")
+			importJSON, err := output.ToEnvJSON(resEnv)
 			if err != nil {
-				return fmt.Errorf("failed to marshal json: %w", err)
+				return fmt.Errorf("failed to generate json output: %w", err)
 			}
-			fmt.Fprintln(outw, string(enc))
+			fmt.Fprintln(outw, importJSON)
 		} else {
-			output.RenderEnvOnly(outw, procInfo, !noColorFlag)
+			output.RenderEnvOnly(outw, resEnv, !noColorFlag)
 		}
 		return nil
 	}
@@ -260,6 +261,16 @@ func runApp(cmd *cobra.Command, args []string) error {
 
 	pid := pids[0]
 
+	var systemdService string
+	// If we found systemd (PID 1) listening on a port, try to identify the actual service unit.
+	if t.Type == model.TargetPort && pid == 1 {
+		if portNum, err := strconv.Atoi(t.Value); err == nil {
+			if svc, err := procpkg.ResolveSystemdService(portNum); err == nil && svc != "" {
+				systemdService = svc
+			}
+		}
+	}
+
 	ancestry, err := procpkg.ResolveAncestry(pid)
 	if err != nil {
 		errStr := err.Error()
@@ -274,6 +285,9 @@ func runApp(cmd *cobra.Command, args []string) error {
 	if len(ancestry) > 0 {
 		proc = ancestry[len(ancestry)-1]
 		resolvedTarget = proc.Command
+		if systemdService != "" {
+			resolvedTarget = strings.TrimSuffix(systemdService, ".service")
+		}
 	}
 
 	if verboseFlag && len(ancestry) > 0 {
@@ -326,7 +340,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 		FileContext:     fileCtx,
 	}
 	if len(childProcesses) > 0 {
-		res.ChildProcesses = childProcesses
+		res.Children = childProcesses
 	}
 
 	// Add socket state info for port queries
@@ -340,15 +354,27 @@ func runApp(cmd *cobra.Command, args []string) error {
 	}
 
 	if jsonFlag {
-		importJSON, err := output.ToJSON(res)
+		var importJSON string
+		var err error
+
+		if shortFlag {
+			importJSON, err = output.ToShortJSON(res)
+		} else if treeFlag {
+			importJSON, err = output.ToTreeJSON(res)
+		} else if warnFlag {
+			importJSON, err = output.ToWarningsJSON(res)
+		} else {
+			importJSON, err = output.ToJSON(res)
+		}
+
 		if err != nil {
 			return fmt.Errorf("failed to generate json output: %w", err)
 		}
 		fmt.Fprintln(outw, importJSON)
 	} else if warnFlag {
-		output.RenderWarnings(outw, res.Warnings, !noColorFlag)
+		output.RenderWarnings(outw, res, !noColorFlag)
 	} else if treeFlag {
-		output.PrintTree(outw, res.Ancestry, res.ChildProcesses, !noColorFlag)
+		output.PrintTree(outw, res.Ancestry, res.Children, !noColorFlag)
 	} else if shortFlag {
 		output.RenderShort(outw, res, !noColorFlag)
 	} else {

@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -207,43 +206,6 @@ func extractExecutableName(cmdline string) string {
 	return ""
 }
 
-func splitCmdline(cmdline string) []string {
-	var args []string
-	var current strings.Builder
-	var quote rune
-	escaped := false
-	for _, r := range cmdline {
-		switch {
-		case escaped:
-			current.WriteRune(r)
-			escaped = false
-		case r == '\\':
-			escaped = true
-		case r == '"' || r == '\'':
-			if quote == 0 {
-				quote = r
-				continue
-			}
-			if quote == r {
-				quote = 0
-				continue
-			}
-			current.WriteRune(r)
-		case unicode.IsSpace(r) && quote == 0:
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteRune(r)
-		}
-	}
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
-	return args
-}
-
 func getCommandLine(pid int) string {
 	// Use ps to get full command line
 	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "args=").Output()
@@ -326,14 +288,47 @@ func detectContainer(pid int) string {
 
 	switch {
 	case strings.Contains(lowerCmd, "docker"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "docker: " + name
+		}
 		return "docker"
 	case strings.Contains(lowerCmd, "podman"), strings.Contains(lowerCmd, "libpod"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "podman: " + name
+		}
 		return "podman"
+	case strings.Contains(lowerCmd, "minikube"):
+		if profile := extractFlagValue(cmdline, "-p", "--profile"); profile != "" {
+			return "k8s: " + profile
+		}
+		return "kubernetes"
+	case strings.Contains(lowerCmd, "kind"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "k8s: " + name
+		}
+		return "kubernetes"
 	case strings.Contains(lowerCmd, "kubepods"):
+		if id := findLongHexID(cmdline); id != "" {
+			if name := resolveContainerName(id, "crictl"); name != "" {
+				return "k8s: " + name
+			}
+			return "k8s (" + id[:12] + ")"
+		}
 		return "kubernetes"
 	case strings.Contains(lowerCmd, "colima"):
-		return "colima"
+		if profile := extractFlagValue(cmdline, "-p", "--profile"); profile != "" {
+			return "colima: " + profile
+		}
+		return "colima: default"
+	case strings.Contains(lowerCmd, "nerdctl"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "containerd: " + name
+		}
+		return "containerd"
 	case strings.Contains(lowerCmd, "containerd"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "containerd: " + name
+		}
 		return "containerd"
 	}
 

@@ -622,14 +622,15 @@ Re-run with:
 | Windows Services | ❌ | ❌ | ✅ | ❌ | Windows only |
 | rc.d | ❌ | ❌ | ❌ | ✅ | FreeBSD only |
 | Supervisor | ✅ | ✅ | ✅ | ✅ | |
-| Containers | ✅ | ⚠️ | ❌ | ✅ | Windows/macOS: Docker detects VM context. FreeBSD: Jails. |
+| Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus Compose mappings), Podman, K8s (Kubepods), Containerd. Colima on macOS/Linux. Jails on FreeBSD. |
 | **Health & Diagnostics** |
 | CPU usage detection | ✅ | ✅ | ✅ | ✅ | |
 | Memory usage detection | ✅ | ✅ | ✅ | ✅ | |
 | Health status detection | ✅ | ✅ | ✅ | ✅ | |
 | Open Files / Handles | ✅ | ✅ | ⚠️ | ✅ | Windows: count only. |
+| Deleted binary detection | ✅ | ✅ | ✅ | ✅ | Warns if executable is missing. |
 | **Context** |
-| Git repo/branch detection | ✅ | ✅ | ❌ | ✅ | |
+| Git repo/branch detection | ✅ | ✅ | ✅ | ✅ | |
 
 **Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
 
@@ -663,7 +664,7 @@ On Windows, witr uses `Get-CimInstance`, `tasklist`, and `netstat`. To see detai
 
 ```powershell
 # Run in Administrator PowerShell
-./witr.exe [your arguments]
+.\witr.exe [your arguments]
 ```
 
 ---
