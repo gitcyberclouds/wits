@@ -493,6 +493,7 @@ Non‑blocking observations such as:
 ```
 --pid <n>         Explain a specific PID
 --port <n>        Explain port usage
+--exact           Use exact name matching (no substring search)
 --short           One-line summary
 --tree            Show ancestry tree with child processes
 --json            Output result as JSON
@@ -503,7 +504,7 @@ Non‑blocking observations such as:
 --verbose         Show extended process information
 ```
 
-A single positional argument (without flags) is treated as a process or service name.
+A single positional argument (without flags) is treated as a process or service name. By default, name matching uses substring matching (fuzzy search). Use `--exact` to match only processes with the exact name.
 
 ---
 
@@ -589,6 +590,12 @@ Multiple matching processes found:
 
 Re-run with:
   witr --pid <pid>
+```
+
+To avoid substring matching and only find processes with an exact name, use the `--exact` flag:
+
+```bash
+witr --exact nginx
 ```
 
 ---

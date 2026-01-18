@@ -18,6 +18,10 @@ witr explains why a process or port is running by tracing its ancestry.
 	show environment variables for the process
 
 .PP
+\fB--exact\fP[=false]
+	use exact name matching (no substring search)
+
+.PP
 \fB-h\fP, \fB--help\fP[=false]
 	help for witr
 
@@ -65,6 +69,9 @@ witr explains why a process or port is running by tracing its ancestry.
 
   # Find the process listening on a specific port
   witr --port 5432
+
+  # Inspect a process by name with exact matching (no fuzzy search)
+  witr --exact bun
 
   # Show the full process ancestry (who started whom)
   witr postgres --tree
