@@ -37,10 +37,10 @@ func readListeningSockets() (map[string]model.Socket, error) {
 		}
 		switch line[0] {
 		case 'p':
-			currentPID = line[1:]
+			currentPID = strings.TrimSpace(line[1:])
 		case 'n':
 			// Format: n*:8080 or n127.0.0.1:8080 or n[::1]:8080
-			addr := line[1:]
+			addr := strings.TrimSpace(line[1:])
 			address, port := parseNetstatAddr(addr)
 			if port > 0 {
 				// Use PID:port as pseudo-inode
