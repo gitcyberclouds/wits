@@ -24,7 +24,7 @@ func isValidServiceLabel(label string) bool {
 	return validServiceLabelRegex.MatchString(label)
 }
 
-func ResolveName(name string) ([]int, error) {
+func ResolveName(name string, exact bool) ([]int, error) {
 	var procPIDs []int
 
 	lowerName := strings.ToLower(name)
@@ -71,7 +71,13 @@ func ResolveName(name string) ([]int, error) {
 		}
 
 		// Match against command name
-		if strings.Contains(comm, lowerName) {
+		var match bool
+		if exact {
+			match = comm == lowerName
+		} else {
+			match = strings.Contains(comm, lowerName)
+		}
+		if match {
 			// Exclude grep-like processes
 			if !strings.Contains(comm, "grep") {
 				procPIDs = append(procPIDs, pid)
@@ -80,9 +86,17 @@ func ResolveName(name string) ([]int, error) {
 		}
 
 		// Match against full command line
-		if strings.Contains(args, lowerName) &&
-			!strings.Contains(args, "grep") {
-			procPIDs = append(procPIDs, pid)
+		if exact {
+			// For exact match, check if first argument matches
+			parts := strings.Fields(args)
+			if len(parts) > 0 && parts[0] == lowerName && !strings.Contains(args, "grep") {
+				procPIDs = append(procPIDs, pid)
+			}
+		} else {
+			if strings.Contains(args, lowerName) &&
+				!strings.Contains(args, "grep") {
+				procPIDs = append(procPIDs, pid)
+			}
 		}
 	}
 

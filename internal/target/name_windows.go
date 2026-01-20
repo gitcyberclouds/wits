@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func ResolveName(name string) ([]int, error) {
+func ResolveName(name string, exact bool) ([]int, error) {
 	// powershell Get-CimInstance Win32_Process
 	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "Get-CimInstance -ClassName Win32_Process | ForEach-Object { 'Name=' + $_.Name; 'CommandLine=' + $_.CommandLine; 'ProcessId=' + $_.ProcessId }").Output()
 	if err != nil {
@@ -52,8 +52,14 @@ func ResolveName(name string) ([]int, error) {
 					continue
 				}
 
-				if strings.Contains(strings.ToLower(currentName), lowerName) ||
-					strings.Contains(strings.ToLower(currentCmd), lowerName) {
+				var match bool
+				if exact {
+					match = strings.ToLower(currentName) == lowerName
+				} else {
+					match = strings.Contains(strings.ToLower(currentName), lowerName) ||
+						strings.Contains(strings.ToLower(currentCmd), lowerName)
+				}
+				if match {
 					pids = append(pids, currentPID)
 				}
 			}

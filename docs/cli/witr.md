@@ -23,6 +23,9 @@ witr [process name] [flags]
   # Find the process listening on a specific port
   witr --port 5432
 
+  # Inspect a process by name with exact matching (no fuzzy search)
+  witr --exact bun
+
   # Show the full process ancestry (who started whom)
   witr postgres --tree
 
@@ -53,6 +56,7 @@ witr [process name] [flags]
 
 ```
       --env           show environment variables for the process
+      --exact         use exact name matching (no substring search)
   -h, --help          help for witr
       --json          show result as JSON
       --no-color      disable colorized output

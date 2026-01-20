@@ -11,10 +11,10 @@ import (
 	"strings"
 )
 
-func ResolveName(name string) ([]int, error) {
+func ResolveName(name string, exact bool) ([]int, error) {
 	var procPIDs []int
 
-	// Process name and command line matching (case-insensitive, substring)
+	// Process name and command line matching (case-insensitive, substring or exact)
 	entries, _ := os.ReadDir("/proc")
 	lowerName := strings.ToLower(name)
 	selfPid := os.Getpid()
@@ -37,9 +37,16 @@ func ResolveName(name string) ([]int, error) {
 
 		comm, err := os.ReadFile("/proc/" + e.Name() + "/comm")
 		if err == nil {
-			if strings.Contains(strings.ToLower(strings.TrimSpace(string(comm))), lowerName) {
+			commLower := strings.ToLower(strings.TrimSpace(string(comm)))
+			var match bool
+			if exact {
+				match = commLower == lowerName
+			} else {
+				match = strings.Contains(commLower, lowerName)
+			}
+			if match {
 				// Exclude grep-like processes
-				if !strings.Contains(strings.ToLower(string(comm)), "grep") {
+				if !strings.Contains(commLower, "grep") {
 					procPIDs = append(procPIDs, pid)
 				}
 				continue
@@ -50,9 +57,19 @@ func ResolveName(name string) ([]int, error) {
 		if err == nil {
 			// cmdline is null-separated
 			cmd := strings.ReplaceAll(string(cmdline), "\x00", " ")
+			cmdLower := strings.ToLower(cmd)
 			// Exclude self, parent, and grep
-			if strings.Contains(strings.ToLower(cmd), lowerName) &&
-				!strings.Contains(strings.ToLower(cmd), "grep") {
+			var match bool
+			if exact {
+				// For cmdline, exact match means the first argument (executable) must match
+				parts := strings.Fields(cmdLower)
+				if len(parts) > 0 {
+					match = parts[0] == lowerName
+				}
+			} else {
+				match = strings.Contains(cmdLower, lowerName)
+			}
+			if match && !strings.Contains(cmdLower, "grep") {
 				procPIDs = append(procPIDs, pid)
 			}
 		}
