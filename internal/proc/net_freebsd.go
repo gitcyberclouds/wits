@@ -6,13 +6,15 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/pranshuparmar/witr/pkg/model"
 )
 
 // readListeningSockets returns a map of pseudo-inodes to sockets
 // On FreeBSD, we use sockstat to get listening sockets
 // We use a combination of PID:port as the "inode" since FreeBSD doesn't expose inodes like Linux
-func readListeningSockets() (map[string]Socket, error) {
-	sockets := make(map[string]Socket)
+func readListeningSockets() (map[string]model.Socket, error) {
+	sockets := make(map[string]model.Socket)
 
 	// Use sockstat to get listening TCP sockets
 	// -4 = IPv4, -6 = IPv6, -l = listening, -P tcp = TCP protocol
@@ -34,7 +36,7 @@ func readListeningSockets() (map[string]Socket, error) {
 	return sockets, nil
 }
 
-func parseSockstatOutput(output string, sockets map[string]Socket) {
+func parseSockstatOutput(output string, sockets map[string]model.Socket) {
 	// sockstat output format:
 	// USER     COMMAND    PID   FD PROTO  LOCAL ADDRESS         FOREIGN ADDRESS
 	// root     nginx      1234  6  tcp4   *:80                  *:*
@@ -59,7 +61,7 @@ func parseSockstatOutput(output string, sockets map[string]Socket) {
 		if port > 0 {
 			// Use PID:port:address as pseudo-inode to distinguish IPv4 and IPv6
 			inode := pid + ":" + strconv.Itoa(port) + ":" + address
-			sockets[inode] = Socket{
+			sockets[inode] = model.Socket{
 				Inode:   inode,
 				Port:    port,
 				Address: address,
@@ -68,8 +70,8 @@ func parseSockstatOutput(output string, sockets map[string]Socket) {
 	}
 }
 
-func readListeningSocketsNetstat() (map[string]Socket, error) {
-	sockets := make(map[string]Socket)
+func readListeningSocketsNetstat() (map[string]model.Socket, error) {
+	sockets := make(map[string]model.Socket)
 
 	// Use netstat as fallback
 	// netstat -an -p tcp shows all TCP connections
@@ -97,7 +99,7 @@ func readListeningSocketsNetstat() (map[string]Socket, error) {
 		if port > 0 {
 			// Generate a unique key
 			inode := "netstat:" + localAddr
-			sockets[inode] = Socket{
+			sockets[inode] = model.Socket{
 				Inode:   inode,
 				Port:    port,
 				Address: address,

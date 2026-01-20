@@ -7,27 +7,40 @@ import (
 )
 
 // RenderEnvOnly prints only the command and environment variables for a process
-func RenderEnvOnly(w io.Writer, proc model.Process, colorEnabled bool) {
+func RenderEnvOnly(w io.Writer, r model.Result, colorEnabled bool) {
 	p := NewPrinter(w)
 
 	colorResetEnv := ansiString("")
 	colorBlueEnv := ansiString("")
 	colorRedEnv := ansiString("")
 	colorGreenEnv := ansiString("")
+	colorBoldEnv := ansiString("")
 	if colorEnabled {
-		colorResetEnv = ansiString("\033[0m")
-		colorBlueEnv = ansiString("\033[34m")
-		colorRedEnv = ansiString("\033[31m")
-		colorGreenEnv = ansiString("\033[32m")
+		colorResetEnv = ColorReset
+		colorBlueEnv = ColorBlue
+		colorRedEnv = ColorRed
+		colorGreenEnv = ColorGreen
+		colorBoldEnv = ColorBold
 	}
 
-	p.Printf("%sCommand%s     : %s\n", colorGreenEnv, colorResetEnv, proc.Cmdline)
-	if len(proc.Env) > 0 {
+	procName := r.Process.Command
+	if len(r.Ancestry) > 0 {
+		procName = r.Ancestry[len(r.Ancestry)-1].Command
+	}
+
+	if colorEnabled {
+		p.Printf("%sProcess%s     : %s%s%s (%spid %d%s)\n", colorBlueEnv, colorResetEnv, colorGreenEnv, procName, colorResetEnv, colorBoldEnv, r.Process.PID, colorResetEnv)
+	} else {
+		p.Printf("Process     : %s (pid %d)\n", procName, r.Process.PID)
+	}
+
+	p.Printf("%sCommand%s     : %s\n", colorGreenEnv, colorResetEnv, r.Process.Cmdline)
+	if len(r.Process.Env) > 0 {
 		p.Printf("%sEnvironment%s :\n", colorBlueEnv, colorResetEnv)
-		for _, env := range proc.Env {
+		for _, env := range r.Process.Env {
 			p.Printf("  %s\n", env)
 		}
 	} else {
-		p.Printf("%sNo environment variables found.%s\n", colorRedEnv, colorResetEnv)
+		p.Printf("%sEnvironment%s : %sNo environment variables found.%s\n", colorBlueEnv, colorResetEnv, colorRedEnv, colorResetEnv)
 	}
 }

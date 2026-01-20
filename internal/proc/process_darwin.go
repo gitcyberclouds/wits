@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -139,7 +138,31 @@ func ReadProcess(pid int) (model.Process, error) {
 		Health:         health,
 		Forked:         forked,
 		Env:            env,
+		ExeDeleted:     isBinaryDeleted(pid),
 	}, nil
+}
+
+func isBinaryDeleted(pid int) bool {
+	// Use lsof to get the executable path (txt)
+	out, err := exec.Command("lsof", "-a", "-p", strconv.Itoa(pid), "-d", "txt", "-F", "n").Output()
+	if err != nil {
+		return false
+	}
+
+	path := ""
+	for line := range strings.Lines(string(out)) {
+		if len(line) > 1 && line[0] == 'n' {
+			path = line[1:]
+			break
+		}
+	}
+
+	if path == "" {
+		return false
+	}
+
+	_, err = os.Stat(path)
+	return os.IsNotExist(err)
 }
 
 // deriveDisplayCommand returns a human-readable command name that avoids macOS
@@ -181,43 +204,6 @@ func extractExecutableName(cmdline string) string {
 		return base
 	}
 	return ""
-}
-
-func splitCmdline(cmdline string) []string {
-	var args []string
-	var current strings.Builder
-	var quote rune
-	escaped := false
-	for _, r := range cmdline {
-		switch {
-		case escaped:
-			current.WriteRune(r)
-			escaped = false
-		case r == '\\':
-			escaped = true
-		case r == '"' || r == '\'':
-			if quote == 0 {
-				quote = r
-				continue
-			}
-			if quote == r {
-				quote = 0
-				continue
-			}
-			current.WriteRune(r)
-		case unicode.IsSpace(r) && quote == 0:
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteRune(r)
-		}
-	}
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
-	return args
 }
 
 func getCommandLine(pid int) string {
@@ -302,14 +288,47 @@ func detectContainer(pid int) string {
 
 	switch {
 	case strings.Contains(lowerCmd, "docker"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "docker: " + name
+		}
 		return "docker"
 	case strings.Contains(lowerCmd, "podman"), strings.Contains(lowerCmd, "libpod"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "podman: " + name
+		}
 		return "podman"
+	case strings.Contains(lowerCmd, "minikube"):
+		if profile := extractFlagValue(cmdline, "-p", "--profile"); profile != "" {
+			return "k8s: " + profile
+		}
+		return "kubernetes"
+	case strings.Contains(lowerCmd, "kind"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "k8s: " + name
+		}
+		return "kubernetes"
 	case strings.Contains(lowerCmd, "kubepods"):
+		if id := findLongHexID(cmdline); id != "" {
+			if name := resolveContainerName(id, "crictl"); name != "" {
+				return "k8s: " + name
+			}
+			return "k8s (" + id[:12] + ")"
+		}
 		return "kubernetes"
 	case strings.Contains(lowerCmd, "colima"):
-		return "colima"
+		if profile := extractFlagValue(cmdline, "-p", "--profile"); profile != "" {
+			return "colima: " + profile
+		}
+		return "colima: default"
+	case strings.Contains(lowerCmd, "nerdctl"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "containerd: " + name
+		}
+		return "containerd"
 	case strings.Contains(lowerCmd, "containerd"):
+		if name := extractFlagValue(cmdline, "--name"); name != "" {
+			return "containerd: " + name
+		}
 		return "containerd"
 	}
 

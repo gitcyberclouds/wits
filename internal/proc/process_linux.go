@@ -64,7 +64,6 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 	// Health status
 	health := "healthy"
-	forked := "unknown"
 
 	// Working directory
 	var cwd, cwdErr = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
@@ -82,17 +81,66 @@ func ReadProcess(pid int) (model.Process, error) {
 	cgroupFile := fmt.Sprintf("/proc/%d/cgroup", pid)
 	if cgroupData, err := os.ReadFile(cgroupFile); err == nil {
 		cgroupStr := string(cgroupData)
+		var containerID string
 		switch {
 		case strings.Contains(cgroupStr, "docker"):
 			container = "docker"
+			containerID = extractContainerID(cgroupStr, "docker-", "docker/")
+			if containerID != "" {
+				if name := resolveContainerName(containerID, "docker"); name != "" {
+					container = name
+				} else {
+					if len(containerID) > 12 {
+						container = "docker (" + containerID[:12] + ")"
+					}
+				}
+			}
+
 		case strings.Contains(cgroupStr, "podman"), strings.Contains(cgroupStr, "libpod"):
 			container = "podman"
+			containerID = extractContainerID(cgroupStr, "libpod-", "libpod/")
+			if containerID != "" {
+				if name := resolveContainerName(containerID, "podman"); name != "" {
+					container = name
+				} else {
+					if len(containerID) > 12 {
+						container = "podman (" + containerID[:12] + ")"
+					}
+				}
+			}
+
 		case strings.Contains(cgroupStr, "kubepods"):
 			container = "kubernetes"
-		case strings.Contains(cgroupStr, "colima"):
-			container = "colima"
+			if id := findLongHexID(cgroupStr); id != "" {
+				containerID = id
+				if name := resolveContainerName(containerID, "crictl"); name != "" {
+					container = "k8s: " + name
+				} else {
+					container = "k8s (" + containerID[:12] + ")"
+				}
+			}
+
 		case strings.Contains(cgroupStr, "containerd"):
 			container = "containerd"
+			if id := findLongHexID(cgroupStr); id != "" {
+				containerID = id
+				if name := resolveContainerName(containerID, "nerdctl"); name != "" {
+					container = "containerd: " + name
+				} else {
+					container = "containerd (" + containerID[:12] + ")"
+				}
+			}
+
+		case strings.Contains(cgroupStr, "colima"):
+			container = "colima"
+			if idx := strings.Index(cgroupStr, "colima-"); idx != -1 {
+				rest := cgroupStr[idx+7:]
+				if dot := strings.Index(rest, ".scope"); dot != -1 {
+					container = "colima: " + rest[:dot]
+				}
+			} else if strings.Contains(cgroupStr, "colima") {
+				container = "colima: default"
+			}
 		}
 	}
 
@@ -162,6 +210,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	startTicks, _ := strconv.ParseInt(fields[19], 10, 64)
 
 	// Fork detection: if ppid != 1 and not systemd, likely forked; also check for vfork/fork/clone flags if possible
+	var forked string
 	if ppid != 1 && comm != "systemd" {
 		forked = "forked"
 	} else {
@@ -202,10 +251,29 @@ func ReadProcess(pid int) (model.Process, error) {
 	var ports []int
 	var addrs []string
 
+	// Check for IPv4 listeners first to avoid duplicates when synthesizing
+	ipv4Listeners := make(map[int]bool)
+	for _, inode := range inodes {
+		if s, ok := sockets[inode]; ok {
+			if s.Address == "0.0.0.0" {
+				ipv4Listeners[s.Port] = true
+			}
+		}
+	}
+
+	dualStackAllowed := isDualStackEnabled()
+
 	for _, inode := range inodes {
 		if s, ok := sockets[inode]; ok {
 			ports = append(ports, s.Port)
 			addrs = append(addrs, s.Address)
+
+			// Heuristic: If system allows dual-stack, we see ::, and there is NO explicit 0.0.0.0 listener,
+			// assume implicit dual-stack and show it.
+			if dualStackAllowed && s.Address == "::" && !ipv4Listeners[s.Port] {
+				ports = append(ports, s.Port)
+				addrs = append(addrs, "0.0.0.0")
+			}
 		}
 	}
 	// Full command line
@@ -237,7 +305,16 @@ func ReadProcess(pid int) (model.Process, error) {
 		Health:         health,
 		Forked:         forked,
 		Env:            env,
+		ExeDeleted:     isBinaryDeleted(pid),
 	}, nil
+}
+
+func isBinaryDeleted(pid int) bool {
+	exePath, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
+	if err != nil {
+		return false
+	}
+	return strings.HasSuffix(exePath, " (deleted)")
 }
 
 func resolveDockerProxyContainer(cmdline string) string {
@@ -286,4 +363,32 @@ func processState(fields []string) string {
 		return ""
 	}
 	return state[:1]
+}
+
+// isDualStackEnabled checks if /proc/sys/net/ipv6/bindv6only is 0 (or missing),
+// which implies that IPv6 sockets can handle IPv4 traffic by default.
+func isDualStackEnabled() bool {
+	data, err := os.ReadFile("/proc/sys/net/ipv6/bindv6only")
+	if err != nil {
+		return true
+	}
+	return strings.TrimSpace(string(data)) == "0"
+}
+
+func extractContainerID(cgroup, dashPrefix, slashPrefix string) string {
+	// Pattern 1: .../prefix-<id>.scope
+	if idx := strings.Index(cgroup, dashPrefix); idx != -1 {
+		rest := cgroup[idx+len(dashPrefix):]
+		if dot := strings.Index(rest, ".scope"); dot != -1 {
+			return rest[:dot]
+		}
+	}
+	// Pattern 2: .../prefix/<id>
+	if idx := strings.Index(cgroup, slashPrefix); idx != -1 {
+		rest := cgroup[idx+len(slashPrefix):]
+		if len(rest) >= 64 {
+			return rest[:64]
+		}
+	}
+	return ""
 }

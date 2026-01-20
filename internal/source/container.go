@@ -38,7 +38,6 @@ func detectContainer(ancestry []model.Process) *model.Source {
 				Name: "colima",
 			}
 		case strings.Contains(content, "containerd"):
-			// Only match containerd if not already matched by docker/kubernetes/colima
 			return &model.Source{
 				Type: model.SourceContainer,
 				Name: "containerd",

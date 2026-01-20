@@ -6,7 +6,7 @@ type Result struct {
 	Process        Process
 	RestartCount   int
 	Ancestry       []Process
-	ChildProcesses []Process `json:",omitempty"`
+	Children       []Process `json:",omitempty"`
 	Source         Source
 	Warnings       []string
 
