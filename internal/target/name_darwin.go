@@ -87,9 +87,16 @@ func ResolveName(name string, exact bool) ([]int, error) {
 
 		// Match against full command line
 		if exact {
-			// For exact match, check if first argument matches
+			// For exact match, check if ANY argument matches
+			// args contains arguments (everything after comm)
 			parts := strings.Fields(args)
-			if len(parts) > 0 && parts[0] == lowerName && !strings.Contains(args, "grep") {
+			for _, part := range parts {
+				if part == lowerName {
+					match = true
+					break
+				}
+			}
+			if match && !strings.Contains(args, "grep") {
 				procPIDs = append(procPIDs, pid)
 			}
 		} else {

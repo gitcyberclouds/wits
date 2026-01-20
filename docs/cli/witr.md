@@ -24,7 +24,7 @@ witr [process name] [flags]
   witr --port 5432
 
   # Inspect a process by name with exact matching (no fuzzy search)
-  witr --exact bun
+  witr bun --exact
 
   # Show the full process ancestry (who started whom)
   witr postgres --tree

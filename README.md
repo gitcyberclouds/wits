@@ -595,7 +595,7 @@ Re-run with:
 To avoid substring matching and only find processes with an exact name, use the `--exact` flag:
 
 ```bash
-witr --exact nginx
+witr nginx --exact
 ```
 
 ---

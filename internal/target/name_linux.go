@@ -61,10 +61,13 @@ func ResolveName(name string, exact bool) ([]int, error) {
 			// Exclude self, parent, and grep
 			var match bool
 			if exact {
-				// For cmdline, exact match means the first argument (executable) must match
+				// For cmdline, exact match means ANY argument must match the query token exactly
 				parts := strings.Fields(cmdLower)
-				if len(parts) > 0 {
-					match = parts[0] == lowerName
+				for _, part := range parts {
+					if part == lowerName {
+						match = true
+						break
+					}
 				}
 			} else {
 				match = strings.Contains(cmdLower, lowerName)
