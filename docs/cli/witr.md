@@ -60,10 +60,10 @@ witr [process name] [flags]
   -h, --help          help for witr
       --json          show result as JSON
       --no-color      disable colorized output
-      --pid string    pid to look up
-      --port string   port to look up
-      --short         show only ancestry
-      --tree          show only ancestry as a tree
+  -p, --pid string    pid to look up
+  -o, --port string   port to look up
+  -s, --short         show only ancestry
+  -t, --tree          show only ancestry as a tree
       --verbose       show extended process information
       --warnings      show only warnings
 ```
