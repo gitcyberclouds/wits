@@ -5,7 +5,7 @@
 ### Why is this running?
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr?style=flat-square)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Build Status](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/pr-check.yml?branch=main&style=flat-square&label=build)](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](https://github.com/pranshuparmar/witr) <br>
-[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20ports%20|%20aosc%20|%20guix-blue?style=flat-square)](https://repology.org/project/witr/versions)
+[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20ports%20|%20aosc%20|%20guix%20|%20aqua%20|%20uniget-blue?style=flat-square)](https://repology.org/project/witr/versions)
 
 <img width="1232" height="693" alt="witr_banner" src="https://github.com/user-attachments/assets/e9c19ef0-1391-4a5f-a015-f4003d3697a9" />
 
@@ -192,6 +192,28 @@ You can install **witr** from the [GNU Guix repository](https://packages.guix.gn
 
 ```bash
 guix install witr
+```
+</details>
+
+<details>
+<summary><strong>Aqua (macOS, Linux & Windows)</strong> <img src="https://img.shields.io/github/v/release/pranshuparmar/witr?label=aqua&style=flat-square" alt="Aqua"></summary>
+<br>
+
+You can install **witr** using [aqua](https://aquaproj.github.io/):
+
+```bash
+aqua g -i pranshuparmar/witr
+```
+</details>
+
+<details>
+<summary><strong>Uniget (Linux)</strong> <img src="https://img.shields.io/github/v/release/pranshuparmar/witr?label=uniget&style=flat-square" alt="Uniget"></summary>
+<br>
+
+You can install **witr** using [uniget](https://github.com/uniget-org/tools):
+
+```bash
+uniget install tools/witr
 ```
 </details>
 
