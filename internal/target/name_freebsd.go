@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 )
 
 // isValidServiceLabel validates that a service name contains only
@@ -29,7 +31,15 @@ func ResolveName(name string, exact bool) ([]int, error) {
 
 	lowerName := strings.ToLower(name)
 	selfPid := os.Getpid()
-	parentPid := os.Getppid()
+
+	// Resolve own ancestry to exclude parents (sudo, shell, etc.) from matching
+	ignoredPids := make(map[int]bool)
+	ignoredPids[selfPid] = true
+	if ancestry, err := procpkg.ResolveAncestry(selfPid); err == nil {
+		for _, p := range ancestry {
+			ignoredPids[p.PID] = true
+		}
+	}
 
 	// Use ps to list all processes on FreeBSD
 	// FreeBSD syntax: ps -axww -o pid -o comm -o args
@@ -65,8 +75,8 @@ func ResolveName(name string, exact bool) ([]int, error) {
 			continue
 		}
 
-		// Exclude self and parent (witr, go run, etc.)
-		if pid == selfPid || pid == parentPid {
+		// Exclude self and ancestry (parent, witr, sudo, etc.)
+		if ignoredPids[pid] {
 			continue
 		}
 

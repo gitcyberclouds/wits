@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 )
 
 func ResolveName(name string, exact bool) ([]int, error) {
@@ -18,7 +20,16 @@ func ResolveName(name string, exact bool) ([]int, error) {
 	entries, _ := os.ReadDir("/proc")
 	lowerName := strings.ToLower(name)
 	selfPid := os.Getpid()
-	parentPid := os.Getppid()
+
+	// Resolve own ancestry to exclude parents (sudo, shell, etc.) from matching
+	ignoredPids := make(map[int]bool)
+	ignoredPids[selfPid] = true
+	if ancestry, err := procpkg.ResolveAncestry(selfPid); err == nil {
+		for _, p := range ancestry {
+			ignoredPids[p.PID] = true
+		}
+	}
+
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
@@ -30,8 +41,8 @@ func ResolveName(name string, exact bool) ([]int, error) {
 			continue
 		}
 
-		// Exclude self and parent (witr, go run, etc.)
-		if pid == selfPid || pid == parentPid {
+		// Exclude self and ancestry (parent, witr, sudo, etc.)
+		if ignoredPids[pid] {
 			continue
 		}
 

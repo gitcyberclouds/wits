@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 )
 
 func ResolveName(name string, exact bool) ([]int, error) {
@@ -25,7 +27,15 @@ func ResolveName(name string, exact bool) ([]int, error) {
 	var currentCmd string
 
 	selfPid := os.Getpid()
-	parentPid := os.Getppid()
+
+	// Resolve own ancestry to exclude parents (sudo, shell, etc.) from matching
+	ignoredPids := make(map[int]bool)
+	ignoredPids[selfPid] = true
+	if ancestry, err := procpkg.ResolveAncestry(selfPid); err == nil {
+		for _, p := range ancestry {
+			ignoredPids[p.PID] = true
+		}
+	}
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -43,8 +53,8 @@ func ResolveName(name string, exact bool) ([]int, error) {
 
 			// Check match
 			if currentPID != 0 {
-				// Exclude self and parent
-				if currentPID == selfPid || currentPID == parentPid {
+				// Exclude self and ancestry
+				if ignoredPids[currentPID] {
 					// Reset
 					currentPID = 0
 					currentName = ""
