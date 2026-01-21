@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 )
 
-func ResolveName(name string) ([]int, error) {
+func ResolveName(name string, exact bool) ([]int, error) {
 	// powershell Get-CimInstance Win32_Process
 	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "Get-CimInstance -ClassName Win32_Process | ForEach-Object { 'Name=' + $_.Name; 'CommandLine=' + $_.CommandLine; 'ProcessId=' + $_.ProcessId }").Output()
 	if err != nil {
@@ -25,7 +27,15 @@ func ResolveName(name string) ([]int, error) {
 	var currentCmd string
 
 	selfPid := os.Getpid()
-	parentPid := os.Getppid()
+
+	// Resolve own ancestry to exclude parents (sudo, shell, etc.) from matching
+	ignoredPids := make(map[int]bool)
+	ignoredPids[selfPid] = true
+	if ancestry, err := procpkg.ResolveAncestry(selfPid); err == nil {
+		for _, p := range ancestry {
+			ignoredPids[p.PID] = true
+		}
+	}
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -43,8 +53,8 @@ func ResolveName(name string) ([]int, error) {
 
 			// Check match
 			if currentPID != 0 {
-				// Exclude self and parent
-				if currentPID == selfPid || currentPID == parentPid {
+				// Exclude self and ancestry
+				if ignoredPids[currentPID] {
 					// Reset
 					currentPID = 0
 					currentName = ""
@@ -52,8 +62,24 @@ func ResolveName(name string) ([]int, error) {
 					continue
 				}
 
-				if strings.Contains(strings.ToLower(currentName), lowerName) ||
-					strings.Contains(strings.ToLower(currentCmd), lowerName) {
+				var match bool
+				if exact {
+					match = strings.ToLower(currentName) == lowerName
+					if !match {
+						// Check if ANY argument matches exactly
+						parts := strings.Fields(currentCmd)
+						for _, part := range parts {
+							if strings.ToLower(part) == lowerName {
+								match = true
+								break
+							}
+						}
+					}
+				} else {
+					match = strings.Contains(strings.ToLower(currentName), lowerName) ||
+						strings.Contains(strings.ToLower(currentCmd), lowerName)
+				}
+				if match {
 					pids = append(pids, currentPID)
 				}
 			}

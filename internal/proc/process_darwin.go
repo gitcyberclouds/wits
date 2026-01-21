@@ -152,7 +152,7 @@ func isBinaryDeleted(pid int) bool {
 	path := ""
 	for line := range strings.Lines(string(out)) {
 		if len(line) > 1 && line[0] == 'n' {
-			path = line[1:]
+			path = strings.TrimSpace(line[1:])
 			break
 		}
 	}
@@ -271,7 +271,7 @@ func getWorkingDirectory(pid int) string {
 
 	for line := range strings.Lines(string(out)) {
 		if len(line) > 1 && line[0] == 'n' {
-			return line[1:]
+			return strings.TrimSpace(line[1:])
 		}
 	}
 

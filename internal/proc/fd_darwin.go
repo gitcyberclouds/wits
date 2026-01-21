@@ -32,7 +32,7 @@ func socketsForPID(pid int) []string {
 		}
 		if line[0] == 'n' {
 			// n<address>
-			addr := line[1:]
+			addr := strings.TrimSpace(line[1:])
 			_, port := parseNetstatAddr(addr)
 			if port > 0 {
 				// Create pseudo-inode matching the format in readListeningSockets

@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 )
 
 // isValidServiceLabel validates that a launchd service label contains only
@@ -24,12 +26,20 @@ func isValidServiceLabel(label string) bool {
 	return validServiceLabelRegex.MatchString(label)
 }
 
-func ResolveName(name string) ([]int, error) {
+func ResolveName(name string, exact bool) ([]int, error) {
 	var procPIDs []int
 
 	lowerName := strings.ToLower(name)
 	selfPid := os.Getpid()
-	parentPid := os.Getppid()
+
+	// Resolve own ancestry to exclude parents (sudo, shell, etc.) from matching
+	ignoredPids := make(map[int]bool)
+	ignoredPids[selfPid] = true
+	if ancestry, err := procpkg.ResolveAncestry(selfPid); err == nil {
+		for _, p := range ancestry {
+			ignoredPids[p.PID] = true
+		}
+	}
 
 	// Use ps to list all processes on macOS
 	// ps -axo pid=,comm=,args=
@@ -59,8 +69,8 @@ func ResolveName(name string) ([]int, error) {
 			continue
 		}
 
-		// Exclude self and parent (witr, go run, etc.)
-		if pid == selfPid || pid == parentPid {
+		// Exclude self and ancestry (parent, witr, sudo, etc.)
+		if ignoredPids[pid] {
 			continue
 		}
 
@@ -71,7 +81,13 @@ func ResolveName(name string) ([]int, error) {
 		}
 
 		// Match against command name
-		if strings.Contains(comm, lowerName) {
+		var match bool
+		if exact {
+			match = comm == lowerName
+		} else {
+			match = strings.Contains(comm, lowerName)
+		}
+		if match {
 			// Exclude grep-like processes
 			if !strings.Contains(comm, "grep") {
 				procPIDs = append(procPIDs, pid)
@@ -80,9 +96,24 @@ func ResolveName(name string) ([]int, error) {
 		}
 
 		// Match against full command line
-		if strings.Contains(args, lowerName) &&
-			!strings.Contains(args, "grep") {
-			procPIDs = append(procPIDs, pid)
+		if exact {
+			// For exact match, check if ANY argument matches
+			// args contains arguments (everything after comm)
+			parts := strings.Fields(args)
+			for _, part := range parts {
+				if part == lowerName {
+					match = true
+					break
+				}
+			}
+			if match && !strings.Contains(args, "grep") {
+				procPIDs = append(procPIDs, pid)
+			}
+		} else {
+			if strings.Contains(args, lowerName) &&
+				!strings.Contains(args, "grep") {
+				procPIDs = append(procPIDs, pid)
+			}
 		}
 	}
 

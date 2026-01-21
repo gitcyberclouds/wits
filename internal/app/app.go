@@ -51,6 +51,9 @@ func _genExamples() string {
   # Find the process listening on a specific port
   witr --port 5432
 
+  # Inspect a process by name with exact matching (no fuzzy search)
+  witr bun --exact
+
   # Show the full process ancestry (who started whom)
   witr postgres --tree
 
@@ -103,15 +106,16 @@ func init() {
 	rootCmd.SetVersionTemplate(fmt.Sprintf("witr {{.Version}} (commit %s, built %s)\n", commit, buildDate))
 	rootCmd.SetErr(output.NewSafeTerminalWriter(os.Stderr))
 
-	rootCmd.Flags().String("pid", "", "pid to look up")
-	rootCmd.Flags().String("port", "", "port to look up")
-	rootCmd.Flags().Bool("short", false, "show only ancestry")
-	rootCmd.Flags().Bool("tree", false, "show only ancestry as a tree")
+	rootCmd.Flags().StringP("pid", "p", "", "pid to look up")
+	rootCmd.Flags().StringP("port", "o", "", "port to look up")
+	rootCmd.Flags().BoolP("short", "s", false, "show only ancestry")
+	rootCmd.Flags().BoolP("tree", "t", false, "show only ancestry as a tree")
 	rootCmd.Flags().Bool("json", false, "show result as JSON")
 	rootCmd.Flags().Bool("warnings", false, "show only warnings")
 	rootCmd.Flags().Bool("no-color", false, "disable colorized output")
 	rootCmd.Flags().Bool("env", false, "show environment variables for the process")
 	rootCmd.Flags().Bool("verbose", false, "show extended process information")
+	rootCmd.Flags().Bool("exact", false, "use exact name matching (no substring search)")
 
 }
 
@@ -130,6 +134,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	warnFlag, _ := cmd.Flags().GetBool("warnings")
 	noColorFlag, _ := cmd.Flags().GetBool("no-color")
 	verboseFlag, _ := cmd.Flags().GetBool("verbose")
+	exactFlag, _ := cmd.Flags().GetBool("exact")
 
 	outw := cmd.OutOrStdout()
 	outp := output.NewPrinter(outw)
@@ -147,7 +152,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("must specify --pid, --port, or a process name")
 		}
 
-		pids, err := target.Resolve(t)
+		pids, err := target.Resolve(t, exactFlag)
 		if err != nil {
 			return fmt.Errorf("error: %v", err)
 		}
@@ -213,7 +218,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("must specify --pid, --port, or a process name")
 	}
 
-	pids, err := target.Resolve(t)
+	pids, err := target.Resolve(t, exactFlag)
 	if err == nil && len(pids) == 0 {
 		err = fmt.Errorf("no matching process found")
 	}

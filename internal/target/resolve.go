@@ -8,7 +8,7 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-func Resolve(t model.Target) ([]int, error) {
+func Resolve(t model.Target, exact bool) ([]int, error) {
 	val := strings.TrimSpace(t.Value)
 
 	switch t.Type {
@@ -27,7 +27,7 @@ func Resolve(t model.Target) ([]int, error) {
 		return ResolvePort(port)
 
 	case model.TargetName:
-		return ResolveName(val)
+		return ResolveName(val, exact)
 
 	default:
 		return nil, fmt.Errorf("unknown target")

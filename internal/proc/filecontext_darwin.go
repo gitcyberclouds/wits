@@ -110,9 +110,9 @@ func getLockedFiles(pid int) []string {
 		}
 		switch line[0] {
 		case 'f':
-			currentFD = line[1:]
+			currentFD = strings.TrimSpace(line[1:])
 		case 'n':
-			fileName := line[1:]
+			fileName := strings.TrimSpace(line[1:])
 			// Check if this FD indicates a lock
 			// Common lock indicators: .lock files, fcntl locks shown with 'l' type
 			if strings.HasSuffix(fileName, ".lock") ||
