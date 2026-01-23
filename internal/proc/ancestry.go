@@ -23,7 +23,7 @@ func ResolveAncestry(pid int) ([]model.Process, error) {
 			break
 		}
 
-		chain = append([]model.Process{p}, chain...)
+		chain = append(chain, p)
 
 		if p.PPID == 0 || p.PID == 1 {
 			break
@@ -33,6 +33,11 @@ func ResolveAncestry(pid int) ([]model.Process, error) {
 
 	if len(chain) == 0 {
 		return nil, fmt.Errorf("no process ancestry found")
+	}
+
+	// Reverse the chain to get root
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
 	}
 
 	return chain, nil
