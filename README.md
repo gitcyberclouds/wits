@@ -5,7 +5,7 @@
 ### Why is this running?
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr?style=flat-square)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Build Status](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/pr-check.yml?branch=main&style=flat-square&label=build)](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](https://github.com/pranshuparmar/witr) <br>
-[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20ports%20|%20aosc%20|%20guix%20|%20aqua%20|%20uniget-blue?style=flat-square)](https://repology.org/project/witr/versions)
+[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20choco%20|%20scoop%20|%20ports%20|%20aosc%20|%20guix%20|%20uniget%20|%20brioche%20|%20aqua%20-blue?style=flat-square)](https://repology.org/project/witr/versions)
 
 <img width="1232" height="693" alt="witr_banner" src="https://github.com/user-attachments/assets/e9c19ef0-1391-4a5f-a015-f4003d3697a9" />
 
@@ -149,6 +149,31 @@ winget install -e --id PranshuParmar.witr
 </details>
 
 <details>
+<summary><strong>Chocolatey (Windows)</strong> <img src="https://img.shields.io/chocolatey/v/witr?style=flat-square" alt="Chocolatey"></summary>
+<br>
+
+
+You can install **witr** using [Chocolatey](https://community.chocolatey.org/packages/witr):
+
+```powershell
+choco install witr
+```
+</details>
+
+<details>
+<summary><strong>Scoop (Windows)</strong> <img src="https://img.shields.io/scoop/v/witr?bucket=main&style=flat-square" alt="Scoop"></summary>
+<br>
+
+
+You can install **witr** using [Scoop](https://scoop.sh/#/apps?q=witr):
+
+```powershell
+scoop install main/witr
+```
+</details>
+
+
+<details>
 <summary><strong>FreeBSD Ports</strong> <img src="https://repology.org/badge/version-for-repo/freebsd/witr.svg?style=flat-square" alt="FreeBSD Port"></summary>
 <br>
 
@@ -194,24 +219,39 @@ guix install witr
 </details>
 
 <details>
-<summary><strong>Aqua (macOS, Linux & Windows)</strong> <img src="https://img.shields.io/github/v/release/pranshuparmar/witr?label=aqua&style=flat-square" alt="Aqua"></summary>
-<br>
-
-You can install **witr** using [aqua](https://aquaproj.github.io/):
-
-```bash
-aqua g -i pranshuparmar/witr
-```
-</details>
-
-<details>
-<summary><strong>Uniget (Linux)</strong> <img src="https://img.shields.io/github/v/release/pranshuparmar/witr?label=uniget&style=flat-square" alt="Uniget"></summary>
+<summary><strong>Uniget (Linux)</strong> <img src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Funiget-org%2Ftools%2Fmain%2Ftools%2Fwitr%2Fmanifest.yaml&query=%24.version&label=uniget&style=flat-square&color=blue" alt="Uniget"></summary>
 <br>
 
 You can install **witr** using [uniget](https://github.com/uniget-org/tools):
 
 ```bash
-uniget install tools/witr
+uniget install witr
+```
+</details>
+
+<details>
+<summary><strong>Brioche (Linux)</strong> <img src="https://img.shields.io/static/v1?label=brioche&message=v0.2.6&color=blue&style=flat-square" alt="Brioche"></summary>
+<br>
+
+You can install **witr** using [brioche](https://brioche.dev/):
+
+```bash
+brioche install -r witr
+```
+</details>
+
+<details>
+<summary><strong>Aqua (macOS, Linux & Windows)</strong> <img src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Faquaproj%2Faqua-registry%2Fmain%2Fpkgs%2Fpranshuparmar%2Fwitr%2Fpkg.yaml&query=%24.packages%5B0%5D.name&label=aqua&style=flat-square&color=blue" alt="Aqua"></summary>
+<br>
+
+You can install **witr** using [aqua](https://aquaproj.github.io/):
+
+```bash
+# Add package
+aqua g -i pranshuparmar/witr
+
+# Install package
+aqua i pranshuparmar/witr
 ```
 </details>
 
