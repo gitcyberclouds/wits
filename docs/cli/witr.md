@@ -56,7 +56,7 @@ witr [process name] [flags]
 
 ```
       --env           show environment variables for the process
-      --exact         use exact name matching (no substring search)
+  -x, --exact         use exact name matching (no substring search)
   -h, --help          help for witr
       --json          show result as JSON
       --no-color      disable colorized output

@@ -115,7 +115,7 @@ func init() {
 	rootCmd.Flags().Bool("no-color", false, "disable colorized output")
 	rootCmd.Flags().Bool("env", false, "show environment variables for the process")
 	rootCmd.Flags().Bool("verbose", false, "show extended process information")
-	rootCmd.Flags().Bool("exact", false, "use exact name matching (no substring search)")
+	rootCmd.Flags().BoolP("exact", "x", false, "use exact name matching (no substring search)")
 
 }
 

@@ -576,7 +576,7 @@ Non‑blocking observations such as:
 
 ```
       --env           show environment variables for the process
-      --exact         use exact name matching (no substring search)
+  -x, --exact         use exact name matching (no substring search)
   -h, --help          help for witr
       --json          show result as JSON
       --no-color      disable colorized output
@@ -680,7 +680,7 @@ Re-run with:
 To avoid substring matching and only find processes with an exact name, use the `--exact` flag:
 
 ```bash
-witr nginx --exact
+witr nginx -x
 ```
 
 ---
