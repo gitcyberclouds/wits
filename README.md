@@ -46,13 +46,11 @@ witr is distributed as a single static binary for Linux, macOS, FreeBSD, and Win
 witr is also independently packaged and maintained across multiple operating systems and ecosystems. An up-to-date overview of packaging status is available on [Repology](https://repology.org/project/witr/versions). Please note that community packages may lag GitHub releases due to independent review and validation.
 
 > [!TIP]
-> If you use a package manager (Homebrew, Conda, etc.), we recommend installing via that for easier updates. Otherwise, the install script is the fastest way to get started.
+> If you use a package manager (Homebrew, Conda, Winget, etc.), we recommend installing via that for easier updates. Otherwise, the install script is the quickest way to get started.
 
 ---
 
-### 2.1 Script Installation
-
-The easiest way to install **witr** is via the install script.
+### 2.1 Quick Install
 
 #### Unix (Linux, macOS & FreeBSD)
 
@@ -340,7 +338,34 @@ Remove-Item SHA256SUMS
 
 ---
 
-### 2.4 Other Operations
+### 2.4 Run Without Installation
+
+<details>
+<summary><strong>Nix Flake</strong></summary>
+<br>
+
+If you use Nix, you can build **witr** from source and run without installation:
+
+```bash
+nix run github:pranshuparmar/witr -- --help
+```
+
+</details>
+
+<details>
+<summary><strong>Pixi</strong></summary>
+<br>
+
+If you use [pixi](https://pixi.prefix.dev/latest/), you can run without installation on Linux or macOS:
+
+```bash
+pixi exec witr --help
+```
+</details>
+
+---
+
+### 2.5 Other Operations
 
 <details>
 <summary><strong>Verify Installation</strong></summary>
@@ -371,27 +396,6 @@ sudo rm -f /usr/local/share/man/man1/witr.1
 
 ```powershell
 Remove-Item -Recurse -Force "$env:LocalAppData\witr"
-```
-</details>
-
-<details>
-<summary><strong>Run Without Installation</strong></summary>
-<br>
-
-**Nix Flake**
-
-If you use Nix, you can build **witr** from source and run without installation:
-
-```bash
-nix run github:pranshuparmar/witr -- --help
-```
-
-**Pixi**
-
-If you use [pixi](https://pixi.prefix.dev/latest/), you can run without installation on Linux or macOS:
-
-```bash
-pixi exec witr --help
 ```
 </details>
 
