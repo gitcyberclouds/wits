@@ -194,15 +194,6 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		out.Printf("Started     : %s (%s)\n", rel, dtStr)
 	}
 
-	// Restart count
-	if r.RestartCount > 0 {
-		if colorEnabled {
-			out.Printf("%sRestarts%s    : %d\n", ColorMagenta, ColorReset, r.RestartCount)
-		} else {
-			out.Printf("Restarts    : %d\n", r.RestartCount)
-		}
-	}
-
 	// Why It Exists (short chain)
 	if colorEnabled {
 		out.Printf("\n%sWhy It Exists%s :\n  ", ColorMagenta, ColorReset)

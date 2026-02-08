@@ -332,14 +332,12 @@ func runApp(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Calculate restart count (consecutive same-command entries)
+	// Calculate restart count
 	restartCount := 0
-	lastCmd := ""
-	for _, procA := range ancestry {
-		if procA.Command == lastCmd {
-			restartCount++
+	if src.Type == model.SourceSystemd && src.Name != "" {
+		if count, err := procpkg.GetSystemdRestartCount(src.Name); err == nil {
+			restartCount = count
 		}
-		lastCmd = procA.Command
 	}
 
 	res := model.Result{
