@@ -23,6 +23,9 @@ witr [process name] [flags]
   # Find the process listening on a specific port
   witr --port 5432
 
+  # Find the process holding a lock on a file
+  witr --file /var/lib/dpkg/lock
+
   # Inspect a process by name with exact matching (no fuzzy search)
   witr bun --exact
 
@@ -57,6 +60,7 @@ witr [process name] [flags]
 ```
       --env           show environment variables for the process
   -x, --exact         use exact name matching (no substring search)
+  -f, --file string   file path to find process for
   -h, --help          help for witr
       --json          show result as JSON
       --no-color      disable colorized output

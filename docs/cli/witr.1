@@ -22,6 +22,10 @@ witr explains why a process or port is running by tracing its ancestry.
 	use exact name matching (no substring search)
 
 .PP
+\fB-f\fP, \fB--file\fP=""
+	file path to find process for
+
+.PP
 \fB-h\fP, \fB--help\fP[=false]
 	help for witr
 
@@ -69,6 +73,9 @@ witr explains why a process or port is running by tracing its ancestry.
 
   # Find the process listening on a specific port
   witr --port 5432
+
+  # Find the process holding a lock on a file
+  witr --file /var/lib/dpkg/lock
 
   # Inspect a process by name with exact matching (no fuzzy search)
   witr bun --exact

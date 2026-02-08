@@ -512,6 +512,16 @@ Explains the process(es) listening on a port.
 
 ---
 
+### 5.4 File
+
+```bash
+witr --file /var/lib/dpkg/lock
+```
+
+Explains the process holding a file open.
+
+---
+
 ## 6. Output Behavior
 
 ### 6.1 Output Principles
@@ -698,8 +708,12 @@ witr nginx -x
 
 | Feature | Linux | macOS | Windows | FreeBSD | Notes |
 |---------|:-----:|:-----:|:-------:|:-------:|-------|
-| **Process Inspection** |
-| Basic process info (PID, PPID, user, command) | ✅ | ✅ | ✅ | ✅ | |
+| **Process Selection** |
+| By Name | ✅ | ✅ | ✅ | ✅ | |
+| By PID | ✅ | ✅ | ✅ | ✅ | |
+| By Port | ✅ | ✅ | ✅ | ✅ | |
+| By File | ✅ | ✅ | ✅ | ❌ | |
+| Exact Match | ✅ | ✅ | ✅ | ✅ | |
 | Full command line | ✅ | ✅ | ✅ | ✅ | |
 | Process start time | ✅ | ✅ | ✅ | ✅ | |
 | Working directory | ✅ | ✅ | ✅ | ✅ | |

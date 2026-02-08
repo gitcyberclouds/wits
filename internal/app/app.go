@@ -51,6 +51,9 @@ func _genExamples() string {
   # Find the process listening on a specific port
   witr --port 5432
 
+  # Find the process holding a lock on a file
+  witr --file /var/lib/dpkg/lock
+
   # Inspect a process by name with exact matching (no fuzzy search)
   witr bun --exact
 
@@ -108,6 +111,7 @@ func init() {
 
 	rootCmd.Flags().StringP("pid", "p", "", "pid to look up")
 	rootCmd.Flags().StringP("port", "o", "", "port to look up")
+	rootCmd.Flags().StringP("file", "f", "", "file path to find process for")
 	rootCmd.Flags().BoolP("short", "s", false, "show only ancestry")
 	rootCmd.Flags().BoolP("tree", "t", false, "show only ancestry as a tree")
 	rootCmd.Flags().Bool("json", false, "show result as JSON")
@@ -123,8 +127,9 @@ func runApp(cmd *cobra.Command, args []string) error {
 	envFlag, _ := cmd.Flags().GetBool("env")
 	pidFlag, _ := cmd.Flags().GetString("pid")
 	portFlag, _ := cmd.Flags().GetString("port")
+	fileFlag, _ := cmd.Flags().GetString("file")
 	// Show help if no arguments or relevant flags are provided
-	if !envFlag && pidFlag == "" && portFlag == "" && len(args) == 0 {
+	if !envFlag && pidFlag == "" && portFlag == "" && fileFlag == "" && len(args) == 0 {
 		cmd.Help()
 		return nil
 	}
@@ -146,10 +151,12 @@ func runApp(cmd *cobra.Command, args []string) error {
 			t = model.Target{Type: model.TargetPID, Value: pidFlag}
 		case portFlag != "":
 			t = model.Target{Type: model.TargetPort, Value: portFlag}
+		case fileFlag != "":
+			t = model.Target{Type: model.TargetFile, Value: fileFlag}
 		case len(args) > 0:
 			t = model.Target{Type: model.TargetName, Value: args[0]}
 		default:
-			return fmt.Errorf("must specify --pid, --port, or a process name")
+			return fmt.Errorf("must specify --pid, --port, --file, or a process name")
 		}
 
 		pids, err := target.Resolve(t, exactFlag)
@@ -212,10 +219,12 @@ func runApp(cmd *cobra.Command, args []string) error {
 		t = model.Target{Type: model.TargetPID, Value: pidFlag}
 	case portFlag != "":
 		t = model.Target{Type: model.TargetPort, Value: portFlag}
+	case fileFlag != "":
+		t = model.Target{Type: model.TargetFile, Value: fileFlag}
 	case len(args) > 0:
 		t = model.Target{Type: model.TargetName, Value: args[0]}
 	default:
-		return fmt.Errorf("must specify --pid, --port, or a process name")
+		return fmt.Errorf("must specify --pid, --port, --file, or a process name")
 	}
 
 	pids, err := target.Resolve(t, exactFlag)
