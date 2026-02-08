@@ -16,7 +16,9 @@ const (
 )
 
 type Source struct {
-	Type    SourceType
-	Name    string
-	Details map[string]string
+	Type        SourceType
+	Name        string
+	Description string
+	UnitFile    string
+	Details     map[string]string
 }

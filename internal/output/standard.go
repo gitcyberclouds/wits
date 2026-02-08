@@ -42,9 +42,9 @@ func RenderWarnings(w io.Writer, r model.Result, colorEnabled bool) {
 	if colorEnabled {
 		out.Printf("%sProcess%s     : %s%s%s (%spid %d%s)\n", ColorBlue, ColorReset, ColorGreen, proc.Command, ColorReset, ColorBold, proc.PID, ColorReset)
 		if proc.Cmdline != "" {
-			out.Printf("%sCommand%s     : %s\n", ColorGreen, ColorReset, proc.Cmdline)
+			out.Printf("%sCommand%s     : %s\n", ColorBlue, ColorReset, proc.Cmdline)
 		} else {
-			out.Printf("%sCommand%s     : %s\n", ColorGreen, ColorReset, proc.Command)
+			out.Printf("%sCommand%s     : %s\n", ColorBlue, ColorReset, proc.Command)
 		}
 	} else {
 		out.Printf("Process     : %s (pid %d)\n", proc.Command, proc.PID)
@@ -127,7 +127,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 	out.Println("")
 	if proc.User != "" && proc.User != "unknown" {
 		if colorEnabled {
-			out.Printf("%sUser%s        : %s\n", ColorCyan, ColorReset, proc.User)
+			out.Printf("%sUser%s        : %s\n", ColorBlue, ColorReset, proc.User)
 		} else {
 			out.Printf("User        : %s\n", proc.User)
 		}
@@ -152,13 +152,13 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 
 	if proc.Cmdline != "" {
 		if colorEnabled {
-			out.Printf("%sCommand%s     : %s\n", ColorGreen, ColorReset, proc.Cmdline)
+			out.Printf("%sCommand%s     : %s\n", ColorBlue, ColorReset, proc.Cmdline)
 		} else {
 			out.Printf("Command     : %s\n", proc.Cmdline)
 		}
 	} else {
 		if colorEnabled {
-			out.Printf("%sCommand%s     : %s\n", ColorGreen, ColorReset, proc.Command)
+			out.Printf("%sCommand%s     : %s\n", ColorBlue, ColorReset, proc.Command)
 		} else {
 			out.Printf("Command     : %s\n", proc.Command)
 		}
@@ -192,15 +192,6 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		out.Printf("%sStarted%s     : %s (%s)\n", ColorMagenta, ColorReset, rel, dtStr)
 	} else {
 		out.Printf("Started     : %s (%s)\n", rel, dtStr)
-	}
-
-	// Restart count
-	if r.RestartCount > 0 {
-		if colorEnabled {
-			out.Printf("%sRestarts%s    : %d\n", ColorDimYellow, ColorReset, r.RestartCount)
-		} else {
-			out.Printf("Restarts    : %d\n", r.RestartCount)
-		}
 	}
 
 	// Why It Exists (short chain)
@@ -256,6 +247,41 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		}
 	}
 
+	// Description
+	if r.Source.Description != "" {
+		if colorEnabled {
+			out.Printf("%sDescription%s : %s\n", ColorCyan, ColorReset, SanitizeTerminal(r.Source.Description))
+		} else {
+			out.Printf("Description : %s\n", SanitizeTerminal(r.Source.Description))
+		}
+	}
+
+	// Unit File / Config Source
+	if r.Source.UnitFile != "" {
+		label := "Unit File"
+		switch r.Source.Type {
+		case model.SourceLaunchd:
+			label = "Plist File"
+		case model.SourceWindowsService:
+			label = "Registry Key"
+		case model.SourceBsdRc:
+			label = "Rc Script"
+		}
+
+		var pad string
+		if len(label) < 12 {
+			pad = strings.Repeat(" ", 12-len(label))
+		} else {
+			pad = " "
+		}
+
+		if colorEnabled {
+			out.Printf("%s%s%s%s: %s\n", ColorCyan, label, ColorReset, pad, r.Source.UnitFile)
+		} else {
+			out.Printf("%s%s: %s\n", label, pad, r.Source.UnitFile)
+		}
+	}
+
 	// Source details (launchd triggers, plist path, etc.)
 	if len(r.Source.Details) > 0 {
 		// Display in consistent order
@@ -275,7 +301,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 	// Context group
 	if colorEnabled {
 		if proc.WorkingDir != "" && proc.WorkingDir != "unknown" {
-			out.Printf("\n%sWorking Dir%s : %s\n", ColorGreen, ColorReset, proc.WorkingDir)
+			out.Printf("\n%sWorking Dir%s : %s\n", ColorCyan, ColorReset, proc.WorkingDir)
 		}
 		if proc.GitRepo != "" {
 			if proc.GitBranch != "" {
@@ -434,7 +460,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		if r.FileContext != nil {
 			if r.FileContext.OpenFiles > 0 && r.FileContext.FileLimit == 0 {
 				if colorEnabled {
-					out.Printf("\n%sOpen Files%s  : %d of unlimited\n", ColorCyan, ColorReset, r.FileContext.OpenFiles)
+					out.Printf("\n%sOpen Files%s  : %d of unlimited\n", ColorGreen, ColorReset, r.FileContext.OpenFiles)
 				} else {
 					out.Printf("\nOpen Files  : %d of unlimited\n", r.FileContext.OpenFiles)
 				}
@@ -456,7 +482,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 				firstLocked := SanitizeTerminal(r.FileContext.LockedFiles[0])
 
 				if colorEnabled {
-					out.Printf("%sLocks%s       : %s\n", ColorCyan, ColorReset, firstLocked)
+					out.Printf("%sLocks%s       : %s\n", ColorGreen, ColorReset, firstLocked)
 				} else {
 					out.Printf("Locks       : %s\n", firstLocked)
 				}
@@ -541,7 +567,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			explanation := SanitizeTerminal(r.SocketInfo.Explanation)
 			workaround := SanitizeTerminal(r.SocketInfo.Workaround)
 			if colorEnabled {
-				out.Printf("%sSocket%s      : %s\n", ColorCyan, ColorReset, state)
+				out.Printf("%sSocket%s      : %s\n", ColorGreen, ColorReset, state)
 				if explanation != "" {
 					out.Printf("              %s\n", explanation)
 				}

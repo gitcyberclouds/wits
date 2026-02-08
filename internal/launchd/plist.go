@@ -15,6 +15,7 @@ import (
 // LaunchdInfo contains parsed information about a launchd service
 type LaunchdInfo struct {
 	Label     string
+	Comment   string
 	PlistPath string
 	Domain    string // user, system, or gui/<uid>
 
@@ -271,6 +272,8 @@ func handleStringValue(info *LaunchdInfo, key, val string) {
 	switch key {
 	case "Label":
 		info.Label = val
+	case "Comment":
+		info.Comment = val
 	case "Program":
 		info.Program = val
 	}

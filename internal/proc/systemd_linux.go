@@ -6,8 +6,34 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
+
+func GetSystemdRestartCount(unitName string) (int, error) {
+	if _, err := exec.LookPath("systemctl"); err != nil {
+		return 0, fmt.Errorf("systemctl not found")
+	}
+
+	cmd := exec.Command("systemctl", "show", "--property=NRestarts", "--value", unitName)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return 0, err
+	}
+
+	restartsStr := strings.TrimSpace(out.String())
+	if restartsStr == "" {
+		return 0, fmt.Errorf("empty output from systemctl")
+	}
+
+	restarts, err := strconv.Atoi(restartsStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse restart count: %w", err)
+	}
+
+	return restarts, nil
+}
 
 // ResolveSystemdService attempts to find the systemd service name associated with a port.
 // It uses `systemctl list-sockets` to find the socket unit and then maps it to the service unit.

@@ -41,9 +41,10 @@ func detectLaunchd(ancestry []model.Process) *model.Source {
 
 	// Build the source with details
 	source := &model.Source{
-		Type:    model.SourceLaunchd,
-		Name:    info.Label,
-		Details: make(map[string]string),
+		Type:        model.SourceLaunchd,
+		Name:        info.Label,
+		Description: info.Comment,
+		Details:     make(map[string]string),
 	}
 
 	// Add domain description (Launch Agent vs Launch Daemon)
@@ -51,6 +52,7 @@ func detectLaunchd(ancestry []model.Process) *model.Source {
 
 	// Add plist path if found
 	if info.PlistPath != "" {
+		source.UnitFile = info.PlistPath
 		source.Details["plist"] = info.PlistPath
 	}
 

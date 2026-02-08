@@ -29,6 +29,9 @@ func Resolve(t model.Target, exact bool) ([]int, error) {
 	case model.TargetName:
 		return ResolveName(val, exact)
 
+	case model.TargetFile:
+		return ResolveFile(val)
+
 	default:
 		return nil, fmt.Errorf("unknown target")
 	}
