@@ -3,6 +3,7 @@
 package source
 
 import (
+	"os/exec"
 	"strings"
 
 	"github.com/pranshuparmar/witr/pkg/model"
@@ -14,11 +15,13 @@ func detectWindowsService(ancestry []model.Process) *model.Source {
 		p := ancestry[i]
 		if p.Service != "" {
 			registryKey := `HKLM\SYSTEM\CurrentControlSet\Services\` + p.Service
+			description := resolveWindowsServiceDescription(p.Service)
 
 			return &model.Source{
-				Type:     model.SourceWindowsService,
-				Name:     p.Service,
-				UnitFile: registryKey,
+				Type:        model.SourceWindowsService,
+				Name:        p.Service,
+				Description: description,
+				UnitFile:    registryKey,
 				Details: map[string]string{
 					"manager": "services.exe",
 					"service": p.Service,
@@ -48,11 +51,13 @@ func detectWindowsService(ancestry []model.Process) *model.Source {
 			name := strings.TrimSuffix(target.Command, ".exe")
 
 			registryKey := `HKLM\SYSTEM\CurrentControlSet\Services\` + name
+			description := resolveWindowsServiceDescription(name)
 
 			return &model.Source{
-				Type:     model.SourceWindowsService,
-				Name:     name,
-				UnitFile: registryKey,
+				Type:        model.SourceWindowsService,
+				Name:        name,
+				Description: description,
+				UnitFile:    registryKey,
 				Details: map[string]string{
 					"manager": "services.exe",
 				},
@@ -61,4 +66,20 @@ func detectWindowsService(ancestry []model.Process) *model.Source {
 	}
 
 	return nil
+}
+
+func resolveWindowsServiceDescription(serviceName string) string {
+	if _, err := exec.LookPath("sc"); err != nil {
+		return ""
+	}
+
+	cmd := exec.Command("sc", "GetDisplayName", serviceName)
+	out, _ := cmd.Output()
+
+	output := string(out)
+	if idx := strings.Index(output, "Name = "); idx != -1 {
+		return strings.TrimSpace(output[idx+7:])
+	}
+
+	return ""
 }

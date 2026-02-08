@@ -28,12 +28,31 @@ func detectSystemd(ancestry []model.Process) *model.Source {
 	// 2. Resolve the unit file for the target process (last in user's request chain)
 	targetProc := ancestry[len(ancestry)-1]
 	unitFile := resolveUnitFile(targetProc.PID)
+	description := resolveUnitDescription(targetProc.PID)
 
 	return &model.Source{
-		Type:     model.SourceSystemd,
-		Name:     "systemd",
-		UnitFile: unitFile,
+		Type:        model.SourceSystemd,
+		Name:        "systemd",
+		Description: description,
+		UnitFile:    unitFile,
 	}
+}
+
+func resolveUnitDescription(pid int) string {
+	if _, err := exec.LookPath("systemctl"); err != nil {
+		return ""
+	}
+
+	unitName := getUnitNameFromCgroup(pid)
+	if unitName != "" {
+		if desc := querySystemdProperty("Description", unitName); desc != "" {
+			return desc
+		}
+	}
+	if desc := querySystemdProperty("Description", fmt.Sprintf("%d", pid)); desc != "" {
+		return desc
+	}
+	return ""
 }
 
 func resolveUnitFile(pid int) string {

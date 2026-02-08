@@ -256,6 +256,15 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		}
 	}
 
+	// Description
+	if r.Source.Description != "" {
+		if colorEnabled {
+			out.Printf("%sDescription%s : %s\n", ColorCyan, ColorReset, SanitizeTerminal(r.Source.Description))
+		} else {
+			out.Printf("Description : %s\n", SanitizeTerminal(r.Source.Description))
+		}
+	}
+
 	// Unit File / Config Source
 	if r.Source.UnitFile != "" {
 		label := "Unit File"

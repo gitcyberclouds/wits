@@ -64,6 +64,7 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 
 			if path := resolveRcScript(p.Service); path != "" {
 				src.UnitFile = path
+				src.Description = readRcDescription(path)
 			}
 
 			return src
@@ -96,6 +97,7 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 
 			if path != "" {
 				src.UnitFile = path
+				src.Description = readRcDescription(path)
 			}
 
 			return src
@@ -103,6 +105,37 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 	}
 
 	return nil
+}
+
+func readRcDescription(path string) string {
+	if path == "" {
+		return ""
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	// Simple heuristic: look for "# description:" or similar
+	buf := make([]byte, 2048)
+	n, err := f.Read(buf)
+	if err != nil && n == 0 {
+		return ""
+	}
+	content := string(buf[:n])
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		lower := strings.ToLower(line)
+		if strings.HasPrefix(lower, "# description:") {
+			return strings.TrimSpace(line[14:]) // len("# description:") is 14
+		}
+		if strings.HasPrefix(lower, "# desc:") {
+			return strings.TrimSpace(line[7:])
+		}
+	}
+	return ""
 }
 
 func resolveRcScript(serviceName string) string {
