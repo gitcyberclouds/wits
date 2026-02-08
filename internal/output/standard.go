@@ -256,6 +256,32 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		}
 	}
 
+	// Unit File / Config Source
+	if r.Source.UnitFile != "" {
+		label := "Unit File"
+		switch r.Source.Type {
+		case model.SourceLaunchd:
+			label = "Plist File"
+		case model.SourceWindowsService:
+			label = "Registry Key"
+		case model.SourceBsdRc:
+			label = "Rc Script"
+		}
+
+		var pad string
+		if len(label) < 12 {
+			pad = strings.Repeat(" ", 12-len(label))
+		} else {
+			pad = " "
+		}
+
+		if colorEnabled {
+			out.Printf("%s%s%s%s: %s\n", ColorCyan, label, ColorReset, pad, r.Source.UnitFile)
+		} else {
+			out.Printf("%s%s: %s\n", label, pad, r.Source.UnitFile)
+		}
+	}
+
 	// Source details (launchd triggers, plist path, etc.)
 	if len(r.Source.Details) > 0 {
 		// Display in consistent order

@@ -54,13 +54,19 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 	// Priority 1: Check for explicit service detection via /var/run/*.pid
 	for _, p := range ancestry {
 		if p.Service != "" {
-			return &model.Source{
+			src := &model.Source{
 				Type: model.SourceBsdRc,
 				Name: p.Service,
 				Details: map[string]string{
 					"service": p.Service,
 				},
 			}
+
+			if path := resolveRcScript(p.Service); path != "" {
+				src.UnitFile = path
+			}
+
+			return src
 		}
 	}
 
@@ -79,12 +85,36 @@ func detectBsdRc(ancestry []model.Process) *model.Source {
 		}
 
 		if target.PPID == 1 && !hasShell {
-			return &model.Source{
+			// Try to guess service name from command if not explicitly set
+			name := target.Command
+			path := resolveRcScript(name)
+
+			src := &model.Source{
 				Type: model.SourceBsdRc,
-				Name: "bsdrc",
+				Name: name,
 			}
+
+			if path != "" {
+				src.UnitFile = path
+			}
+
+			return src
 		}
 	}
 
 	return nil
+}
+
+func resolveRcScript(serviceName string) string {
+	paths := []string{
+		"/etc/rc.d/" + serviceName,
+		"/usr/local/etc/rc.d/" + serviceName,
+	}
+
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
 }

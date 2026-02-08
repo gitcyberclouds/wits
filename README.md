@@ -710,6 +710,7 @@ witr nginx -x
 | Port → PID resolution | ✅ | ✅ | ✅ | ✅ | |
 | **Service Detection** |
 | Service Manager | ✅ | ✅ | ✅ | ✅ | Linux: systemd, macOS: launchd, Windows: Services, FreeBSD: rc.d |
+| Configuration Source | ✅ | ✅ | ✅ | ✅ | Linux: Unit File, macOS: Plist, Windows: Registry Key, FreeBSD: Rc Script |
 | Supervisor | ✅ | ✅ | ✅ | ✅ | |
 | Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus Compose mappings), Podman, K8s (Kubepods), Containerd. Colima on macOS/Linux. Jails on FreeBSD. |
 | **Health & Diagnostics** |
