@@ -29,7 +29,7 @@
 
 > **Why is this running?**
 
-When something is running on a system—whether it is a process, a service, or something bound to a port—there is always a cause. That cause is often indirect, non-obvious, or spread across multiple layers such as supervisors, containers, services, or shells.
+When something is running on a system, whether it is a process, a service, or something bound to a port, there is always a cause. That cause is often indirect, non-obvious, or spread across multiple layers such as supervisors, containers, services, or shells.
 
 Existing tools (`ps`, `top`, `lsof`, `ss`, `systemctl`, `docker ps`) expose state and metadata. They show _what_ is running, but leave the user to infer _why_ by manually correlating outputs across tools.
 
@@ -521,7 +521,7 @@ systemd (pid 1)
               └─ node (pid 144234)
 ```
 
-_Note: Tree view now includes child processes (up to 10) and highlights the target process._
+Note: _Tree view includes child processes (up to 10) and highlights the target process._
 
 ---
 
