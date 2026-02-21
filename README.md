@@ -4,7 +4,7 @@
 
 ### Why is this running?
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr?style=flat-square)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Build Status](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/pr-check.yml?branch=main&style=flat-square&label=build)](https://github.com/pranshuparmar/witr/actions/workflows/pr-check.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](https://github.com/pranshuparmar/witr) <br>
+[![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr?style=flat-square)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Release](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/release.yml?style=flat-square)](https://github.com/pranshuparmar/witr/actions/workflows/release.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](https://github.com/pranshuparmar/witr) <br>
 [![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20choco%20|%20scoop%20|%20ports%20|%20aosc%20|%20guix%20|%20uniget%20|%20brioche%20|%20aqua%20-blue?style=flat-square)](https://repology.org/project/witr/versions)
 
 <img width="1232" height="693" alt="witr_banner" src="https://github.com/user-attachments/assets/e9c19ef0-1391-4a5f-a015-f4003d3697a9" />
@@ -15,9 +15,9 @@
 
 <div align="center">
 
-[**Purpose**](#1-purpose) • [**Installation**](#2-installation) • [**Goals**](#3-goals) • [**Core Concept**](#4-core-concept) • [**Supported Targets**](#5-supported-targets)
+[**Purpose**](#1-purpose) • [**Installation**](#2-installation) • [**Flags**](#3-flags--options) • [**Examples**](#4-example-outputs) • [**Platforms**](#5-platform-support)
 <br>
-[**Output Behavior**](#6-output-behavior) • [**Flags**](#7-flags--options) • [**Examples**](#8-example-outputs) • [**Platforms**](#9-platform-support) • [**Success Criteria**](#10-success-criteria)
+[**Goals**](#6-goals) • [**Core Concept**](#7-core-concept) • [**Output Behavior**](#8-output-behavior) • [**Success Criteria**](#9-success-criteria)
 
 </div>
 
@@ -29,7 +29,7 @@
 
 > **Why is this running?**
 
-When something is running on a system—whether it is a process, a service, or something bound to a port—there is always a cause. That cause is often indirect, non-obvious, or spread across multiple layers such as supervisors, containers, services, or shells.
+When something is running on a system, whether it is a process, a service, or something bound to a port, there is always a cause. That cause is often indirect, non-obvious, or spread across multiple layers such as supervisors, containers, services, or shells.
 
 Existing tools (`ps`, `top`, `lsof`, `ss`, `systemctl`, `docker ps`) expose state and metadata. They show _what_ is running, but leave the user to infer _why_ by manually correlating outputs across tools.
 
@@ -92,7 +92,7 @@ The script will:
 ### 2.2 Package Managers
 
 <details>
-<summary><strong>Homebrew (macOS & Linux)</strong> <img src="https://img.shields.io/homebrew/v/witr?style=flat-square" alt="Homebrew"></summary>
+<summary><strong>Homebrew (macOS & Linux)</strong> <a href="https://formulae.brew.sh/formula/witr"><img src="https://img.shields.io/homebrew/v/witr?style=flat-square" alt="Homebrew"></a></summary>
 <br>
 
 
@@ -101,12 +101,10 @@ You can install **witr** using [Homebrew](https://brew.sh/) on macOS or Linux:
 ```bash
 brew install witr
 ```
-
-See the [Homebrew Formula page](https://formulae.brew.sh/formula/witr#default) for more details.
 </details>
 
 <details>
-<summary><strong>Conda (macOS, Linux & Windows)</strong> <img src="https://img.shields.io/conda/vn/conda-forge/witr?style=flat-square" alt="Conda"></summary>
+<summary><strong>Conda (macOS, Linux & Windows)</strong> <a href="https://anaconda.org/conda-forge/witr"><img src="https://img.shields.io/conda/vn/conda-forge/witr?style=flat-square" alt="Conda"></a></summary>
 <br>
 
 
@@ -122,7 +120,7 @@ pixi global install witr
 </details>
 
 <details>
-<summary><strong>Arch Linux (AUR)</strong> <img src="https://img.shields.io/aur/version/witr-bin?style=flat-square" alt="AUR"></summary>
+<summary><strong>Arch Linux (AUR)</strong> <a href="https://aur.archlinux.org/packages/witr-bin"><img src="https://img.shields.io/aur/version/witr-bin?style=flat-square" alt="AUR"></a></summary>
 <br>
 
 
@@ -137,7 +135,7 @@ paru -S witr-bin
 </details>
 
 <details>
-<summary><strong>Winget (Windows)</strong> <img src="https://img.shields.io/winget/v/PranshuParmar.witr?style=flat-square" alt="Winget"></summary>
+<summary><strong>Winget (Windows)</strong> <a href="https://winstall.app/apps/PranshuParmar.witr"><img src="https://img.shields.io/winget/v/PranshuParmar.witr?style=flat-square" alt="Winget"></a></summary>
 <br>
 
 
@@ -149,11 +147,11 @@ winget install -e --id PranshuParmar.witr
 </details>
 
 <details>
-<summary><strong>Chocolatey (Windows)</strong> <img src="https://img.shields.io/chocolatey/v/witr?style=flat-square" alt="Chocolatey"></summary>
+<summary><strong>Chocolatey (Windows)</strong> <a href="https://community.chocolatey.org/packages/witr"><img src="https://img.shields.io/chocolatey/v/witr?style=flat-square" alt="Chocolatey"></a></summary>
 <br>
 
 
-You can install **witr** using [Chocolatey](https://community.chocolatey.org/packages/witr):
+You can install **witr** using [Chocolatey](https://community.chocolatey.org):
 
 ```powershell
 choco install witr
@@ -161,11 +159,11 @@ choco install witr
 </details>
 
 <details>
-<summary><strong>Scoop (Windows)</strong> <img src="https://img.shields.io/scoop/v/witr?bucket=main&style=flat-square" alt="Scoop"></summary>
+<summary><strong>Scoop (Windows)</strong> <a href="https://scoop.sh/#/apps?q=witr"><img src="https://img.shields.io/scoop/v/witr?bucket=main&style=flat-square" alt="Scoop"></a></summary>
 <br>
 
 
-You can install **witr** using [Scoop](https://scoop.sh/#/apps?q=witr):
+You can install **witr** using [Scoop](https://scoop.sh):
 
 ```powershell
 scoop install main/witr
@@ -174,7 +172,7 @@ scoop install main/witr
 
 
 <details>
-<summary><strong>FreeBSD Ports</strong> <img src="https://repology.org/badge/version-for-repo/freebsd/witr.svg?style=flat-square" alt="FreeBSD Port"></summary>
+<summary><strong>FreeBSD Ports</strong> <a href="https://www.freshports.org/sysutils/witr/"><img src="https://repology.org/badge/version-for-repo/freebsd/witr.svg?style=flat-square" alt="FreeBSD Port"></a></summary>
 <br>
 
 
@@ -195,7 +193,7 @@ make install clean
 </details>
 
 <details>
-<summary><strong>AOSC OS</strong> <img src="https://repology.org/badge/version-for-repo/aosc/witr.svg?style=flat-square" alt="AOSC OS"></summary>
+<summary><strong>AOSC OS</strong> <a href="https://packages.aosc.io/packages/witr"><img src="https://repology.org/badge/version-for-repo/aosc/witr.svg?style=flat-square" alt="AOSC OS"></a></summary>
 <br>
 
 
@@ -207,7 +205,7 @@ oma install witr
 </details>
 
 <details>
-<summary><strong>GNU Guix</strong> <img src="https://repology.org/badge/version-for-repo/gnuguix/witr.svg?style=flat-square" alt="GNU Guix"></summary>
+<summary><strong>GNU Guix</strong> <a href="https://packages.guix.gnu.org/packages/witr/"><img src="https://repology.org/badge/version-for-repo/gnuguix/witr.svg?style=flat-square" alt="GNU Guix"></a></summary>
 <br>
 
 
@@ -219,10 +217,10 @@ guix install witr
 </details>
 
 <details>
-<summary><strong>Uniget (Linux)</strong> <img src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Funiget-org%2Ftools%2Fmain%2Ftools%2Fwitr%2Fmanifest.yaml&query=%24.version&label=uniget&style=flat-square&color=blue" alt="Uniget"></summary>
+<summary><strong>Uniget (Linux)</strong> <a href="https://github.com/uniget-org/tools/tree/main/tools/witr"><img src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Funiget-org%2Ftools%2Fmain%2Ftools%2Fwitr%2Fmanifest.yaml&query=%24.version&label=uniget&style=flat-square&color=blue" alt="Uniget"></a></summary>
 <br>
 
-You can install **witr** using [uniget](https://github.com/uniget-org/tools):
+You can install **witr** using [uniget](https://uniget.dev/):
 
 ```bash
 uniget install witr
@@ -230,7 +228,7 @@ uniget install witr
 </details>
 
 <details>
-<summary><strong>Brioche (Linux)</strong> <img src="https://img.shields.io/static/v1?label=brioche&message=v0.2.6&color=blue&style=flat-square" alt="Brioche"></summary>
+<summary><strong>Brioche (Linux)</strong> <a href="https://github.com/brioche-dev/brioche-packages/tree/main/packages/witr"><img src="https://img.shields.io/static/v1?label=brioche&message=v0.2.6&color=blue&style=flat-square" alt="Brioche"></a></summary>
 <br>
 
 You can install **witr** using [brioche](https://brioche.dev/):
@@ -241,7 +239,7 @@ brioche install -r witr
 </details>
 
 <details>
-<summary><strong>Aqua (macOS, Linux & Windows)</strong> <img src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Faquaproj%2Faqua-registry%2Fmain%2Fpkgs%2Fpranshuparmar%2Fwitr%2Fpkg.yaml&query=%24.packages%5B0%5D.name&label=aqua&style=flat-square&color=blue" alt="Aqua"></summary>
+<summary><strong>Aqua (macOS, Linux & Windows)</strong> <a href="https://github.com/aquaproj/aqua-registry/blob/main/pkgs/pranshuparmar/witr"><img src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Faquaproj%2Faqua-registry%2Fmain%2Fpkgs%2Fpranshuparmar%2Fwitr%2Fpkg.yaml&query=%24.packages%5B0%5D.name&label=aqua&style=flat-square&color=blue" alt="Aqua"></a></summary>
 <br>
 
 You can install **witr** using [aqua](https://aquaproj.github.io/):
@@ -441,7 +439,210 @@ Remove-Item -Recurse -Force "$env:LocalAppData\witr"
 
 ---
 
-## 3. Goals
+## 3. Flags & Options
+
+```
+      --env           show environment variables for the process
+  -x, --exact         use exact name matching (no substring search)
+  -f, --file string   file path to find process for
+  -h, --help          help for witr
+      --json          show result as JSON
+      --no-color      disable colorized output
+  -p, --pid string    pid to look up
+  -o, --port string   port to look up
+  -s, --short         show only ancestry
+  -t, --tree          show only ancestry as a tree
+      --verbose       show extended process information
+  -v, --version       version for witr
+      --warnings      show only warnings
+```
+
+A single positional argument (without flags) is treated as a process or service name. By default, name matching uses substring matching (fuzzy search). Use `--exact` to match only processes with the exact name.
+
+---
+
+## 4. Example Outputs
+
+### 4.1 Name Based Query
+
+```bash
+witr node
+```
+
+```
+Target      : node
+
+Process     : node (pid 14233)
+User        : pm2
+Command     : node index.js
+Started     : 2 days ago (Mon 2025-02-02 11:42:10 +05:30)
+Restarts    : 1
+
+Why It Exists :
+  systemd (pid 1) → pm2 (pid 5034) → node (pid 14233)
+
+Source      : pm2
+
+Working Dir : /opt/apps/expense-manager
+Git Repo    : expense-manager (main)
+Listening   : 127.0.0.1:5001
+```
+
+---
+
+### 4.2 Short Output
+
+```bash
+witr --port 5000 --short
+```
+
+```
+systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
+```
+
+---
+
+### 4.3 Tree Output
+
+```bash
+witr --pid 143895 --tree
+```
+
+```
+systemd (pid 1)
+  └─ init-systemd(Ub (pid 2)
+    └─ SessionLeader (pid 143858)
+      └─ Relay(143860) (pid 143859)
+        └─ bash (pid 143860)
+          └─ sh (pid 143886)
+            └─ node (pid 143895)
+              ├─ node (pid 143930)
+              ├─ node (pid 144189)
+              └─ node (pid 144234)
+```
+
+Note: _Tree view includes child processes (up to 10) and highlights the target process._
+
+---
+
+### 4.4 Multiple Matches
+
+```bash
+witr ng
+```
+
+```
+Multiple matching processes found:
+
+[1] nginx (pid 2311)
+    nginx -g daemon off;
+[2] nginx (pid 24891)
+    nginx -g daemon off;
+[3] ngrok (pid 14233)
+    ngrok http 5000
+
+Re-run with:
+  witr --pid <pid>
+```
+
+To avoid substring matching and only find processes with an exact name, use the `--exact` flag:
+
+```bash
+witr nginx -x
+```
+
+---
+
+### 4.5 File Based Query
+
+```bash
+witr --file /var/lib/dpkg/lock
+```
+
+Explains the process holding a file open.
+
+---
+
+## 5. Platform Support
+
+- **Linux** (x86_64, arm64) - Full feature support (`/proc`).
+- **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, `sysctl`, `pgrep`.
+- **Windows** (x86_64, arm64) - Uses `Get-CimInstance`, `tasklist`, `netstat`.
+- **FreeBSD** (x86_64, arm64) - Uses `procstat`, `ps`, `lsof`.
+
+---
+
+### 5.1 Feature Compatibility Matrix
+
+| Feature | Linux | macOS | Windows | FreeBSD | Notes |
+|---------|:-----:|:-----:|:-------:|:-------:|-------|
+| **Process Selection** |
+| By Name | ✅ | ✅ | ✅ | ✅ | |
+| By PID | ✅ | ✅ | ✅ | ✅ | |
+| By Port | ✅ | ✅ | ✅ | ✅ | |
+| By File | ✅ | ✅ | ✅ | ❌ | |
+| Exact Match | ✅ | ✅ | ✅ | ✅ | |
+| Full command line | ✅ | ✅ | ✅ | ✅ | |
+| Process start time | ✅ | ✅ | ✅ | ✅ | |
+| Working directory | ✅ | ✅ | ✅ | ✅ | |
+| Environment variables | ✅ | ⚠️ | ❌ | ✅ | macOS: Partial support due to SIP restrictions. |
+| **Network** |
+| Listening ports | ✅ | ✅ | ✅ | ✅ | |
+| Bind addresses | ✅ | ✅ | ✅ | ✅ | |
+| Port → PID resolution | ✅ | ✅ | ✅ | ✅ | |
+| **Service Detection** |
+| Service Manager | ✅ | ✅ | ✅ | ✅ | Linux: systemd, macOS: launchd, Windows: Services, FreeBSD: rc.d |
+| Service Description | ✅ | ✅ | ✅ | ✅ | Linux: `Description`, macOS: `Comment`, Windows: `Display Name`, FreeBSD: `rc` header |
+| Configuration Source | ✅ | ✅ | ✅ | ✅ | Linux: Unit File, macOS: Plist, Windows: Registry Key, FreeBSD: Rc Script |
+| Supervisor | ✅ | ✅ | ✅ | ✅ | |
+| Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus Compose mappings), Podman, K8s (Kubepods), Containerd. Colima on macOS/Linux. Jails on FreeBSD. |
+| **Health & Diagnostics** |
+| CPU usage detection | ✅ | ✅ | ✅ | ✅ | |
+| Memory usage detection | ✅ | ✅ | ✅ | ✅ | |
+| Health status detection | ✅ | ✅ | ✅ | ✅ | |
+| Open Files / Handles | ✅ | ✅ | ⚠️ | ✅ | Windows: count only. |
+| Deleted binary detection | ✅ | ✅ | ✅ | ✅ | Warns if executable is missing. |
+| **Context** |
+| Git repo/branch detection | ✅ | ✅ | ✅ | ✅ | |
+
+**Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
+
+---
+
+### 5.2 Permissions Note
+
+#### Linux/FreeBSD
+
+witr inspects system directories which may require elevated permissions.
+
+If you are not seeing the expected information, try running witr with sudo:
+
+```bash
+sudo witr [your arguments]
+```
+
+#### macOS
+
+On macOS, witr uses `ps`, `lsof`, and `launchctl` to gather process information. Some operations may require elevated permissions:
+
+```bash
+sudo witr [your arguments]
+```
+
+Note: Due to macOS System Integrity Protection (SIP), some system process details may not be accessible even with sudo.
+
+#### Windows
+
+On Windows, witr uses `Get-CimInstance`, `tasklist`, and `netstat`. To see details for processes owned by other users or system services, you must run the terminal as **Administrator**.
+
+```powershell
+# Run in Administrator PowerShell
+.\witr.exe [your arguments]
+```
+
+---
+
+## 6. Goals
 
 ### Primary goals
 
@@ -460,7 +661,7 @@ Remove-Item -Recurse -Force "$env:LocalAppData\witr"
 
 ---
 
-## 4. Core Concept
+## 7. Core Concept
 
 witr treats **everything as a process question**.
 
@@ -475,56 +676,9 @@ At its core, witr answers:
 
 ---
 
-## 5. Supported Targets
+## 8. Output Behavior
 
-witr supports multiple entry points that converge to PID analysis.
-
----
-
-### 5.1 Name (process or service)
-
-```bash
-witr node
-witr nginx
-```
-
-A single positional argument (without flags) is treated as a process or service name. If multiple matches are found, witr will prompt for disambiguation by PID.
-
----
-
-### 5.2 PID
-
-```bash
-witr --pid 14233
-```
-
-Explains why a specific process exists.
-
----
-
-### 5.3 Port
-
-```bash
-witr --port 5000
-```
-
-Explains the process(es) listening on a port.
-
----
-
-### 5.4 File
-
-```bash
-witr --file /var/lib/dpkg/lock
-```
-
-Explains the process holding a file open.
-
----
-
-## 6. Output Behavior
-
-### 6.1 Output Principles
+### 8.1 Output Principles
 
 - Single screen by default (best effort)
 - Deterministic ordering
@@ -533,7 +687,7 @@ Explains the process holding a file open.
 
 ---
 
-### 6.2 Standard Output Sections
+### 8.2 Standard Output Sections
 
 #### Target
 
@@ -582,200 +736,7 @@ Non‑blocking observations such as:
 
 ---
 
-## 7. Flags & Options
-
-```
-      --env           show environment variables for the process
-  -x, --exact         use exact name matching (no substring search)
-  -f, --file string   file path to find process for
-  -h, --help          help for witr
-      --json          show result as JSON
-      --no-color      disable colorized output
-  -p, --pid string    pid to look up
-  -o, --port string   port to look up
-  -s, --short         show only ancestry
-  -t, --tree          show only ancestry as a tree
-      --verbose       show extended process information
-  -v, --version       version for witr
-      --warnings      show only warnings
-```
-
-A single positional argument (without flags) is treated as a process or service name. By default, name matching uses substring matching (fuzzy search). Use `--exact` to match only processes with the exact name.
-
----
-
-## 8. Example Outputs
-
-### 8.1 Name Based Query
-
-```bash
-witr node
-```
-
-```
-Target      : node
-
-Process     : node (pid 14233)
-User        : pm2
-Command     : node index.js
-Started     : 2 days ago (Mon 2025-02-02 11:42:10 +05:30)
-Restarts    : 1
-
-Why It Exists :
-  systemd (pid 1) → pm2 (pid 5034) → node (pid 14233)
-
-Source      : pm2
-
-Working Dir : /opt/apps/expense-manager
-Git Repo    : expense-manager (main)
-Listening   : 127.0.0.1:5001
-```
-
----
-
-### 8.2 Short Output
-
-```bash
-witr --port 5000 --short
-```
-
-```
-systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
-```
-
----
-
-### 8.3 Tree Output
-
-```bash
-witr --pid 143895 --tree
-```
-
-```
-systemd (pid 1)
-  └─ init-systemd(Ub (pid 2)
-    └─ SessionLeader (pid 143858)
-      └─ Relay(143860) (pid 143859)
-        └─ bash (pid 143860)
-          └─ sh (pid 143886)
-            └─ node (pid 143895)
-              ├─ node (pid 143930)
-              ├─ node (pid 144189)
-              └─ node (pid 144234)
-```
-
-_Note: Tree view now includes child processes (up to 10) and highlights the target process._
-
----
-
-### 8.4 Multiple Matches
-
-```bash
-witr ng
-```
-
-```
-Multiple matching processes found:
-
-[1] nginx (pid 2311)
-    nginx -g daemon off;
-[2] nginx (pid 24891)
-    nginx -g daemon off;
-[3] ngrok (pid 14233)
-    ngrok http 5000
-
-Re-run with:
-  witr --pid <pid>
-```
-
-To avoid substring matching and only find processes with an exact name, use the `--exact` flag:
-
-```bash
-witr nginx -x
-```
-
----
-
-## 9. Platform Support
-
-- **Linux** (x86_64, arm64) - Full feature support (`/proc`).
-- **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, `sysctl`, `pgrep`.
-- **Windows** (x86_64, arm64) - Uses `Get-CimInstance`, `tasklist`, `netstat`.
-- **FreeBSD** (x86_64, arm64) - Uses `procstat`, `ps`, `lsof`.
-
----
-
-### 9.1 Feature Compatibility Matrix
-
-| Feature | Linux | macOS | Windows | FreeBSD | Notes |
-|---------|:-----:|:-----:|:-------:|:-------:|-------|
-| **Process Selection** |
-| By Name | ✅ | ✅ | ✅ | ✅ | |
-| By PID | ✅ | ✅ | ✅ | ✅ | |
-| By Port | ✅ | ✅ | ✅ | ✅ | |
-| By File | ✅ | ✅ | ✅ | ❌ | |
-| Exact Match | ✅ | ✅ | ✅ | ✅ | |
-| Full command line | ✅ | ✅ | ✅ | ✅ | |
-| Process start time | ✅ | ✅ | ✅ | ✅ | |
-| Working directory | ✅ | ✅ | ✅ | ✅ | |
-| Environment variables | ✅ | ⚠️ | ❌ | ✅ | macOS: Partial support due to SIP restrictions. |
-| **Network** |
-| Listening ports | ✅ | ✅ | ✅ | ✅ | |
-| Bind addresses | ✅ | ✅ | ✅ | ✅ | |
-| Port → PID resolution | ✅ | ✅ | ✅ | ✅ | |
-| **Service Detection** |
-| Service Manager | ✅ | ✅ | ✅ | ✅ | Linux: systemd, macOS: launchd, Windows: Services, FreeBSD: rc.d |
-| Service Description | ✅ | ✅ | ✅ | ✅ | Linux: `Description`, macOS: `Comment`, Windows: `Display Name`, FreeBSD: `rc` header |
-| Configuration Source | ✅ | ✅ | ✅ | ✅ | Linux: Unit File, macOS: Plist, Windows: Registry Key, FreeBSD: Rc Script |
-| Supervisor | ✅ | ✅ | ✅ | ✅ | |
-| Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus Compose mappings), Podman, K8s (Kubepods), Containerd. Colima on macOS/Linux. Jails on FreeBSD. |
-| **Health & Diagnostics** |
-| CPU usage detection | ✅ | ✅ | ✅ | ✅ | |
-| Memory usage detection | ✅ | ✅ | ✅ | ✅ | |
-| Health status detection | ✅ | ✅ | ✅ | ✅ | |
-| Open Files / Handles | ✅ | ✅ | ⚠️ | ✅ | Windows: count only. |
-| Deleted binary detection | ✅ | ✅ | ✅ | ✅ | Warns if executable is missing. |
-| **Context** |
-| Git repo/branch detection | ✅ | ✅ | ✅ | ✅ | |
-
-**Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
-
----
-
-### 9.2 Permissions Note
-
-#### Linux/FreeBSD
-
-witr inspects system directories which may require elevated permissions.
-
-If you are not seeing the expected information, try running witr with sudo:
-
-```bash
-sudo witr [your arguments]
-```
-
-#### macOS
-
-On macOS, witr uses `ps`, `lsof`, and `launchctl` to gather process information. Some operations may require elevated permissions:
-
-```bash
-sudo witr [your arguments]
-```
-
-Note: Due to macOS System Integrity Protection (SIP), some system process details may not be accessible even with sudo.
-
-#### Windows
-
-On Windows, witr uses `Get-CimInstance`, `tasklist`, and `netstat`. To see details for processes owned by other users or system services, you must run the terminal as **Administrator**.
-
-```powershell
-# Run in Administrator PowerShell
-.\witr.exe [your arguments]
-```
-
----
-
-## 10. Success Criteria
+## 9. Success Criteria
 
 witr is successful if:
 
@@ -783,5 +744,3 @@ witr is successful if:
 - It reduces reliance on multiple tools
 - Output is understandable under stress
 - Users trust it during incidents
-
----
