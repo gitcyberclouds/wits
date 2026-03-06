@@ -19,7 +19,7 @@
 
 [**Purpose**](#1-purpose) • [**Installation**](#2-installation) • ✨ [**TUI**](#3-interactive-mode-tui) • [**Flags**](#4-flags--options) • [**Examples**](#5-example-outputs) • [**Platforms**](#6-platform-support)
 <br>
-[**Goals**](#7-goals) • [**Core Concept**](#8-core-concept) • [**Output Behavior**](#9-output-behavior) • [**Success Criteria**](#10-success-criteria)
+[**Goals**](#7-goals) • [**Core Concept**](#8-core-concept) • [**Output Behavior**](#9-output-behavior) • [**Success Criteria**](#10-success-criteria) • [**Sponsors**](#11-sponsors)
 
 </div>
 
@@ -778,3 +778,15 @@ witr is successful if:
 - It reduces reliance on multiple tools
 - Output is understandable under stress
 - Users trust it during incidents
+
+---
+
+## 11. Sponsors
+
+Special thanks to the people supporting **witr** ❤️
+
+<p>
+  <a href="https://github.com/timcolson" title="Tim Colson">
+    <img src="https://images.weserv.nl/?url=github.com/timcolson.png&mask=circle&w=80&h=80" width="80">
+  </a>
+</p>
