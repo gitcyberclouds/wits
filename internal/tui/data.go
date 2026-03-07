@@ -81,22 +81,36 @@ func (m MainModel) fetchProcessDetail(pid int) tea.Cmd {
 
 func (m *MainModel) sortProcesses() {
 	sort.Slice(m.processes, func(i, j int) bool {
+		pi, pj := m.processes[i], m.processes[j]
 		var less bool
+		var equal bool
 		switch m.sortCol {
 		case "pid":
-			less = m.processes[i].PID < m.processes[j].PID
+			less = pi.PID < pj.PID
+			equal = pi.PID == pj.PID
 		case "name":
-			less = strings.ToLower(m.processes[i].Command) < strings.ToLower(m.processes[j].Command)
+			ni, nj := strings.ToLower(pi.Command), strings.ToLower(pj.Command)
+			less = ni < nj
+			equal = ni == nj
 		case "user":
-			less = strings.ToLower(m.processes[i].User) < strings.ToLower(m.processes[j].User)
+			ui, uj := strings.ToLower(pi.User), strings.ToLower(pj.User)
+			less = ui < uj
+			equal = ui == uj
 		case "cpu":
-			less = m.processes[i].CPUPercent < m.processes[j].CPUPercent
+			less = pi.CPUPercent < pj.CPUPercent
+			equal = pi.CPUPercent == pj.CPUPercent
 		case "mem":
-			less = m.processes[i].MemoryRSS < m.processes[j].MemoryRSS
+			less = pi.MemoryRSS < pj.MemoryRSS
+			equal = pi.MemoryRSS == pj.MemoryRSS
 		case "time":
-			less = m.processes[i].StartedAt.Before(m.processes[j].StartedAt)
+			less = pi.StartedAt.Before(pj.StartedAt)
+			equal = pi.StartedAt.Equal(pj.StartedAt)
 		default:
-			less = m.processes[i].MemoryRSS < m.processes[j].MemoryRSS
+			less = pi.MemoryRSS < pj.MemoryRSS
+			equal = pi.MemoryRSS == pj.MemoryRSS
+		}
+		if equal {
+			return pi.PID < pj.PID
 		}
 		if m.sortDesc {
 			return !less
