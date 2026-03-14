@@ -32,9 +32,15 @@ func detectInit(ancestry []model.Process) *model.Source {
 	}
 
 	if !hasShell {
+		// Use the actual PID 1 command name (e.g., "openrc-init", "runit-init",
+		// "init", "systemd") instead of always reporting "init".
+		initName := root.Command
+		if initName == "" {
+			initName = "init"
+		}
 		return &model.Source{
 			Type: model.SourceInit,
-			Name: "init",
+			Name: initName,
 			Details: map[string]string{
 				"pid":  "1",
 				"comm": root.Command,

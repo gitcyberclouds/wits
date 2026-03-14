@@ -302,8 +302,9 @@ func runApp(cmd *cobra.Command, args []string) error {
 	pid := pids[0]
 
 	var systemdService string
-	// If we found systemd (PID 1) listening on a port, try to identify the actual service unit.
-	if t.Type == model.TargetPort && pid == 1 {
+	// If we found PID 1 listening on a port and systemd is the init system,
+	// try to identify the actual service unit via socket activation.
+	if t.Type == model.TargetPort && pid == 1 && source.IsSystemdRunning() {
 		if portNum, err := strconv.Atoi(t.Value); err == nil {
 			if svc, err := procpkg.ResolveSystemdService(portNum); err == nil && svc != "" {
 				systemdService = svc

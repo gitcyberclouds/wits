@@ -11,17 +11,30 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
+// IsSystemdRunning checks whether systemd is actually the running init system.
+// This is the canonical check used by sd_booted() in libsystemd.
+func IsSystemdRunning() bool {
+	_, err := os.Stat("/run/systemd/system")
+	return err == nil
+}
+
 func detectSystemd(ancestry []model.Process) *model.Source {
-	// 1. Check if systemd (PID 1) is in ancestry
-	hasSystemd := false
+	// 1. Verify systemd is actually the init system, not just that PID 1
+	// happens to be named "init" (which could be SysVinit, OpenRC, runit, etc.)
+	if !IsSystemdRunning() {
+		return nil
+	}
+
+	// 2. Check if PID 1 is in ancestry
+	hasPID1 := false
 	for _, p := range ancestry {
-		if p.PID == 1 && (p.Command == "systemd" || p.Command == "init") {
-			hasSystemd = true
+		if p.PID == 1 {
+			hasPID1 = true
 			break
 		}
 	}
 
-	if !hasSystemd {
+	if !hasPID1 {
 		return nil
 	}
 
