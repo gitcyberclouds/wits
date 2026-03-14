@@ -14,31 +14,30 @@ import (
 )
 
 func ReadProcess(pid int) (model.Process, error) {
-	// Read process info using ps command on macOS
-	// LC_ALL=C TZ=UTC ps -p <pid> -o pid=,ppid=,uid=,lstart=,state=,ucomm=
-	cmd := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=")
+	pidStr := strconv.Itoa(pid)
+
+	// Format: pid(0) ppid(1) uid(2) lstart(3-7) state(8) ucomm(9) pcpu(10) rss(11) args(12+)
+	// args= MUST be last because it is variable-width.
+	cmd := exec.Command("ps", "-p", pidStr, "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=,pcpu=,rss=,args=")
 	cmd.Env = buildEnvForPS()
 	out, err := cmd.Output()
 	if err != nil {
 		return model.Process{}, fmt.Errorf("process %d not found: %w", pid, err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
+	line := strings.TrimSpace(string(out))
+	if line == "" {
 		return model.Process{}, fmt.Errorf("process %d not found", pid)
 	}
 
-	// Parse the first line
-	fields := strings.Fields(lines[0])
-	if len(fields) < 9 {
-		// lstart is 5 fields: Mon Dec 25 12:00:00 2024
+	fields := strings.Fields(line)
+	if len(fields) < 12 {
 		return model.Process{}, fmt.Errorf("unexpected ps output format for pid %d", pid)
 	}
 
 	ppid, _ := strconv.Atoi(fields[1])
 	uid, _ := strconv.Atoi(fields[2])
 
-	// lstart is 5 fields: Mon Dec 25 12:00:00 2024
 	lstartStr := strings.Join(fields[3:8], " ")
 	startedAt, _ := time.Parse("Mon Jan 2 15:04:05 2006", lstartStr)
 	if startedAt.IsZero() {
@@ -46,25 +45,23 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	state := fields[8]
-	comm := ""
-	if len(fields) > 9 {
-		comm = fields[9]
-	}
+	comm := fields[9]
 
-	// Get full command line
-	rawCmdline := getCommandLine(pid)
+	cpuPct, _ := strconv.ParseFloat(fields[10], 64)
+	rssKB, _ := strconv.ParseFloat(fields[11], 64)
+
+	rawCmdline := ""
+	if len(fields) > 12 {
+		rawCmdline = strings.Join(fields[12:], " ")
+	}
 	cmdline := rawCmdline
 	if cmdline == "" {
 		cmdline = comm
 	}
 
-	// Get environment variables
 	env := getEnvironment(pid)
+	cwd, binPath := getCwdAndBinaryPath(pid)
 
-	// Get working directory
-	cwd := getWorkingDirectory(pid)
-
-	// Health status
 	health := "healthy"
 	forked := "unknown"
 
@@ -75,30 +72,29 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "stopped"
 	}
 
-	// Fork detection
+	if cpuPct > 90 {
+		health = "high-cpu"
+	}
+	rssMB := rssKB / 1024
+	if rssMB > 1024 {
+		health = "high-mem"
+	}
+
 	if ppid != 1 && comm != "launchd" {
 		forked = "forked"
 	} else {
 		forked = "not-forked"
 	}
 
-	// Get user from UID
 	user := readUserByUID(uid)
-
-	// Container detection on macOS (Docker for Mac)
-	container := detectContainer(pid)
+	container := detectContainer(cmdline)
 
 	if comm == "docker-proxy" && container == "" {
 		container = resolveDockerProxyContainer(cmdline)
 	}
 
-	// Service detection (launchd)
 	service := detectLaunchdService(pid)
-
-	// Git repo/branch detection
 	gitRepo, gitBranch := detectGitInfo(cwd)
-
-	// Get listening ports for this process
 	inodes := socketsForPID(pid)
 	var ports []int
 	var addrs []string
@@ -110,12 +106,15 @@ func ReadProcess(pid int) (model.Process, error) {
 		addrs = append(addrs, addrPort[0])
 	}
 
-	// Check for high resource usage
-	health = checkResourceUsage(pid, health)
-
 	displayName := deriveDisplayCommand(comm, rawCmdline)
 	if displayName == "" {
 		displayName = comm
+	}
+
+	exeDeleted := false
+	if binPath != "" {
+		_, statErr := os.Stat(binPath)
+		exeDeleted = os.IsNotExist(statErr)
 	}
 
 	return model.Process{
@@ -135,40 +134,47 @@ func ReadProcess(pid int) (model.Process, error) {
 		Health:         health,
 		Forked:         forked,
 		Env:            env,
-		ExeDeleted:     isBinaryDeleted(pid),
+		ExeDeleted:     exeDeleted,
 	}, nil
 }
 
-func isBinaryDeleted(pid int) bool {
-	// Use lsof to get the executable path (txt)
-	out, err := exec.Command("lsof", "-a", "-p", strconv.Itoa(pid), "-d", "txt", "-F", "n").Output()
+// getCwdAndBinaryPath returns the working directory and executable path for a process.
+func getCwdAndBinaryPath(pid int) (cwd string, binPath string) {
+	cwd = "unknown"
+
+	out, err := exec.Command("lsof", "-a", "-p", strconv.Itoa(pid), "-d", "cwd,txt", "-F", "fn").Output()
 	if err != nil {
-		return false
+		return cwd, ""
 	}
 
-	path := ""
+	// lsof -F fn output has lines like:
+	//   p<pid>
+	//   fcwd
+	//   n/path/to/cwd
+	//   ftxt
+	//   n/path/to/binary
+	currentFD := ""
 	for line := range strings.Lines(string(out)) {
-		if len(line) > 1 && line[0] == 'n' {
-			path = strings.TrimSpace(line[1:])
-			break
+		if len(line) < 2 {
+			continue
+		}
+		switch line[0] {
+		case 'f':
+			currentFD = line[1:]
+		case 'n':
+			path := strings.TrimSpace(line[1:])
+			switch currentFD {
+			case "cwd":
+				cwd = path
+			case "txt":
+				if binPath == "" {
+					binPath = path
+				}
+			}
 		}
 	}
 
-	if path == "" {
-		return false
-	}
-
-	_, err = os.Stat(path)
-	return os.IsNotExist(err)
-}
-
-func getCommandLine(pid int) string {
-	// Use ps to get full command line
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "args=").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
+	return cwd, binPath
 }
 
 func getEnvironment(pid int) []string {
@@ -218,28 +224,8 @@ func isEnvVarName(name string) bool {
 	return true
 }
 
-func getWorkingDirectory(pid int) string {
-	// Use lsof to get current working directory
-	out, err := exec.Command("lsof", "-a", "-p", strconv.Itoa(pid), "-d", "cwd", "-F", "n").Output()
-	if err != nil {
-		return "unknown"
-	}
-
-	for line := range strings.Lines(string(out)) {
-		if len(line) > 1 && line[0] == 'n' {
-			return strings.TrimSpace(line[1:])
-		}
-	}
-
-	return "unknown"
-}
-
-func detectContainer(pid int) string {
-	// On macOS, check if running inside Docker for Mac
-	// Docker for Mac runs processes inside a Linux VM, but we can check
-	// if the process has Docker-related environment or parent processes
-
-	cmdline := getCommandLine(pid)
+// detectContainer checks the command line for container runtime patterns.
+func detectContainer(cmdline string) string {
 	lowerCmd := strings.ToLower(cmdline)
 
 	switch {
@@ -358,34 +344,6 @@ func buildEnvForPS() []string {
 	}
 	env = append(env, "LC_ALL=C", "TZ=UTC")
 	return env
-}
-
-func checkResourceUsage(pid int, currentHealth string) string {
-	// Use ps to get CPU and memory usage
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "pcpu=,rss=").Output()
-	if err != nil {
-		return currentHealth
-	}
-
-	fields := strings.Fields(strings.TrimSpace(string(out)))
-	if len(fields) < 2 {
-		return currentHealth
-	}
-
-	// Check CPU percentage
-	cpuPct, _ := strconv.ParseFloat(fields[0], 64)
-	if cpuPct > 90 {
-		return "high-cpu"
-	}
-
-	// Check RSS memory in KB
-	rssKB, _ := strconv.ParseFloat(fields[1], 64)
-	rssMB := rssKB / 1024
-	if rssMB > 1024 { // > 1GB
-		return "high-mem"
-	}
-
-	return currentHealth
 }
 
 func resolveDockerProxyContainer(cmdline string) string {
