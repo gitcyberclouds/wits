@@ -109,11 +109,11 @@ func resolvePortNetstat(port int) ([]int, error) {
 			if proto == "tcp" && !strings.Contains(line, "LISTEN") {
 				continue
 			}
-			if !strings.Contains(line, portStr) && !strings.Contains(line, portColonStr) {
-				continue
+			fields := strings.Fields(line)
+			if len(fields) >= 4 && (strings.HasSuffix(fields[3], portStr) || strings.HasSuffix(fields[3], portColonStr)) {
+				found = true
+				break
 			}
-			found = true
-			break
 		}
 		if found {
 			break
@@ -137,23 +137,24 @@ func resolvePortFstat(port int) ([]int, error) {
 		return nil, fmt.Errorf("no process listening on port %d", port)
 	}
 
-	portStr := fmt.Sprintf(":%d", port)
+	portSuffix := fmt.Sprintf(":%d", port)
 	pidSet := make(map[int]bool)
 
 	for line := range strings.Lines(string(out)) {
 		if !strings.Contains(line, "tcp") && !strings.Contains(line, "udp") {
 			continue
 		}
-		if !strings.Contains(line, portStr) {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
 			continue
 		}
-
-		fields := strings.Fields(line)
-		if len(fields) >= 3 {
-			pid, err := strconv.Atoi(fields[2])
-			if err == nil && pid > 0 {
-				pidSet[pid] = true
-			}
+		lastField := fields[len(fields)-1]
+		if !strings.HasSuffix(lastField, portSuffix) {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[2])
+		if err == nil && pid > 0 {
+			pidSet[pid] = true
 		}
 	}
 

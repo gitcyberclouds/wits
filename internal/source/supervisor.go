@@ -1,14 +1,14 @@
 package source
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
 var knownSupervisors = map[string]string{
-	"pm2":          "pm2",
-	"pm2 god":      "pm2",
+	"pm2": "pm2",
 	"supervisord":  "supervisord",
 	"supervisor":   "supervisord",
 	"gunicorn":     "gunicorn",
@@ -49,20 +49,7 @@ func detectSupervisor(ancestry []model.Process) *model.Source {
 	}
 
 	for _, p := range ancestry {
-		// Normalize: remove spaces, lowercase
-		pname := strings.ReplaceAll(strings.ToLower(p.Command), " ", "")
-		pcmd := strings.ReplaceAll(strings.ToLower(p.Cmdline), " ", "")
-		if strings.Contains(pname, "pm2") || strings.Contains(pcmd, "pm2") {
-			return &model.Source{
-				Type: model.SourceSupervisor,
-				Name: "pm2",
-			}
-		}
-
-		// Special handling for init to avoid false positives
-		// Only match if command is exactly "init" or "/sbin/init" etc
 		if p.Command == "init" || strings.HasSuffix(p.Command, "/init") {
-			// Skip "init" if there's a shell in the ancestry
 			if !hasShell {
 				return &model.Source{
 					Type: model.SourceSupervisor,
@@ -72,8 +59,6 @@ func detectSupervisor(ancestry []model.Process) *model.Source {
 		}
 
 		if label, ok := knownSupervisors[strings.ToLower(p.Command)]; ok {
-			// Skip "init" if there's a shell in the ancestry
-			// This allows shell-launched processes to be detected as shell rather than init
 			if label == "init" && hasShell {
 				continue
 			}
@@ -82,19 +67,32 @@ func detectSupervisor(ancestry []model.Process) *model.Source {
 				Name: label,
 			}
 		}
-		// Also match on command line for supervisor keywords
-		for sup, label := range knownSupervisors {
-			if strings.Contains(strings.ToLower(p.Cmdline), sup) {
-				// Skip "init" if there's a shell in the ancestry
-				if label == "init" && hasShell {
-					continue
-				}
-				return &model.Source{
-					Type: model.SourceSupervisor,
-					Name: label,
-				}
+		// Match individual tokens from the cmdline against supervisor keys
+		if label := matchCmdlineTokens(p.Cmdline, hasShell); label != "" {
+			return &model.Source{
+				Type: model.SourceSupervisor,
+				Name: label,
 			}
 		}
 	}
 	return nil
+}
+
+// matchCmdlineTokens extracts the executable basename and each argument token
+// from a command line, then looks up each against knownSupervisors by exact match.
+func matchCmdlineTokens(cmdline string, hasShell bool) string {
+	for _, token := range strings.Fields(strings.ToLower(cmdline)) {
+		// Skip flags and env assignments
+		if strings.HasPrefix(token, "-") || strings.Contains(token, "=") {
+			continue
+		}
+		base := filepath.Base(token)
+		if label, ok := knownSupervisors[base]; ok {
+			if label == "init" && hasShell {
+				continue
+			}
+			return label
+		}
+	}
+	return ""
 }

@@ -70,17 +70,14 @@ func checkPreventsSleep(pid int) bool {
 	pidStr := strconv.Itoa(pid)
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
-		// Check if this line references our PID and is a sleep prevention assertion
-		if !strings.Contains(line, pidStr) {
+		if !containsWholeWord(line, pidStr) {
 			continue
 		}
-		if strings.Contains(line, pidStr) {
-			lower := strings.ToLower(line)
-			if strings.Contains(lower, "sleep") ||
-				strings.Contains(lower, "idle") ||
-				strings.Contains(lower, "shutdown") {
-				return true
-			}
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "sleep") ||
+			strings.Contains(lower, "idle") ||
+			strings.Contains(lower, "shutdown") {
+			return true
 		}
 	}
 	return false
@@ -169,17 +166,13 @@ func GetCPUPercent(pid int, usePs ...bool) (float64, error) {
 		found := false
 
 		for _, line := range lines {
-			if strings.Contains(line, strconv.Itoa(pid)) {
-				fields := strings.Fields(line)
-				// CPU% is generally the 9th field in top output
-				// Output pattern: PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND
-				if len(fields) >= 9 {
-					cpuStr := strings.TrimSuffix(fields[8], "%")
-					cpu, err = strconv.ParseFloat(cpuStr, 64)
-					if err == nil {
-						found = true
-						break
-					}
+			fields := strings.Fields(line)
+			if len(fields) >= 9 && fields[0] == strconv.Itoa(pid) {
+				cpuStr := strings.TrimSuffix(fields[8], "%")
+				cpu, err = strconv.ParseFloat(cpuStr, 64)
+				if err == nil {
+					found = true
+					break
 				}
 			}
 		}

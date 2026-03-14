@@ -108,11 +108,15 @@ func ReadExtendedInfo(pid int) (model.MemoryInfo, model.IOStats, []string, int, 
 		for _, entry := range procEntries {
 			if childPID, err := strconv.Atoi(entry.Name()); err == nil {
 				if statData, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", childPID)); err == nil {
-					fields := strings.Fields(string(statData))
-					if len(fields) > 3 {
-						ppid, _ := strconv.Atoi(fields[3])
-						if ppid == pid {
-							children = append(children, childPID)
+					raw := string(statData)
+					closeIdx := strings.LastIndex(raw, ")")
+					if closeIdx != -1 && closeIdx+2 < len(raw) {
+						rest := strings.Fields(raw[closeIdx+2:])
+						if len(rest) > 1 {
+							ppid, _ := strconv.Atoi(rest[1])
+							if ppid == pid {
+								children = append(children, childPID)
+							}
 						}
 					}
 				}

@@ -74,6 +74,31 @@ func TestDeriveDisplayCommand(t *testing.T) {
 	}
 }
 
+func TestContainsWholeWord(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		s, word string
+		want    bool
+	}{
+		{"pid 12 sleep", "12", true},
+		{"pid 120 sleep", "12", false},
+		{"pid 312 sleep", "12", false},
+		{"12 sleep", "12", true},
+		{"sleep 12", "12", true},
+		{"(12)", "12", true},
+		{"pid:12:sleep", "12", true},
+		{"", "12", false},
+		{"no match here", "12", false},
+	}
+
+	for _, tt := range tests {
+		if got := containsWholeWord(tt.s, tt.word); got != tt.want {
+			t.Errorf("containsWholeWord(%q, %q) = %v, want %v", tt.s, tt.word, got, tt.want)
+		}
+	}
+}
+
 func TestExtractExecutableName(t *testing.T) {
 	t.Parallel()
 

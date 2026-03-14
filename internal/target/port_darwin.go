@@ -54,11 +54,11 @@ func resolvePortNetstat(port int) ([]int, error) {
 	// Check TCP listeners: netstat -anv -p tcp
 	if out, err := exec.Command("netstat", "-anv", "-p", "tcp").Output(); err == nil {
 		for line := range strings.Lines(string(out)) {
-			if !strings.Contains(line, "LISTEN") || !strings.Contains(line, portStr) {
+			if !strings.Contains(line, "LISTEN") {
 				continue
 			}
 			fields := strings.Fields(line)
-			if len(fields) >= 9 {
+			if len(fields) >= 9 && strings.HasSuffix(fields[3], portStr) {
 				if pid, err := strconv.Atoi(fields[8]); err == nil && pid > 0 {
 					pidSet[pid] = true
 				}
@@ -69,17 +69,10 @@ func resolvePortNetstat(port int) ([]int, error) {
 	// Check UDP bound sockets: netstat -anv -p udp
 	if out, err := exec.Command("netstat", "-anv", "-p", "udp").Output(); err == nil {
 		for line := range strings.Lines(string(out)) {
-			if !strings.Contains(line, portStr) {
-				continue
-			}
-			// UDP has no LISTEN state; match lines with local address ending in .<port>
 			fields := strings.Fields(line)
-			if len(fields) >= 9 {
-				localAddr := fields[3]
-				if strings.HasSuffix(localAddr, portStr) {
-					if pid, err := strconv.Atoi(fields[8]); err == nil && pid > 0 {
-						pidSet[pid] = true
-					}
+			if len(fields) >= 9 && strings.HasSuffix(fields[3], portStr) {
+				if pid, err := strconv.Atoi(fields[8]); err == nil && pid > 0 {
+					pidSet[pid] = true
 				}
 			}
 		}
