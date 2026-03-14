@@ -21,35 +21,38 @@ func ResolvePort(port int) ([]int, error) {
 	// Map: bind address (IP:port) -> list of PIDs
 	addressToPIDs := make(map[string][]int)
 
-	for _, flag := range []string{"-4", "-6"} {
-		out, err := exec.Command("sockstat", flag, "-l", "-P", "tcp", "-p", strconv.Itoa(port)).Output()
-		if err != nil {
-			continue
-		}
-
-		// Parse sockstat output
-		// USER     COMMAND    PID   FD PROTO  LOCAL ADDRESS         FOREIGN ADDRESS
-		// root     nginx      1234  6  tcp4   *:80                  *:*
-		// root     sshd       34    3  tcp4   192.168.1.2:22        *:*
-		for line := range strings.Lines(string(out)) {
-			fields := strings.Fields(line)
-			if len(fields) < 6 {
+	// Query both TCP and UDP across IPv4 and IPv6
+	for _, proto := range []string{"tcp", "udp"} {
+		for _, flag := range []string{"-4", "-6"} {
+			out, err := exec.Command("sockstat", flag, "-l", "-P", proto, "-p", strconv.Itoa(port)).Output()
+			if err != nil {
 				continue
 			}
 
-			// Skip header
-			if fields[0] == "USER" {
-				continue
-			}
+			// Parse sockstat output
+			// USER     COMMAND    PID   FD PROTO  LOCAL ADDRESS         FOREIGN ADDRESS
+			// root     nginx      1234  6  tcp4   *:80                  *:*
+			// root     named      567   20 udp4   *:53                  *:*
+			for line := range strings.Lines(string(out)) {
+				fields := strings.Fields(line)
+				if len(fields) < 6 {
+					continue
+				}
 
-			pid, err := strconv.Atoi(fields[2])
-			if err != nil || pid <= 0 {
-				continue
-			}
+				// Skip header
+				if fields[0] == "USER" {
+					continue
+				}
 
-			// Extract LOCAL ADDRESS (field index 5)
-			localAddr := fields[5]
-			addressToPIDs[localAddr] = append(addressToPIDs[localAddr], pid)
+				pid, err := strconv.Atoi(fields[2])
+				if err != nil || pid <= 0 {
+					continue
+				}
+
+				// Extract LOCAL ADDRESS (field index 5)
+				localAddr := fields[5]
+				addressToPIDs[localAddr] = append(addressToPIDs[localAddr], pid)
+			}
 		}
 	}
 
@@ -91,27 +94,35 @@ func ResolvePort(port int) ([]int, error) {
 }
 
 func resolvePortNetstat(port int) ([]int, error) {
-	// Fallback using netstat
-	// On FreeBSD: netstat -an -p tcp | grep LISTEN
-	out, err := exec.Command("netstat", "-an", "-p", "tcp").Output()
-	if err != nil {
-		return nil, fmt.Errorf("no process listening on port %d", port)
-	}
-
 	portStr := fmt.Sprintf(".%d", port)
 	portColonStr := fmt.Sprintf(":%d", port)
+	found := false
 
-	for line := range strings.Lines(string(out)) {
-		if !strings.Contains(line, "LISTEN") {
+	// Check both TCP and UDP via netstat
+	for _, proto := range []string{"tcp", "udp"} {
+		out, err := exec.Command("netstat", "-an", "-p", proto).Output()
+		if err != nil {
 			continue
 		}
-		if !strings.Contains(line, portStr) && !strings.Contains(line, portColonStr) {
-			continue
-		}
 
+		for line := range strings.Lines(string(out)) {
+			if proto == "tcp" && !strings.Contains(line, "LISTEN") {
+				continue
+			}
+			if !strings.Contains(line, portStr) && !strings.Contains(line, portColonStr) {
+				continue
+			}
+			found = true
+			break
+		}
+		if found {
+			break
+		}
+	}
+
+	if found {
 		// Unfortunately, basic netstat doesn't show PID on FreeBSD
 		// We need to use sockstat or fstat for that
-		// Try fstat as last resort
 		return resolvePortFstat(port)
 	}
 
@@ -130,7 +141,7 @@ func resolvePortFstat(port int) ([]int, error) {
 	pidSet := make(map[int]bool)
 
 	for line := range strings.Lines(string(out)) {
-		if !strings.Contains(line, "tcp") {
+		if !strings.Contains(line, "tcp") && !strings.Contains(line, "udp") {
 			continue
 		}
 		if !strings.Contains(line, portStr) {

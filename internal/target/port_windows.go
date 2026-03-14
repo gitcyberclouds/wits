@@ -22,25 +22,40 @@ func ResolvePort(port int) ([]int, error) {
 	seen := make(map[int]bool)
 
 	for _, line := range lines {
-		if strings.Contains(line, portStr) {
-			fields := strings.Fields(line)
-			if len(fields) < 5 {
+		if !strings.Contains(line, portStr) {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+
+		proto := strings.ToUpper(fields[0])
+		localAddr := fields[1]
+		if !strings.HasSuffix(localAddr, portStr) {
+			continue
+		}
+
+		var pid int
+		if strings.HasPrefix(proto, "TCP") {
+			// TCP: Proto LocalAddr ForeignAddr State PID
+			if len(fields) < 5 || fields[3] != "LISTENING" {
 				continue
 			}
-			state := fields[3]
-			if state != "LISTENING" {
+			pid, _ = strconv.Atoi(fields[4])
+		} else if strings.HasPrefix(proto, "UDP") {
+			// UDP: Proto LocalAddr *:* PID (no state column)
+			if len(fields) < 4 {
 				continue
 			}
-			// Proto Local Address Foreign Address State PID
-			localAddr := fields[1]
-			if strings.HasSuffix(localAddr, portStr) {
-				pidStr := fields[4]
-				pid, _ := strconv.Atoi(pidStr)
-				if pid != 0 && !seen[pid] {
-					pids = append(pids, pid)
-					seen[pid] = true
-				}
-			}
+			pid, _ = strconv.Atoi(fields[3])
+		} else {
+			continue
+		}
+
+		if pid != 0 && !seen[pid] {
+			pids = append(pids, pid)
+			seen[pid] = true
 		}
 	}
 

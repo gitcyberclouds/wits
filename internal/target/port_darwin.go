@@ -11,29 +11,30 @@ import (
 )
 
 func ResolvePort(port int) ([]int, error) {
-	// Use lsof to find the process listening on this port
-	// -i TCP:<port> = specific TCP port
-	// -s TCP:LISTEN = only LISTEN state
-	// -n = no hostname resolution
-	// -P = no port name resolution
-	// -t = terse output (PIDs only)
-	out, err := exec.Command("lsof", "-i", fmt.Sprintf("TCP:%d", port), "-s", "TCP:LISTEN", "-n", "-P", "-t").Output()
-	if err != nil {
-		// Try alternative: netstat + grep
-		return resolvePortNetstat(port)
-	}
-
-	pidStrs := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(pidStrs) == 0 || pidStrs[0] == "" {
-		return nil, fmt.Errorf("no process listening on port %d", port)
-	}
-
 	pidSet := make(map[int]bool)
-	for _, pidStr := range pidStrs {
-		pid, err := strconv.Atoi(strings.TrimSpace(pidStr))
-		if err == nil && pid > 0 {
-			pidSet[pid] = true
+
+	// Query TCP listeners: lsof -i TCP:<port> -s TCP:LISTEN -n -P -t
+	if out, err := exec.Command("lsof", "-i", fmt.Sprintf("TCP:%d", port), "-s", "TCP:LISTEN", "-n", "-P", "-t").Output(); err == nil {
+		for _, pidStr := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if pid, err := strconv.Atoi(strings.TrimSpace(pidStr)); err == nil && pid > 0 {
+				pidSet[pid] = true
+			}
 		}
+	}
+
+	// Query UDP bound sockets: lsof -i UDP:<port> -n -P -t
+	// UDP is connectionless so there is no LISTEN state to filter on.
+	if out, err := exec.Command("lsof", "-i", fmt.Sprintf("UDP:%d", port), "-n", "-P", "-t").Output(); err == nil {
+		for _, pidStr := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if pid, err := strconv.Atoi(strings.TrimSpace(pidStr)); err == nil && pid > 0 {
+				pidSet[pid] = true
+			}
+		}
+	}
+
+	if len(pidSet) == 0 {
+		// Try alternative: netstat fallback
+		return resolvePortNetstat(port)
 	}
 
 	// collect all owning pids so callers can handle multi-owner sockets
@@ -43,39 +44,43 @@ func ResolvePort(port int) ([]int, error) {
 	}
 	sort.Ints(result)
 
-	if len(result) == 0 {
-		return nil, fmt.Errorf("socket found but owning process not detected")
-	}
-
 	return result, nil
 }
 
 func resolvePortNetstat(port int) ([]int, error) {
-	// Fallback using netstat
-	// On macOS: netstat -anv -p tcp | grep LISTEN | grep .<port>
-	out, err := exec.Command("netstat", "-anv", "-p", "tcp").Output()
-	if err != nil {
-		return nil, fmt.Errorf("no process listening on port %d", port)
-	}
-
+	pidSet := make(map[int]bool)
 	portStr := fmt.Sprintf(".%d", port)
 
-	pidSet := make(map[int]bool) // collect matches so we can return all owners
-	for line := range strings.Lines(string(out)) {
-		if !strings.Contains(line, "LISTEN") {
-			continue
+	// Check TCP listeners: netstat -anv -p tcp
+	if out, err := exec.Command("netstat", "-anv", "-p", "tcp").Output(); err == nil {
+		for line := range strings.Lines(string(out)) {
+			if !strings.Contains(line, "LISTEN") || !strings.Contains(line, portStr) {
+				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) >= 9 {
+				if pid, err := strconv.Atoi(fields[8]); err == nil && pid > 0 {
+					pidSet[pid] = true
+				}
+			}
 		}
-		if !strings.Contains(line, portStr) {
-			continue
-		}
+	}
 
-		// netstat -anv format includes PID in the last column
-		fields := strings.Fields(line)
-		if len(fields) >= 9 {
-			// The PID is typically in the 9th field
-			pid, err := strconv.Atoi(fields[8])
-			if err == nil && pid > 0 {
-				pidSet[pid] = true
+	// Check UDP bound sockets: netstat -anv -p udp
+	if out, err := exec.Command("netstat", "-anv", "-p", "udp").Output(); err == nil {
+		for line := range strings.Lines(string(out)) {
+			if !strings.Contains(line, portStr) {
+				continue
+			}
+			// UDP has no LISTEN state; match lines with local address ending in .<port>
+			fields := strings.Fields(line)
+			if len(fields) >= 9 {
+				localAddr := fields[3]
+				if strings.HasSuffix(localAddr, portStr) {
+					if pid, err := strconv.Atoi(fields[8]); err == nil && pid > 0 {
+						pidSet[pid] = true
+					}
+				}
 			}
 		}
 	}

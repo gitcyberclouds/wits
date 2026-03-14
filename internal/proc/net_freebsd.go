@@ -54,7 +54,7 @@ func readListeningSockets() (map[string]model.Socket, error) {
 	}
 	sockets := make(map[string]model.Socket)
 	for _, p := range ports {
-		if p.State == "LISTEN" {
+		if p.State == "LISTEN" || p.State == "OPEN" {
 			inode := fmt.Sprintf("%d:%d:%s", p.PID, p.Port, p.Address)
 			sockets[inode] = model.Socket{
 				Inode:    inode,

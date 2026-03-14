@@ -99,15 +99,26 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 
 	for _, line := range lines {
 		fields := strings.Fields(line)
-		// Proto Local Address Foreign Address State PID
-		// TCP 0.0.0.0:135 0.0.0.0:0 LISTENING 888
-		if len(fields) < 5 {
+		// TCP:  Proto LocalAddr ForeignAddr State PID  (5 fields)
+		// UDP:  Proto LocalAddr *:*         PID        (4 fields)
+		if len(fields) < 4 {
 			continue
 		}
-		if fields[3] != "LISTENING" {
+
+		proto := strings.ToUpper(fields[0])
+		var matchPID string
+		if strings.HasPrefix(proto, "TCP") {
+			if len(fields) < 5 || fields[3] != "LISTENING" {
+				continue
+			}
+			matchPID = fields[4]
+		} else if strings.HasPrefix(proto, "UDP") {
+			matchPID = fields[3]
+		} else {
 			continue
 		}
-		if fields[4] != pidStr {
+
+		if matchPID != pidStr {
 			continue
 		}
 
