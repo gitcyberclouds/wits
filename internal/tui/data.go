@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"os"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -81,31 +80,64 @@ func (m MainModel) fetchProcessDetail(pid int) tea.Cmd {
 	}
 }
 
+type processSorter struct {
+	procs []model.Process
+	keys  []string // pre-computed lowercase keys (nil for non-string sorts)
+	col   string
+	desc  bool
+}
+
+func (s processSorter) Len() int { return len(s.procs) }
+
+func (s processSorter) Swap(i, j int) {
+	s.procs[i], s.procs[j] = s.procs[j], s.procs[i]
+	if s.keys != nil {
+		s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
+	}
+}
+
+func (s processSorter) Less(i, j int) bool {
+	var n int
+	switch s.col {
+	case "pid":
+		n = cmp.Compare(s.procs[i].PID, s.procs[j].PID)
+	case "name", "user":
+		n = cmp.Compare(s.keys[i], s.keys[j])
+	case "cpu":
+		n = cmp.Compare(s.procs[i].CPUPercent, s.procs[j].CPUPercent)
+	case "time":
+		n = cmp.Compare(s.procs[i].StartedAt.UnixNano(), s.procs[j].StartedAt.UnixNano())
+	default: // "mem"
+		n = cmp.Compare(s.procs[i].MemoryRSS, s.procs[j].MemoryRSS)
+	}
+	if n == 0 {
+		n = cmp.Compare(s.procs[i].PID, s.procs[j].PID)
+	}
+	if s.desc {
+		return n > 0
+	}
+	return n < 0
+}
+
 func (m *MainModel) sortProcesses() {
-	slices.SortStableFunc(m.processes, func(a, b model.Process) int {
-		var n int
-		switch m.sortCol {
-		case "pid":
-			n = cmp.Compare(a.PID, b.PID)
-		case "name":
-			n = cmp.Compare(strings.ToLower(a.Command), strings.ToLower(b.Command))
-		case "user":
-			n = cmp.Compare(strings.ToLower(a.User), strings.ToLower(b.User))
-		case "cpu":
-			n = cmp.Compare(a.CPUPercent, b.CPUPercent)
-		case "time":
-			n = cmp.Compare(a.StartedAt.UnixNano(), b.StartedAt.UnixNano())
-		default: // "mem"
-			n = cmp.Compare(a.MemoryRSS, b.MemoryRSS)
+	s := processSorter{
+		procs: m.processes,
+		col:   m.sortCol,
+		desc:  m.sortDesc,
+	}
+
+	if m.sortCol == "name" || m.sortCol == "user" {
+		s.keys = make([]string, len(m.processes))
+		for i := range m.processes {
+			if m.sortCol == "name" {
+				s.keys[i] = strings.ToLower(m.processes[i].Command)
+			} else {
+				s.keys[i] = strings.ToLower(m.processes[i].User)
+			}
 		}
-		if n == 0 {
-			n = cmp.Compare(a.PID, b.PID)
-		}
-		if m.sortDesc {
-			return -n
-		}
-		return n
-	})
+	}
+
+	sort.Stable(s)
 }
 
 func (m *MainModel) sortPorts() {
@@ -321,10 +353,18 @@ func (m *MainModel) updatePortTable() {
 	}
 
 	m.portTable.SetRows(rows)
-	m.updatePortDetails()
+	m.updatePortDetailsWithMap(procMap)
 }
 
 func (m *MainModel) updatePortDetails() {
+	procMap := make(map[int]model.Process, len(m.processes))
+	for _, p := range m.processes {
+		procMap[p.PID] = p
+	}
+	m.updatePortDetailsWithMap(procMap)
+}
+
+func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 	selected := m.portTable.SelectedRow()
 	if len(selected) < 4 {
 		m.portDetailTable.SetRows(nil)
@@ -340,11 +380,6 @@ func (m *MainModel) updatePortDetails() {
 
 	var rows []table.Row
 	seen := make(map[int]bool)
-
-	procMap := make(map[int]model.Process)
-	for _, p := range m.processes {
-		procMap[p.PID] = p
-	}
 
 	for _, p := range m.ports {
 		if p.Port == port && p.Protocol == protocol && p.Address == address && p.State == state {
