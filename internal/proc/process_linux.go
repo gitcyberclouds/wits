@@ -15,27 +15,7 @@ import (
 
 // isValidSymlinkTarget validates that a symlink target is safe and reasonable
 func isValidSymlinkTarget(target string) bool {
-	if target == "" {
-		return false
-	}
-
-	// Reject absolute paths that seem suspicious
-	if strings.HasPrefix(target, "/") {
-		// Allow normal absolute paths but reject system-critical ones
-		suspiciousPaths := []string{"/proc", "/sys", "/dev", "/boot", "/root"}
-		for _, suspicious := range suspiciousPaths {
-			if strings.HasPrefix(target, suspicious) {
-				return false
-			}
-		}
-	}
-
-	// Reject relative paths that could escape
-	if strings.Contains(target, "../") {
-		return false
-	}
-
-	return true
+	return target != ""
 }
 
 func ReadProcess(pid int) (model.Process, error) {
