@@ -18,9 +18,9 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X main.version={{ .Version }}
-      - -X main.commit={{ .Commit }}
-      - -X main.buildDate={{ .Date }}
+      - -X github.com/pranshuparmar/witr/internal/version.Version=v{{ .Version }}
+      - -X github.com/pranshuparmar/witr/internal/version.Commit={{ .Commit }}
+      - -X github.com/pranshuparmar/witr/internal/version.BuildDate={{ .Date }}
 
 archives:
   - id: binaries

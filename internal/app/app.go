@@ -20,12 +20,10 @@ import (
 )
 
 var (
-	version   = ""
-	commit    = ""
-	buildDate = ""
+	version   = "v0.0.0-dev"
+	commit    = "unknown"
+	buildDate = "unknown"
 )
-
-// To embed version, commit, and build date, use:
 
 var rootCmd = &cobra.Command{
 	Use:   "witr [process name]",
@@ -94,20 +92,8 @@ func Execute() {
 }
 
 func init() {
-	if version == "" {
-		version = "v0.0.0-dev"
-	}
-	if commit == "" {
-		commit = "unknown"
-	}
-	if buildDate == "" {
-		buildDate = "unknown"
-	}
-
 	rootCmd.InitDefaultCompletionCmd()
-
 	rootCmd.Version = version
-
 	rootCmd.SetVersionTemplate(fmt.Sprintf("witr {{.Version}} (commit %s, built %s)\n", commit, buildDate))
 	rootCmd.SetErr(output.NewSafeTerminalWriter(os.Stderr))
 
@@ -384,24 +370,12 @@ func runInteractive() error {
 	return tui.Start(v)
 }
 
-func SetVersionBuildCommitString(Version string, Commit string, BuildDate string) {
-	version = Version
-	commit = Commit
-	buildDate = BuildDate
-
-	if version == "" {
-		version = "v0.0.0-dev"
-	}
-	if commit == "" {
-		commit = "unknown"
-	}
-	if buildDate == "" {
-		buildDate = "unknown"
-	}
+func SetVersion(v string, c string, bd string) {
+	version = v
+	commit = c
+	buildDate = bd
 
 	rootCmd.Version = version
-
 	rootCmd.SetVersionTemplate(fmt.Sprintf("witr {{.Version}} (commit %s, built %s)\n", commit, buildDate))
-
 	rootCmd.SilenceUsage = true
 }
