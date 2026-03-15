@@ -175,8 +175,7 @@ func ReadProcess(pid int) (model.Process, error) {
 					headStr := strings.TrimSpace(string(head))
 					if strings.HasPrefix(headStr, "ref: ") {
 						ref := strings.TrimPrefix(headStr, "ref: ")
-						refParts := strings.Split(ref, "/")
-						gitBranch = refParts[len(refParts)-1]
+						gitBranch = strings.TrimPrefix(ref, "refs/heads/")
 					}
 				}
 				break

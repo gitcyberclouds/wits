@@ -8,7 +8,7 @@ import (
 )
 
 var knownSupervisors = map[string]string{
-	"pm2": "pm2",
+	"pm2":          "pm2",
 	"supervisord":  "supervisord",
 	"supervisor":   "supervisord",
 	"gunicorn":     "gunicorn",

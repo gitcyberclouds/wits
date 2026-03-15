@@ -139,10 +139,7 @@ func detectGitInfo(cwd string) (string, string) {
 				headStr := strings.TrimSpace(string(head))
 				if strings.HasPrefix(headStr, "ref: ") {
 					ref := strings.TrimPrefix(headStr, "ref: ")
-					refParts := strings.Split(ref, "/")
-					if len(refParts) > 0 {
-						gitBranch = refParts[len(refParts)-1]
-					}
+					gitBranch = strings.TrimPrefix(ref, "refs/heads/")
 				}
 			}
 
