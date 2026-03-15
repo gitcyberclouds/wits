@@ -185,9 +185,17 @@ func Warnings(p []model.Process) []string {
 		w = append(w, "No healthcheck detected for container (best effort)")
 	}
 
-	// Warn if service name and process name mismatch
-	if last.Service != "" && last.Command != "" && last.Service != last.Command {
-		w = append(w, "Service name and process name do not match")
+	// Warn if service name and process name are genuinely unrelated
+	if last.Service != "" && last.Command != "" {
+		svcCore := last.Service
+		for _, suffix := range []string{".service", ".socket", ".timer", ".scope", ".slice", ".plist"} {
+			svcCore = strings.TrimSuffix(svcCore, suffix)
+		}
+		svcCore = strings.ToLower(svcCore)
+		cmdBase := strings.ToLower(last.Command)
+		if !strings.Contains(svcCore, cmdBase) && !strings.Contains(cmdBase, svcCore) {
+			w = append(w, "Service name and process name do not match")
+		}
 	}
 
 	// Warn if binary is deleted
