@@ -10,9 +10,37 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
+
+// Cached socket table to avoid re-parsing /proc/net/* on every ReadProcess call
+// during ancestry walks (typically 5-10 calls within milliseconds).
+var (
+	socketCache     map[string]model.Socket
+	socketCacheTime time.Time
+	socketCacheMu   sync.Mutex
+	socketCacheTTL  = 2 * time.Second
+)
+
+func readSocketsCached() (map[string]model.Socket, error) {
+	socketCacheMu.Lock()
+	defer socketCacheMu.Unlock()
+
+	if socketCache != nil && time.Since(socketCacheTime) < socketCacheTTL {
+		return socketCache, nil
+	}
+
+	sockets, err := readSockets()
+	if err != nil {
+		return nil, err
+	}
+	socketCache = sockets
+	socketCacheTime = time.Now()
+	return sockets, nil
+}
 
 var stateMap = map[string]string{
 	"01": "ESTABLISHED",

@@ -224,7 +224,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	user := readUser(pid)
 
-	sockets, _ := readSockets()
+	sockets, _ := readSocketsCached()
 	inodes := socketsForPID(pid)
 
 	var ports []int

@@ -74,16 +74,18 @@ func (m MainModel) View() string {
 			Foreground(treeHeaderColor).
 			BorderForeground(treeBorderColor)
 
-		s := table.DefaultStyles()
+		baseStyles := table.DefaultStyles()
+		baseStyles.Selected = baseStyles.Selected.
+			Foreground(lipgloss.Color("#ffffaf")). // Light Yellow
+			Background(lipgloss.Color("#5f00d7")). // Purple
+			Bold(false)
+
+		s := baseStyles
 		if m.listFocus == focusMain {
 			s.Header = tableHeaderStyle.BorderForeground(activeBorderColor)
 		} else {
 			s.Header = tableHeaderStyle.BorderForeground(dimBorderColor)
 		}
-		s.Selected = s.Selected.
-			Foreground(lipgloss.Color("#ffffaf")). // Light Yellow
-			Background(lipgloss.Color("#5f00d7")). // Purple
-			Bold(false)
 		m.table.SetStyles(s)
 
 		availableWidth := m.width - 6
@@ -111,28 +113,17 @@ func (m MainModel) View() string {
 				sideHeaderColor = activeBorderColor
 			}
 
-			s1 := table.DefaultStyles()
-			if m.listFocus == focusMain {
-				s1.Header = tableHeaderStyle.BorderForeground(activeBorderColor)
-			} else {
-				s1.Header = tableHeaderStyle.BorderForeground(dimBorderColor)
-			}
-			s1.Selected = s1.Selected.
-				Foreground(lipgloss.Color("#ffffaf")). // Light Yellow
-				Background(lipgloss.Color("#5f00d7")). // Purple
-				Bold(false)
+			// Reuse base styles — only header border differs per table
+			s1 := baseStyles
+			s1.Header = s.Header // same focus state as main table
 			m.portTable.SetStyles(s1)
 
-			s2 := table.DefaultStyles()
+			s2 := baseStyles
 			if m.listFocus == focusSide {
 				s2.Header = tableHeaderStyle.BorderForeground(activeBorderColor)
 			} else {
 				s2.Header = tableHeaderStyle.BorderForeground(dimBorderColor)
 			}
-			s2.Selected = s2.Selected.
-				Foreground(lipgloss.Color("#ffffaf")). // Light Yellow
-				Background(lipgloss.Color("#5f00d7")). // Purple
-				Bold(false)
 			m.portDetailTable.SetStyles(s2)
 
 			detailContainerStyle := lipgloss.NewStyle().
