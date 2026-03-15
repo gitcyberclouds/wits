@@ -87,7 +87,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	user := readUserByUID(uid)
-	container := detectContainer(cmdline)
+	container := detectContainerFromCmdline(cmdline)
 
 	if comm == "docker-proxy" && container == "" {
 		container = resolveDockerProxyContainer(cmdline)
@@ -227,59 +227,6 @@ func isEnvVarName(name string) bool {
 	return true
 }
 
-// detectContainer checks the command line for container runtime patterns.
-func detectContainer(cmdline string) string {
-	lowerCmd := strings.ToLower(cmdline)
-
-	switch {
-	case strings.Contains(lowerCmd, "docker"):
-		if name := extractFlagValue(cmdline, "--name"); name != "" {
-			return "docker: " + name
-		}
-		return "docker"
-	case strings.Contains(lowerCmd, "podman"), strings.Contains(lowerCmd, "libpod"):
-		if name := extractFlagValue(cmdline, "--name"); name != "" {
-			return "podman: " + name
-		}
-		return "podman"
-	case strings.Contains(lowerCmd, "minikube"):
-		if profile := extractFlagValue(cmdline, "-p", "--profile"); profile != "" {
-			return "k8s: " + profile
-		}
-		return "kubernetes"
-	case strings.Contains(lowerCmd, "kind"):
-		if name := extractFlagValue(cmdline, "--name"); name != "" {
-			return "k8s: " + name
-		}
-		return "kubernetes"
-	case strings.Contains(lowerCmd, "kubepods"):
-		if id := findLongHexID(cmdline); id != "" {
-			if name := resolveContainerName(id, "crictl"); name != "" {
-				return "k8s: " + name
-			}
-			return "k8s (" + shortID(id) + ")"
-		}
-		return "kubernetes"
-	case strings.Contains(lowerCmd, "colima"):
-		if profile := extractFlagValue(cmdline, "-p", "--profile"); profile != "" {
-			return "colima: " + profile
-		}
-		return "colima: default"
-	case strings.Contains(lowerCmd, "nerdctl"):
-		if name := extractFlagValue(cmdline, "--name"); name != "" {
-			return "containerd: " + name
-		}
-		return "containerd"
-	case strings.Contains(lowerCmd, "containerd"):
-		if name := extractFlagValue(cmdline, "--name"); name != "" {
-			return "containerd: " + name
-		}
-		return "containerd"
-	}
-
-	return ""
-}
-
 func detectLaunchdService(pid int) string {
 	// Try to find the launchd service managing this process
 	// Use launchctl blame on macOS 10.10+
@@ -294,92 +241,5 @@ func detectLaunchdService(pid int) string {
 
 	// Fallback: check if process is a known launchd service
 	// by looking at the parent chain or service database
-	return ""
-}
-
-func detectGitInfo(cwd string) (string, string) {
-	if cwd == "unknown" || cwd == "" {
-		return "", ""
-	}
-
-	searchDir := cwd
-	for depth := 0; depth < 10 && searchDir != "/" && searchDir != "." && searchDir != ""; depth++ {
-		gitDir := searchDir + "/.git"
-		if fi, err := os.Stat(gitDir); err == nil && fi.IsDir() {
-			// Repo name is the base dir
-			parts := strings.Split(strings.TrimRight(searchDir, "/"), "/")
-			gitRepo := parts[len(parts)-1]
-
-			// Try to read HEAD for branch
-			gitBranch := ""
-			headFile := gitDir + "/HEAD"
-			if head, err := os.ReadFile(headFile); err == nil {
-				headStr := strings.TrimSpace(string(head))
-				if strings.HasPrefix(headStr, "ref: ") {
-					ref := strings.TrimPrefix(headStr, "ref: ")
-					gitBranch = strings.TrimPrefix(ref, "refs/heads/")
-				}
-			}
-
-			return gitRepo, gitBranch
-		}
-
-		// Move up one directory
-		idx := strings.LastIndex(searchDir, "/")
-		if idx <= 0 {
-			break
-		}
-		searchDir = searchDir[:idx]
-	}
-
-	return "", ""
-}
-
-// buildEnvForPS returns environment variables with LC_ALL=C and TZ=UTC,
-// removing any existing LC_ALL or TZ to ensure consistent output format.
-func buildEnvForPS() []string {
-	var env []string
-	for _, e := range os.Environ() {
-		if !strings.HasPrefix(e, "LC_ALL=") && !strings.HasPrefix(e, "TZ=") {
-			env = append(env, e)
-		}
-	}
-	env = append(env, "LC_ALL=C", "TZ=UTC")
-	return env
-}
-
-func resolveDockerProxyContainer(cmdline string) string {
-	var containerIP string
-	parts := strings.Fields(cmdline)
-	for i, part := range parts {
-		if part == "-container-ip" && i+1 < len(parts) {
-			containerIP = parts[i+1]
-			break
-		}
-	}
-	if containerIP == "" {
-		return ""
-	}
-
-	out, err := exec.Command("docker", "network", "inspect", "bridge",
-		"--format", "{{range .Containers}}{{.Name}}:{{.IPv4Address}}{{\"\\n\"}}{{end}}").Output()
-	if err != nil {
-		return ""
-	}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line == "" {
-			continue
-		}
-		colonIdx := strings.Index(line, ":")
-		if colonIdx == -1 {
-			continue
-		}
-		name := line[:colonIdx]
-		ip := strings.Split(line[colonIdx+1:], "/")[0]
-		if ip == containerIP {
-			return "target: " + name
-		}
-	}
 	return ""
 }

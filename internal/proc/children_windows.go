@@ -3,7 +3,6 @@ package proc
 import (
 	"fmt"
 	"os/exec"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -57,10 +56,4 @@ func ResolveChildren(pid int) ([]model.Process, error) {
 
 	sortProcesses(children)
 	return children, nil
-}
-
-func sortProcesses(processes []model.Process) {
-	sort.Slice(processes, func(i, j int) bool {
-		return processes[i].PID < processes[j].PID
-	})
 }

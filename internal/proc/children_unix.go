@@ -4,7 +4,6 @@ package proc
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -29,10 +28,4 @@ func ResolveChildren(pid int) ([]model.Process, error) {
 
 	sortProcesses(children)
 	return children, nil
-}
-
-func sortProcesses(processes []model.Process) {
-	sort.Slice(processes, func(i, j int) bool {
-		return processes[i].PID < processes[j].PID
-	})
 }

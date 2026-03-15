@@ -138,36 +138,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		}
 	}
 
-	// Git repo/branch detection (walk up to find .git)
-	gitRepo := ""
-	gitBranch := ""
-	if cwd != "unknown" {
-		searchDir := cwd
-		for depth := 0; depth < 10 && searchDir != "/" && searchDir != "." && searchDir != ""; depth++ {
-			gitDir := searchDir + "/.git"
-			if fi, err := os.Stat(gitDir); err == nil && fi.IsDir() {
-				// Repo name is the base dir
-				parts := strings.Split(strings.TrimRight(searchDir, "/"), "/")
-				gitRepo = parts[len(parts)-1]
-				// Try to read HEAD for branch
-				headFile := gitDir + "/HEAD"
-				if head, err := os.ReadFile(headFile); err == nil {
-					headStr := strings.TrimSpace(string(head))
-					if strings.HasPrefix(headStr, "ref: ") {
-						ref := strings.TrimPrefix(headStr, "ref: ")
-						gitBranch = strings.TrimPrefix(ref, "refs/heads/")
-					}
-				}
-				break
-			}
-			// Move up one directory
-			idx := strings.LastIndex(searchDir, "/")
-			if idx <= 0 {
-				break
-			}
-			searchDir = searchDir[:idx]
-		}
-	}
+	gitRepo, gitBranch := detectGitInfo(cwd)
 
 	// stat format is evil, command is inside ()
 	raw := string(stat)
@@ -304,42 +275,6 @@ func isBinaryDeleted(pid int) bool {
 		return false
 	}
 	return strings.HasSuffix(exePath, " (deleted)")
-}
-
-func resolveDockerProxyContainer(cmdline string) string {
-	var containerIP string
-	parts := strings.Fields(cmdline)
-	for i, part := range parts {
-		if part == "-container-ip" && i+1 < len(parts) {
-			containerIP = parts[i+1]
-			break
-		}
-	}
-	if containerIP == "" {
-		return ""
-	}
-
-	out, err := exec.Command("docker", "network", "inspect", "bridge",
-		"--format", "{{range .Containers}}{{.Name}}:{{.IPv4Address}}{{\"\\n\"}}{{end}}").Output()
-	if err != nil {
-		return ""
-	}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line == "" {
-			continue
-		}
-		colonIdx := strings.Index(line, ":")
-		if colonIdx == -1 {
-			continue
-		}
-		name := line[:colonIdx]
-		ip := strings.Split(line[colonIdx+1:], "/")[0]
-		if ip == containerIP {
-			return "target: " + name
-		}
-	}
-	return ""
 }
 
 // The kernel emits the state immediately after the command, so fields[0] always carries it.
