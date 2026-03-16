@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -46,13 +47,23 @@ func detectSystemd(ancestry []model.Process) *model.Source {
 		details["NRestarts"] = v
 	}
 
-	return &model.Source{
+	src := &model.Source{
 		Type:        model.SourceSystemd,
 		Name:        props["UnitName"],
 		Description: props["Description"],
 		UnitFile:    props["UnitFile"],
 		Details:     details,
 	}
+
+	// Check if the service is triggered by a systemd timer
+	if unitName := props["UnitName"]; strings.HasSuffix(unitName, ".service") {
+		timerUnit := strings.TrimSuffix(unitName, ".service") + ".timer"
+		if schedule := resolveTimerSchedule(timerUnit); schedule != "" {
+			src.Details["schedule"] = schedule
+		}
+	}
+
+	return src
 }
 
 // resolveSystemdProperties fetches Description, FragmentPath/SourcePath, and NRestarts
@@ -131,6 +142,111 @@ func querySystemdProperties(props []string, target string) map[string]string {
 		result[k] = v
 	}
 	return result
+}
+
+// resolveTimerSchedule checks if a .timer unit exists and extracts schedule info.
+func resolveTimerSchedule(timerUnit string) string {
+	props := querySystemdProperties(
+		[]string{"TimersCalendar", "TimersMonotonic", "LastTriggerUSec", "NextElapseUSecRealtime"},
+		timerUnit,
+	)
+	if props == nil {
+		return ""
+	}
+
+	// Extract schedule spec from calendar or monotonic timer
+	schedule := extractTimerSpec(props["TimersCalendar"])
+	if schedule == "" {
+		schedule = extractTimerSpec(props["TimersMonotonic"])
+	}
+	if schedule == "" {
+		return ""
+	}
+
+	var parts []string
+	parts = append(parts, schedule)
+
+	if last := props["LastTriggerUSec"]; last != "" && last != "n/a" {
+		if t, err := time.Parse("Mon 2006-01-02 15:04:05 MST", last); err == nil {
+			parts = append(parts, "last: "+formatRelativeTime(t))
+		}
+	}
+	if next := props["NextElapseUSecRealtime"]; next != "" && next != "n/a" {
+		if t, err := time.Parse("Mon 2006-01-02 15:04:05 MST", next); err == nil {
+			parts = append(parts, "next: "+formatRelativeTime(t))
+		}
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// extractTimerSpec parses the value from systemd's TimersCalendar or TimersMonotonic format.
+// Format examples:
+//
+//	"{ OnCalendar=*-*-* 06,18:00:00 ; next_elapse=... }"
+//	"{ OnUnitActiveUSec=1d ; next_elapse=... }"
+//	"{ OnBootUSec=15min ; next_elapse=... }"
+func extractTimerSpec(raw string) string {
+	if raw == "" {
+		return ""
+	}
+
+	// Look for the first key=value pair inside braces
+	for _, prefix := range []string{"OnCalendar=", "OnUnitActiveUSec=", "OnBootUSec=", "OnUnitInactiveUSec="} {
+		idx := strings.Index(raw, prefix)
+		if idx == -1 {
+			continue
+		}
+		after := raw[idx+len(prefix):]
+		// Trim at the next semicolon or closing brace
+		if semi := strings.IndexAny(after, ";}"); semi != -1 {
+			after = after[:semi]
+		}
+		after = strings.TrimSpace(after)
+		if after == "" {
+			continue
+		}
+		// Prefix monotonic timers with the trigger type for clarity
+		switch {
+		case strings.HasPrefix(prefix, "OnBoot"):
+			return "every boot + " + after
+		case strings.HasPrefix(prefix, "OnUnitActive"):
+			return "every " + after
+		case strings.HasPrefix(prefix, "OnUnitInactive"):
+			return "every " + after + " after idle"
+		default:
+			return after
+		}
+	}
+	return ""
+}
+
+// formatRelativeTime returns a human-friendly relative time string.
+func formatRelativeTime(t time.Time) string {
+	d := time.Since(t)
+	if d < 0 {
+		d = -d
+		switch {
+		case d < time.Minute:
+			return "in <1 min"
+		case d < time.Hour:
+			return fmt.Sprintf("in %d min", int(d.Minutes()))
+		case d < 24*time.Hour:
+			return fmt.Sprintf("in %dh", int(d.Hours()))
+		default:
+			return fmt.Sprintf("in %dd", int(d.Hours()/24))
+		}
+	}
+	switch {
+	case d < time.Minute:
+		return "<1 min ago"
+	case d < time.Hour:
+		return fmt.Sprintf("%d min ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	}
 }
 
 func getUnitNameFromCgroup(pid int) string {

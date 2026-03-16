@@ -194,6 +194,14 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		out.Printf("Started     : %s (%s)\n", rel, dtStr)
 	}
 
+	if schedule, ok := r.Source.Details["schedule"]; ok {
+		if colorEnabled {
+			out.Printf("%sSchedule%s    : %s\n", ColorMagenta, ColorReset, schedule)
+		} else {
+			out.Printf("Schedule    : %s\n", schedule)
+		}
+	}
+
 	// Why It Exists (short chain)
 	if colorEnabled {
 		out.Printf("\n%sWhy It Exists%s :\n  ", ColorMagenta, ColorReset)
