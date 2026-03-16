@@ -722,7 +722,31 @@ At its core, witr answers:
 
 ---
 
-### 9.2 Standard Output Sections
+### 9.2 Exit Codes
+
+witr returns meaningful exit codes for use in scripts, CI pipelines, and monitoring:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Clean: process found, no warnings |
+| 1 | Warnings: process found but has one or more warnings |
+| 2 | Not found: no matching process or service |
+| 3 | Permission denied: insufficient privileges |
+| 4 | Invalid input: bad arguments or ambiguous match |
+
+```bash
+witr nginx --short
+case $? in
+  0) echo "All clear" ;;
+  1) echo "Warnings detected" ;;
+  2) echo "Process not running" ;;
+  3) echo "Need elevated privileges" ;;
+esac
+```
+
+---
+
+### 9.3 Standard Output Sections
 
 #### Target
 
@@ -745,6 +769,7 @@ Examples:
 
 - systemd unit (Linux)
 - launchd service (macOS)
+- SSH session (with remote IP and terminal)
 - docker container
 - pm2
 - cron

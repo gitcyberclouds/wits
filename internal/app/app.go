@@ -83,12 +83,40 @@ func _genExamples() string {
 `
 }
 
-func Execute() {
+// Exit codes
+const (
+	ExitOK            = 0
+	ExitWarnings      = 1
+	ExitNotFound      = 2
+	ExitPermission    = 3
+	ExitInvalidInput  = 4
+	ExitInternalError = 1
+)
 
+// exitCodeError wraps an error with a specific exit code.
+type exitCodeError struct {
+	code int
+	err  error
+}
+
+func (e *exitCodeError) Error() string { return e.err.Error() }
+func (e *exitCodeError) Unwrap() error { return e.err }
+
+func withExitCode(code int, err error) error {
+	return &exitCodeError{code: code, err: err}
+}
+
+func Execute() {
 	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
+	if err == nil {
+		return
 	}
+
+	var ece *exitCodeError
+	if errors.As(err, &ece) {
+		os.Exit(ece.code)
+	}
+	os.Exit(1)
 }
 
 func init() {
@@ -149,20 +177,20 @@ func runApp(cmd *cobra.Command, args []string) error {
 		case len(args) > 0:
 			t = model.Target{Type: model.TargetName, Value: args[0]}
 		default:
-			return fmt.Errorf("must specify --pid, --port, --file, or a process name")
+			return withExitCode(ExitInvalidInput, fmt.Errorf("must specify --pid, --port, --file, or a process name"))
 		}
 
 		pids, err := target.Resolve(t, exactFlag)
 		if err != nil {
-			return fmt.Errorf("error: %v", err)
+			return withExitCode(classifyError(err), fmt.Errorf("error: %v", err))
 		}
 		if len(pids) == 0 {
-			return fmt.Errorf("no matching process found")
+			return withExitCode(ExitNotFound, fmt.Errorf("no matching process found"))
 		}
 		if len(pids) > 1 {
 			cmd.SilenceErrors = true
 			printMultiMatch(outp, pids, !noColorFlag, "witr --pid <pid> --env")
-			return fmt.Errorf("multiple processes found")
+			return withExitCode(ExitInvalidInput, fmt.Errorf("multiple processes found"))
 		}
 		pid := pids[0]
 		procInfo, err := procpkg.ReadProcess(pid)
@@ -199,7 +227,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	case len(args) > 0:
 		t = model.Target{Type: model.TargetName, Value: args[0]}
 	default:
-		return fmt.Errorf("must specify --pid, --port, --file, or a process name")
+		return withExitCode(ExitInvalidInput, fmt.Errorf("must specify --pid, --port, --file, or a process name"))
 	}
 
 	pids, err := target.Resolve(t, exactFlag)
@@ -230,10 +258,10 @@ func runApp(cmd *cobra.Command, args []string) error {
 				}
 			}
 			errorMsg = fmt.Sprintf("%s\n\nA socket was found for the port, but the owning process could not be detected.\nThis may be due to insufficient permissions. Try running with sudo:\n  sudo %s", errStr, strings.Join(os.Args, " "))
-		} else {
-			errorMsg = fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.\nFor usage and options, run: witr --help", errStr)
+			return withExitCode(ExitPermission, errors.New(errorMsg))
 		}
-		return errors.New(errorMsg)
+		errorMsg = fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.\nFor usage and options, run: witr --help", errStr)
+		return withExitCode(classifyError(err), errors.New(errorMsg))
 	}
 
 	if len(pids) > 1 {
@@ -243,7 +271,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 			hint = "witr --pid <pid> --env"
 		}
 		printMultiMatch(outp, pids, !noColorFlag, hint)
-		return fmt.Errorf("multiple processes found")
+		return withExitCode(ExitInvalidInput, fmt.Errorf("multiple processes found"))
 	}
 
 	pid := pids[0]
@@ -270,7 +298,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		errStr := err.Error()
 		errorMsg := fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.\nFor usage and options, run: witr --help", errStr)
-		return errors.New(errorMsg)
+		return withExitCode(classifyError(err), errors.New(errorMsg))
 	}
 
 	// Apply systemd service override if resolved locally
@@ -315,6 +343,11 @@ func runApp(cmd *cobra.Command, args []string) error {
 	} else {
 		output.RenderStandard(outw, res, !noColorFlag, verboseFlag)
 	}
+
+	if len(res.Warnings) > 0 {
+		cmd.SilenceErrors = true
+		return withExitCode(ExitWarnings, fmt.Errorf("process has %d warning(s)", len(res.Warnings)))
+	}
 	return nil
 }
 
@@ -351,6 +384,27 @@ func printMultiMatch(outp output.Printer, pids []int, colorEnabled bool, hint st
 	}
 	outp.Println("\nRe-run with:")
 	outp.Printf("  %s\n", hint)
+}
+
+// classifyError maps common error strings to exit codes.
+func classifyError(err error) int {
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "permission denied") ||
+		strings.Contains(msg, "operation not permitted") ||
+		strings.Contains(msg, "insufficient permissions"):
+		return ExitPermission
+	case strings.Contains(msg, "no matching") ||
+		strings.Contains(msg, "no running process") ||
+		strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "no process"):
+		return ExitNotFound
+	case strings.Contains(msg, "invalid") ||
+		strings.Contains(msg, "must specify"):
+		return ExitInvalidInput
+	default:
+		return ExitInternalError
+	}
 }
 
 func SetVersion(v string, c string, bd string) {
