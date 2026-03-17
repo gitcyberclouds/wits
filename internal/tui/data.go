@@ -412,6 +412,9 @@ func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 		}
 	}
 	m.portDetailTable.SetRows(rows)
+	if len(rows) > 0 {
+		m.portDetailTable.SetCursor(0)
+	}
 }
 
 func (m *MainModel) updateDetailViewport() {
