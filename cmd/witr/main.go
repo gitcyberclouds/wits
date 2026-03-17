@@ -1,5 +1,8 @@
 //go:build linux || darwin || freebsd || windows
 
+//go:generate go run ../../internal/tools/docgen -format man -out ../../docs/cli
+//go:generate go run ../../internal/tools/docgen -format markdown -out ../../docs/cli
+
 package main
 
 import (
