@@ -459,30 +459,141 @@ func (m *MainModel) updateEnvViewport() {
 func (m *MainModel) updateTreeViewport(res model.Result) {
 	if len(res.Ancestry) == 0 && res.Process.PID == 0 {
 		m.treeViewport.SetContent("")
+		m.treePIDs = nil
+		m.treeCursor = 0
+		m.treeResult = nil
+		m.treeAncestry = nil
 		return
 	}
-	var b strings.Builder
-
-	treeLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true).Render("Ancestry Tree:")
-	fmt.Fprintf(&b, "%s\n", treeLabel)
 
 	ancestry := res.Ancestry
 	if len(ancestry) == 0 {
 		if res.Process.PID > 0 {
 			ancestry = []model.Process{res.Process}
-		} else {
-			dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
-			fmt.Fprintf(&b, "  %s\n", dimStyle.Render("No ancestry found"))
 		}
 	}
 
-	if len(ancestry) > 0 {
-		output.PrintTree(&b, ancestry, res.Children, true)
+	isRefresh := m.treeTargetPID == res.Process.PID
+
+	resCopy := res
+	m.treeResult = &resCopy
+	m.treeAncestry = ancestry
+	m.treeTargetPID = res.Process.PID
+
+	// Build the flat PID list: ancestry then children (max 10)
+	var newPIDs []int
+	for _, p := range ancestry {
+		newPIDs = append(newPIDs, p.PID)
+	}
+	childLimit := 10
+	if len(res.Children) < childLimit {
+		childLimit = len(res.Children)
+	}
+	for i := 0; i < childLimit; i++ {
+		newPIDs = append(newPIDs, res.Children[i].PID)
+	}
+
+	// Preserve cursor position only on periodic refresh of the same process
+	restored := false
+	if isRefresh {
+		oldCursor := m.treeCursor
+		oldPID := 0
+		if oldCursor >= 0 && oldCursor < len(m.treePIDs) {
+			oldPID = m.treePIDs[oldCursor]
+		}
+		if oldPID > 0 {
+			for i, pid := range newPIDs {
+				if pid == oldPID {
+					m.treeCursor = i
+					restored = true
+					break
+				}
+			}
+		}
+	}
+	m.treePIDs = newPIDs
+
+	if !restored {
+		if len(ancestry) > 0 {
+			m.treeCursor = len(ancestry) - 1
+		} else {
+			m.treeCursor = 0
+		}
+	}
+
+	m.renderTreeContent(res, ancestry)
+}
+
+// rerenderTree re-renders the tree viewport with the current cursor position.
+func (m *MainModel) rerenderTree() {
+	if m.treeResult == nil {
+		return
+	}
+	m.renderTreeContent(*m.treeResult, m.treeAncestry)
+}
+
+func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process) {
+	var b strings.Builder
+
+	magenta := lipgloss.NewStyle().Foreground(lipgloss.Color("#d787ff"))
+	green := lipgloss.NewStyle().Foreground(lipgloss.Color("#00d700"))
+	highlight := lipgloss.NewStyle().
+		Background(lipgloss.Color("#5f00d7")).
+		Foreground(lipgloss.Color("#ffffaf"))
+	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
+	sectionLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true)
+
+	fmt.Fprintf(&b, "%s\n", sectionLabel.Render("Ancestry Tree:"))
+
+	if len(ancestry) == 0 {
+		fmt.Fprintf(&b, "  %s\n", dim.Render("No ancestry found"))
+	}
+
+	idx := 0
+	for i, proc := range ancestry {
+		indent := strings.Repeat("  ", i)
+		if i > 0 {
+			fmt.Fprintf(&b, "%s%s ", indent, magenta.Render("└─"))
+		}
+
+		label := fmt.Sprintf("%s (pid %d)", proc.Command, proc.PID)
+		if idx == m.treeCursor {
+			label = highlight.Render(label)
+		} else if i == len(ancestry)-1 {
+			label = green.Render(label)
+		}
+		fmt.Fprintf(&b, "%s\n", label)
+		idx++
+	}
+
+	children := res.Children
+	limit := 10
+	count := len(children)
+	if count > 0 {
+		baseIndent := strings.Repeat("  ", len(ancestry))
+		for i, child := range children {
+			if i >= limit {
+				remaining := count - limit
+				fmt.Fprintf(&b, "%s%s ... and %d more\n", baseIndent, magenta.Render("└─"), remaining)
+				break
+			}
+			connector := "├─"
+			isLast := (i == count-1) || (i == limit-1 && count <= limit)
+			if isLast {
+				connector = "└─"
+			}
+
+			label := fmt.Sprintf("%s (pid %d)", child.Command, child.PID)
+			if idx == m.treeCursor {
+				label = highlight.Render(label)
+			}
+			fmt.Fprintf(&b, "%s%s %s\n", baseIndent, magenta.Render(connector), label)
+			idx++
+		}
 	}
 
 	if res.Process.Cmdline != "" {
-		label := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true).Render("Command:")
-		fmt.Fprintf(&b, "\n%s\n%s\n", label, res.Process.Cmdline)
+		fmt.Fprintf(&b, "\n%s\n%s\n", sectionLabel.Render("Command:"), res.Process.Cmdline)
 	}
 
 	content := b.String()

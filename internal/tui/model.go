@@ -169,6 +169,13 @@ type MainModel struct {
 	lastClickX    int
 	lastClickY    int
 
+	// Ancestry navigation in the side panel
+	treePIDs      []int
+	treeCursor    int
+	treeResult    *model.Result
+	treeAncestry  []model.Process
+	treeTargetPID int
+
 	// Process action state
 	actionMenuOpen bool
 	pendingAction  actionKind
