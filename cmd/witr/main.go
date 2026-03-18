@@ -1,20 +1,19 @@
 //go:build linux || darwin || freebsd || windows
 
+//go:generate go run ../../internal/tools/docgen -format man -out ../../docs/cli
+//go:generate go run ../../internal/tools/docgen -format markdown -out ../../docs/cli
+
 package main
 
 import (
 	"github.com/pranshuparmar/witr/internal/app"
+	"github.com/pranshuparmar/witr/internal/version"
 )
 
-var (
-	version   = ""
-	commit    = ""
-	buildDate = ""
-)
-
-// go build -ldflags "-X main.version=v0.1.0 -X main.commit=$(git rev-parse --short HEAD) -X 'main.buildDate=$(date +%Y-%m-%d)'" -o witr ./cmd/witr
+// Override version at build time with ldflags:
+//   go build -ldflags "-X github.com/pranshuparmar/witr/internal/version.Version=v0.3.0 -X github.com/pranshuparmar/witr/internal/version.Commit=$(git rev-parse --short HEAD) -X 'github.com/pranshuparmar/witr/internal/version.BuildDate=$(date +%Y-%m-%d)'" -o witr ./cmd/witr
 
 func main() {
-	app.SetVersionBuildCommitString(version, commit, buildDate)
+	app.SetVersion(version.Version, version.Commit, version.BuildDate)
 	app.Execute()
 }

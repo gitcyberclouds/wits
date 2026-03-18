@@ -210,9 +210,6 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					tableMsg := msg
 					tableMsg.X -= 2
 					tableMsg.Y -= 7
-					if tableMsg.X >= 0 && tableMsg.Y >= 0 {
-						m.table, cmd = m.table.Update(tableMsg)
-					}
 
 					// Manual Row Selection
 					if isClick && tableMsg.Y >= 0 {
@@ -231,17 +228,27 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							}
 
 							if found {
+								targetIdx := -1
 								rows := m.table.Rows()
 								for i, row := range rows {
 									if len(row) > 0 {
-										if p, err := fmt.Sscanf(row[0], "%d", new(int)); err == nil && p > 0 {
-											var rowPID int
-											fmt.Sscanf(row[0], "%d", &rowPID)
-											if rowPID == pid {
-												m.table.SetCursor(i)
-												break
-											}
+										var rowPID int
+										if _, err := fmt.Sscanf(row[0], "%d", &rowPID); err == nil && rowPID == pid {
+											targetIdx = i
+											break
 										}
+									}
+								}
+								if targetIdx >= 0 {
+									currentIdx := m.table.Cursor()
+									diff := targetIdx - currentIdx
+									stepKey := tea.KeyMsg{Type: tea.KeyDown}
+									if diff < 0 {
+										stepKey = tea.KeyMsg{Type: tea.KeyUp}
+										diff = -diff
+									}
+									for j := 0; j < diff; j++ {
+										m.table, _ = m.table.Update(stepKey)
 									}
 								}
 							}
@@ -276,14 +283,34 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					if isClick {
 						m.listFocus = focusSide
+						// Translate click to tree cursor position
+						// Offset: border(1) + header(1) + spacer(1) + status(1) + input(1) + table-header-border(1) + table-header(1) + tree-header(1) + tree-header-border(1) + "Ancestry Tree:" label(1) = 10
+						treeY := msg.Y - 10
+						treeY += m.treeViewport.YOffset
+						if treeY >= 0 && treeY < len(m.treePIDs) {
+							m.treeCursor = treeY
+							m.rerenderTree()
+
+							if isDoubleClick {
+								pid := m.treePIDs[m.treeCursor]
+								if pid > 0 {
+									m.state = stateDetail
+									m.viewport.GotoTop()
+									m.envViewport.GotoTop()
+									return m, m.fetchProcessDetail(pid)
+								}
+							}
+						}
 					}
 					var cmd tea.Cmd
-					// Translate for Tree View
-					treeMsg := msg
-					treeMsg.X -= (6 + processListPaneWidth)
-					treeMsg.Y -= 8
-					if treeMsg.X >= 0 && treeMsg.Y >= 0 {
-						m.treeViewport, cmd = m.treeViewport.Update(treeMsg)
+					// Forward wheel events to viewport for scrolling
+					if isWheel {
+						treeMsg := msg
+						treeMsg.X -= (6 + processListPaneWidth)
+						treeMsg.Y -= 8
+						if treeMsg.X >= 0 && treeMsg.Y >= 0 {
+							m.treeViewport, cmd = m.treeViewport.Update(treeMsg)
+						}
 					}
 					return m, cmd
 				}
@@ -470,11 +497,15 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.portInput.Blur()
 						return m, nil
 					}
-					var inputCmd tea.Cmd
-					m.portInput, inputCmd = m.portInput.Update(msg)
-					m.updatePortTable()
-					m.portTable.SetCursor(0)
-					return m, inputCmd
+					if msg.Type == tea.KeyUp || msg.Type == tea.KeyDown {
+						m.portInput.Blur()
+					} else {
+						var inputCmd tea.Cmd
+						m.portInput, inputCmd = m.portInput.Update(msg)
+						m.updatePortTable()
+						m.portTable.SetCursor(0)
+						return m, inputCmd
+					}
 				}
 
 				if msg.String() == "/" {
@@ -487,27 +518,31 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.input.Blur()
 						return m, nil
 					}
-					var inputCmd tea.Cmd
-					m.input, inputCmd = m.input.Update(msg)
-					m.filterProcesses()
-
-					m.table.SetCursor(0)
-					var treeCmd tea.Cmd
-					if len(m.filtered) > 0 {
-						selected := m.table.SelectedRow()
-						if len(selected) > 0 {
-							pid := 0
-							fmt.Sscanf(selected[0], "%d", &pid)
-							m.selectionID++
-							id := m.selectionID
-							treeCmd = tea.Tick(500*time.Millisecond, func(_ time.Time) tea.Msg {
-								return debounceMsg{id: id, pid: pid}
-							})
-						}
+					if msg.Type == tea.KeyUp || msg.Type == tea.KeyDown {
+						m.input.Blur()
 					} else {
-						m.treeViewport.SetContent("")
+						var inputCmd tea.Cmd
+						m.input, inputCmd = m.input.Update(msg)
+						m.filterProcesses()
+
+						m.table.SetCursor(0)
+						var treeCmd tea.Cmd
+						if len(m.filtered) > 0 {
+							selected := m.table.SelectedRow()
+							if len(selected) > 0 {
+								pid := 0
+								fmt.Sscanf(selected[0], "%d", &pid)
+								m.selectionID++
+								id := m.selectionID
+								treeCmd = tea.Tick(500*time.Millisecond, func(_ time.Time) tea.Msg {
+									return debounceMsg{id: id, pid: pid}
+								})
+							}
+						} else {
+							m.treeViewport.SetContent("")
+						}
+						return m, tea.Batch(inputCmd, treeCmd)
 					}
-					return m, tea.Batch(inputCmd, treeCmd)
 				}
 
 				if msg.String() == "/" {
@@ -517,15 +552,25 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			switch msg.String() {
-			case "q", "esc":
+			case "q", "Q", "esc":
 				m.quitting = true
 				return m, tea.Quit
 			case "enter":
-				if m.activeTab == tabProcesses && m.table.Focused() {
+				if m.activeTab == tabProcesses && m.listFocus == focusMain {
 					selected := m.table.SelectedRow()
 					if len(selected) > 0 {
 						pid := 0
 						fmt.Sscanf(selected[0], "%d", &pid)
+						if pid > 0 {
+							m.state = stateDetail
+							m.viewport.GotoTop()
+							m.envViewport.GotoTop()
+							return m, m.fetchProcessDetail(pid)
+						}
+					}
+				} else if m.activeTab == tabProcesses && m.listFocus == focusSide {
+					if m.treeCursor >= 0 && m.treeCursor < len(m.treePIDs) {
+						pid := m.treePIDs[m.treeCursor]
 						if pid > 0 {
 							m.state = stateDetail
 							m.viewport.GotoTop()
@@ -555,11 +600,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 			// Focus Switching
-			case "tab", "right", "left", "l", "h":
+			case "tab", "right", "left", "l", "L", "h", "H":
 				if m.input.Focused() || m.portInput.Focused() {
 					break
 				}
-				if msg.String() == "tab" || msg.String() == "right" || msg.String() == "l" {
+				if msg.String() == "tab" || msg.String() == "right" || msg.String() == "l" || msg.String() == "L" {
 					if m.listFocus == focusMain {
 						m.listFocus = focusSide
 						if m.activeTab == tabPorts {
@@ -573,7 +618,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							m.portTable.Focus()
 						}
 					}
-				} else if msg.String() == "shift+tab" || msg.String() == "left" || msg.String() == "h" {
+				} else if msg.String() == "shift+tab" || msg.String() == "left" || msg.String() == "h" || msg.String() == "H" {
 					if m.listFocus == focusSide {
 						m.listFocus = focusMain
 						if m.activeTab == tabPorts {
@@ -700,7 +745,30 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else {
 				if m.activeTab == tabProcesses {
-					m.treeViewport, cmd = m.treeViewport.Update(msg)
+					switch msg.Type {
+					case tea.KeyUp:
+						if m.treeCursor > 0 {
+							m.treeCursor--
+							m.rerenderTree()
+						}
+					case tea.KeyDown:
+						if m.treeCursor < len(m.treePIDs)-1 {
+							m.treeCursor++
+							m.rerenderTree()
+						}
+					case tea.KeyEnter:
+						if m.treeCursor >= 0 && m.treeCursor < len(m.treePIDs) {
+							pid := m.treePIDs[m.treeCursor]
+							if pid > 0 {
+								m.state = stateDetail
+								m.viewport.GotoTop()
+								m.envViewport.GotoTop()
+								return m, m.fetchProcessDetail(pid)
+							}
+						}
+					default:
+						m.treeViewport, cmd = m.treeViewport.Update(msg)
+					}
 				} else {
 					m.portDetailTable, cmd = m.portDetailTable.Update(msg)
 				}
@@ -782,24 +850,24 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// action menu
 			if m.actionMenuOpen {
 				switch msg.String() {
-				case "k":
+				case "k", "K":
 					m.actionMenuOpen = false
 					m.pendingAction = actionKill
-				case "t":
+				case "t", "T":
 					m.actionMenuOpen = false
 					m.pendingAction = actionTerm
-				case "p":
+				case "p", "P":
 					m.actionMenuOpen = false
 					m.pendingAction = actionPause
-				case "r":
+				case "r", "R":
 					m.actionMenuOpen = false
 					m.pendingAction = actionResume
-				case "n":
+				case "n", "N":
 					m.actionMenuOpen = false
 					m.pendingAction = actionRenice
 					m.reniceInput.Focus()
 					return m, textinput.Blink
-				case "esc", "q":
+				case "esc", "q", "Q":
 					m.actionMenuOpen = false
 				}
 				return m, nil
@@ -807,7 +875,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// detail view navigation
 			switch msg.String() {
-			case "esc", "q", "backspace":
+			case "esc", "q", "Q", "backspace":
 				m.state = stateList
 				m.selectedDetail = nil
 				m.detailFocus = focusDetail
@@ -816,15 +884,15 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.reniceInput.SetValue("")
 				m.reniceInput.Blur()
 				return m, m.refreshProcesses()
-			case "a":
+			case "a", "A":
 				if m.selectedDetail != nil {
 					m.actionMenuOpen = true
 				}
 				return m, nil
-			case "left", "h":
+			case "left", "h", "H":
 				m.detailFocus = focusDetail
 				return m, nil
-			case "right", "l":
+			case "right", "l", "L":
 				m.detailFocus = focusEnv
 				return m, nil
 			case "tab":
@@ -872,15 +940,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		fixedColumnsWidth := 81 // PID(8)+Name(20)+User(12)+CPU(6)+Mem(16)+Started(19)
 		cmdWidth := processListWidth - fixedColumnsWidth - 12
+		m.showCmdCol = cmdWidth >= 15
 		if cmdWidth < 10 {
 			cmdWidth = 10
 		}
 
 		columns := m.getColumns()
-		columns[6].Width = cmdWidth
-		m.table.SetColumns(columns)
+		if m.showCmdCol {
+			columns[6].Width = cmdWidth
+		}
 		m.table.SetWidth(processListWidth)
 		m.table.SetHeight(processListHeight)
+		m.table.SetRows(nil)
+		m.table.SetColumns(columns)
+		m.filterProcesses()
 
 		treeWidth := availableWidth - processListPaneWidth - 4
 		if treeWidth < 10 {
@@ -932,6 +1005,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if len(pdCols) > 3 {
 			pdCols[3].Width = cmdPdWidth
+		}
+		// Center-align PID header in port detail table
+		if len(pdCols) > 0 {
+			pdCols[0].Title = centerHeader("PID", pdCols[0].Width)
 		}
 		m.portDetailTable.SetColumns(pdCols)
 		m.portDetailTable.SetWidth(portDetailWidth)

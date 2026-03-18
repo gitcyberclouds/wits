@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"sort"
@@ -79,30 +80,64 @@ func (m MainModel) fetchProcessDetail(pid int) tea.Cmd {
 	}
 }
 
+type processSorter struct {
+	procs []model.Process
+	keys  []string // pre-computed lowercase keys (nil for non-string sorts)
+	col   string
+	desc  bool
+}
+
+func (s processSorter) Len() int { return len(s.procs) }
+
+func (s processSorter) Swap(i, j int) {
+	s.procs[i], s.procs[j] = s.procs[j], s.procs[i]
+	if s.keys != nil {
+		s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
+	}
+}
+
+func (s processSorter) Less(i, j int) bool {
+	var n int
+	switch s.col {
+	case "pid":
+		n = cmp.Compare(s.procs[i].PID, s.procs[j].PID)
+	case "name", "user":
+		n = cmp.Compare(s.keys[i], s.keys[j])
+	case "cpu":
+		n = cmp.Compare(s.procs[i].CPUPercent, s.procs[j].CPUPercent)
+	case "time":
+		n = cmp.Compare(s.procs[i].StartedAt.UnixNano(), s.procs[j].StartedAt.UnixNano())
+	default: // "mem"
+		n = cmp.Compare(s.procs[i].MemoryRSS, s.procs[j].MemoryRSS)
+	}
+	if n == 0 {
+		n = cmp.Compare(s.procs[i].PID, s.procs[j].PID)
+	}
+	if s.desc {
+		return n > 0
+	}
+	return n < 0
+}
+
 func (m *MainModel) sortProcesses() {
-	sort.Slice(m.processes, func(i, j int) bool {
-		var less bool
-		switch m.sortCol {
-		case "pid":
-			less = m.processes[i].PID < m.processes[j].PID
-		case "name":
-			less = strings.ToLower(m.processes[i].Command) < strings.ToLower(m.processes[j].Command)
-		case "user":
-			less = strings.ToLower(m.processes[i].User) < strings.ToLower(m.processes[j].User)
-		case "cpu":
-			less = m.processes[i].CPUPercent < m.processes[j].CPUPercent
-		case "mem":
-			less = m.processes[i].MemoryRSS < m.processes[j].MemoryRSS
-		case "time":
-			less = m.processes[i].StartedAt.Before(m.processes[j].StartedAt)
-		default:
-			less = m.processes[i].MemoryRSS < m.processes[j].MemoryRSS
+	s := processSorter{
+		procs: m.processes,
+		col:   m.sortCol,
+		desc:  m.sortDesc,
+	}
+
+	if m.sortCol == "name" || m.sortCol == "user" {
+		s.keys = make([]string, len(m.processes))
+		for i := range m.processes {
+			if m.sortCol == "name" {
+				s.keys[i] = strings.ToLower(m.processes[i].Command)
+			} else {
+				s.keys[i] = strings.ToLower(m.processes[i].User)
+			}
 		}
-		if m.sortDesc {
-			return !less
-		}
-		return less
-	})
+	}
+
+	sort.Stable(s)
 }
 
 func (m *MainModel) sortPorts() {
@@ -156,7 +191,7 @@ func (m *MainModel) filterProcesses() {
 			match = true
 		} else {
 			match = strings.Contains(cmd, filter) ||
-				strings.Contains(fmt.Sprintf("%d", p.PID), filter) ||
+				strings.Contains(strconv.Itoa(p.PID), filter) ||
 				strings.Contains(strings.ToLower(p.User), filter) ||
 				strings.Contains(strings.ToLower(p.Cmdline), filter)
 		}
@@ -168,18 +203,31 @@ func (m *MainModel) filterProcesses() {
 				startedStr = ""
 			}
 
-			rows = append(rows, table.Row{
-				fmt.Sprintf("%d", p.PID),
+			row := table.Row{
+				fmt.Sprintf("%8d", p.PID),
 				p.User,
 				p.Command,
-				fmt.Sprintf("%.1f%%", p.CPUPercent),
-				fmt.Sprintf("%s (%.1f%%)", formatBytes(p.MemoryRSS), p.MemoryPercent),
+				fmt.Sprintf("%6s", fmt.Sprintf("%.1f%%", p.CPUPercent)),
+				fmt.Sprintf("%16s", fmt.Sprintf("%s (%.1f%%)", formatBytes(p.MemoryRSS), p.MemoryPercent)),
 				startedStr,
-				p.Cmdline,
-			})
+			}
+			if m.showCmdCol {
+				row = append(row, p.Cmdline)
+			}
+			rows = append(rows, row)
 		}
 	}
 	m.table.SetRows(rows)
+}
+
+func centerHeader(title string, width int) string {
+	w := lipgloss.Width(title)
+	if w >= width {
+		return title
+	}
+	pad := width - w
+	left := pad / 2
+	return strings.Repeat(" ", left) + title
 }
 
 func (m *MainModel) getColumns() []table.Column {
@@ -190,11 +238,13 @@ func (m *MainModel) getColumns() []table.Column {
 		{Title: "CPU%", Width: 6},
 		{Title: "Mem", Width: 16},
 		{Title: "Started", Width: 19},
-		{Title: "Command", Width: 50},
+	}
+	if m.showCmdCol {
+		cols = append(cols, table.Column{Title: "Command", Width: 50})
 	}
 
 	addArrow := func(idx int, key string) {
-		if m.sortCol == key {
+		if idx < len(cols) && m.sortCol == key {
 			if m.sortDesc {
 				cols[idx].Title += " ↓"
 			} else {
@@ -209,7 +259,13 @@ func (m *MainModel) getColumns() []table.Column {
 	addArrow(3, "cpu")
 	addArrow(4, "mem")
 	addArrow(5, "time")
-	addArrow(6, "cmd")
+
+	// Center-align numeric column headers
+	for _, idx := range []int{0, 3, 4} {
+		if idx < len(cols) {
+			cols[idx].Title = centerHeader(cols[idx].Title, cols[idx].Width)
+		}
+	}
 
 	return cols
 }
@@ -236,6 +292,9 @@ func (m *MainModel) getPortColumns() []table.Column {
 	addArrow(1, "proto")
 	addArrow(2, "addr")
 	addArrow(3, "state")
+
+	// Center-align the Port column header
+	cols[0].Title = centerHeader(cols[0].Title, cols[0].Width)
 
 	return cols
 }
@@ -284,7 +343,7 @@ func (m *MainModel) updatePortTable() {
 			if !seen[key] {
 				seen[key] = true
 				rows = append(rows, table.Row{
-					fmt.Sprintf("%d", p.Port),
+					fmt.Sprintf("%6d", p.Port),
 					p.Protocol,
 					p.Address,
 					p.State,
@@ -294,17 +353,25 @@ func (m *MainModel) updatePortTable() {
 	}
 
 	m.portTable.SetRows(rows)
-	m.updatePortDetails()
+	m.updatePortDetailsWithMap(procMap)
 }
 
 func (m *MainModel) updatePortDetails() {
+	procMap := make(map[int]model.Process, len(m.processes))
+	for _, p := range m.processes {
+		procMap[p.PID] = p
+	}
+	m.updatePortDetailsWithMap(procMap)
+}
+
+func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 	selected := m.portTable.SelectedRow()
 	if len(selected) < 4 {
 		m.portDetailTable.SetRows(nil)
 		return
 	}
 
-	portStr := selected[0]
+	portStr := strings.TrimSpace(selected[0])
 	protocol := selected[1]
 	address := selected[2]
 	state := selected[3]
@@ -313,11 +380,6 @@ func (m *MainModel) updatePortDetails() {
 
 	var rows []table.Row
 	seen := make(map[int]bool)
-
-	procMap := make(map[int]model.Process)
-	for _, p := range m.processes {
-		procMap[p.PID] = p
-	}
 
 	for _, p := range m.ports {
 		if p.Port == port && p.Protocol == protocol && p.Address == address && p.State == state {
@@ -333,14 +395,14 @@ func (m *MainModel) updatePortDetails() {
 						}
 					}
 					rows = append(rows, table.Row{
-						fmt.Sprintf("%d", proc.PID),
+						fmt.Sprintf("%8d", proc.PID),
 						proc.User,
 						proc.Command,
 						cmd,
 					})
 				} else {
 					rows = append(rows, table.Row{
-						fmt.Sprintf("%d", p.PID),
+						fmt.Sprintf("%8d", p.PID),
 						"???",
 						"???",
 						"???",
@@ -350,6 +412,9 @@ func (m *MainModel) updatePortDetails() {
 		}
 	}
 	m.portDetailTable.SetRows(rows)
+	if len(rows) > 0 {
+		m.portDetailTable.SetCursor(0)
+	}
 }
 
 func (m *MainModel) updateDetailViewport() {
@@ -394,30 +459,141 @@ func (m *MainModel) updateEnvViewport() {
 func (m *MainModel) updateTreeViewport(res model.Result) {
 	if len(res.Ancestry) == 0 && res.Process.PID == 0 {
 		m.treeViewport.SetContent("")
+		m.treePIDs = nil
+		m.treeCursor = 0
+		m.treeResult = nil
+		m.treeAncestry = nil
 		return
 	}
-	var b strings.Builder
-
-	treeLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true).Render("Ancestry Tree:")
-	fmt.Fprintf(&b, "%s\n", treeLabel)
 
 	ancestry := res.Ancestry
 	if len(ancestry) == 0 {
 		if res.Process.PID > 0 {
 			ancestry = []model.Process{res.Process}
-		} else {
-			dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
-			fmt.Fprintf(&b, "  %s\n", dimStyle.Render("No ancestry found"))
 		}
 	}
 
-	if len(ancestry) > 0 {
-		output.PrintTree(&b, ancestry, res.Children, true)
+	isRefresh := m.treeTargetPID == res.Process.PID
+
+	resCopy := res
+	m.treeResult = &resCopy
+	m.treeAncestry = ancestry
+	m.treeTargetPID = res.Process.PID
+
+	// Build the flat PID list: ancestry then children (max 10)
+	var newPIDs []int
+	for _, p := range ancestry {
+		newPIDs = append(newPIDs, p.PID)
+	}
+	childLimit := 10
+	if len(res.Children) < childLimit {
+		childLimit = len(res.Children)
+	}
+	for i := 0; i < childLimit; i++ {
+		newPIDs = append(newPIDs, res.Children[i].PID)
+	}
+
+	// Preserve cursor position only on periodic refresh of the same process
+	restored := false
+	if isRefresh {
+		oldCursor := m.treeCursor
+		oldPID := 0
+		if oldCursor >= 0 && oldCursor < len(m.treePIDs) {
+			oldPID = m.treePIDs[oldCursor]
+		}
+		if oldPID > 0 {
+			for i, pid := range newPIDs {
+				if pid == oldPID {
+					m.treeCursor = i
+					restored = true
+					break
+				}
+			}
+		}
+	}
+	m.treePIDs = newPIDs
+
+	if !restored {
+		if len(ancestry) > 0 {
+			m.treeCursor = len(ancestry) - 1
+		} else {
+			m.treeCursor = 0
+		}
+	}
+
+	m.renderTreeContent(res, ancestry)
+}
+
+// rerenderTree re-renders the tree viewport with the current cursor position.
+func (m *MainModel) rerenderTree() {
+	if m.treeResult == nil {
+		return
+	}
+	m.renderTreeContent(*m.treeResult, m.treeAncestry)
+}
+
+func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process) {
+	var b strings.Builder
+
+	magenta := lipgloss.NewStyle().Foreground(lipgloss.Color("#d787ff"))
+	green := lipgloss.NewStyle().Foreground(lipgloss.Color("#00d700"))
+	highlight := lipgloss.NewStyle().
+		Background(lipgloss.Color("#5f00d7")).
+		Foreground(lipgloss.Color("#ffffaf"))
+	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
+	sectionLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true)
+
+	fmt.Fprintf(&b, "%s\n", sectionLabel.Render("Ancestry Tree:"))
+
+	if len(ancestry) == 0 {
+		fmt.Fprintf(&b, "  %s\n", dim.Render("No ancestry found"))
+	}
+
+	idx := 0
+	for i, proc := range ancestry {
+		indent := strings.Repeat("  ", i)
+		if i > 0 {
+			fmt.Fprintf(&b, "%s%s ", indent, magenta.Render("└─"))
+		}
+
+		label := fmt.Sprintf("%s (pid %d)", proc.Command, proc.PID)
+		if idx == m.treeCursor {
+			label = highlight.Render(label)
+		} else if i == len(ancestry)-1 {
+			label = green.Render(label)
+		}
+		fmt.Fprintf(&b, "%s\n", label)
+		idx++
+	}
+
+	children := res.Children
+	limit := 10
+	count := len(children)
+	if count > 0 {
+		baseIndent := strings.Repeat("  ", len(ancestry))
+		for i, child := range children {
+			if i >= limit {
+				remaining := count - limit
+				fmt.Fprintf(&b, "%s%s ... and %d more\n", baseIndent, magenta.Render("└─"), remaining)
+				break
+			}
+			connector := "├─"
+			isLast := (i == count-1) || (i == limit-1 && count <= limit)
+			if isLast {
+				connector = "└─"
+			}
+
+			label := fmt.Sprintf("%s (pid %d)", child.Command, child.PID)
+			if idx == m.treeCursor {
+				label = highlight.Render(label)
+			}
+			fmt.Fprintf(&b, "%s%s %s\n", baseIndent, magenta.Render(connector), label)
+			idx++
+		}
 	}
 
 	if res.Process.Cmdline != "" {
-		label := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true).Render("Command:")
-		fmt.Fprintf(&b, "\n%s\n%s\n", label, res.Process.Cmdline)
+		fmt.Fprintf(&b, "\n%s\n%s\n", sectionLabel.Render("Command:"), res.Process.Cmdline)
 	}
 
 	content := b.String()

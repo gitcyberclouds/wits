@@ -20,7 +20,7 @@ func ListProcesses() ([]model.Process, error) {
 	out, err := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,comm,args").Output()
 	if err != nil {
 		// Fallback to fast snapshot if ps fails
-		return listProcessSnapshot()
+		return ListProcessSnapshot()
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -69,10 +69,16 @@ func ListProcesses() ([]model.Process, error) {
 			cmdline = strings.Join(fields[12:], " ")
 		}
 
+		// Recover full process name when kernel comm field is truncated
+		displayName := deriveDisplayCommand(comm, cmdline)
+		if displayName == "" {
+			displayName = comm
+		}
+
 		processes = append(processes, model.Process{
 			PID:           pid,
 			PPID:          ppid,
-			Command:       comm,
+			Command:       displayName,
 			User:          user,
 			StartedAt:     started,
 			CPUPercent:    cpu,
@@ -85,10 +91,10 @@ func ListProcesses() ([]model.Process, error) {
 	return processes, nil
 }
 
-// listProcessSnapshot collects a lightweight view of running processes
+// ListProcessSnapshot collects a lightweight view of running processes
 // for child/descendant discovery. We avoid full ReadProcess calls to keep
 // this path fast and to reduce permission-sensitive reads.
-func listProcessSnapshot() ([]model.Process, error) {
+func ListProcessSnapshot() ([]model.Process, error) {
 	out, err := exec.Command("ps", "-axo", "pid=,ppid=,comm=").Output()
 	if err != nil {
 		return nil, fmt.Errorf("ps process list: %w", err)

@@ -3,6 +3,7 @@
 package target
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -66,14 +67,7 @@ func ResolveName(name string, exact bool) ([]int, error) {
 				if exact {
 					match = strings.ToLower(currentName) == lowerName
 					if !match {
-						// Check if ANY argument matches exactly
-						parts := strings.Fields(currentCmd)
-						for _, part := range parts {
-							if strings.ToLower(part) == lowerName {
-								match = true
-								break
-							}
-						}
+						match = matchesExactToken(strings.ToLower(currentCmd), lowerName)
 					}
 				} else {
 					match = strings.Contains(strings.ToLower(currentName), lowerName) ||
@@ -90,5 +84,8 @@ func ResolveName(name string, exact bool) ([]int, error) {
 		}
 	}
 
+	if len(pids) == 0 {
+		return nil, fmt.Errorf("no process found matching: %s", name)
+	}
 	return pids, nil
 }

@@ -15,27 +15,7 @@ import (
 
 // isValidSymlinkTarget validates that a symlink target is safe and reasonable
 func isValidSymlinkTarget(target string) bool {
-	if target == "" {
-		return false
-	}
-
-	// Reject absolute paths that seem suspicious
-	if strings.HasPrefix(target, "/") {
-		// Allow normal absolute paths but reject system-critical ones
-		suspiciousPaths := []string{"/proc", "/sys", "/dev", "/boot", "/root"}
-		for _, suspicious := range suspiciousPaths {
-			if strings.HasPrefix(target, suspicious) {
-				return false
-			}
-		}
-	}
-
-	// Reject relative paths that could escape
-	if strings.Contains(target, "../") {
-		return false
-	}
-
-	return true
+	return target != ""
 }
 
 func ReadProcess(pid int) (model.Process, error) {
@@ -90,9 +70,7 @@ func ReadProcess(pid int) (model.Process, error) {
 				if name := resolveContainerName(containerID, "docker"); name != "" {
 					container = name
 				} else {
-					if len(containerID) > 12 {
-						container = "docker (" + containerID[:12] + ")"
-					}
+					container = "docker (" + shortID(containerID) + ")"
 				}
 			}
 
@@ -103,9 +81,7 @@ func ReadProcess(pid int) (model.Process, error) {
 				if name := resolveContainerName(containerID, "podman"); name != "" {
 					container = name
 				} else {
-					if len(containerID) > 12 {
-						container = "podman (" + containerID[:12] + ")"
-					}
+					container = "podman (" + shortID(containerID) + ")"
 				}
 			}
 
@@ -116,7 +92,7 @@ func ReadProcess(pid int) (model.Process, error) {
 				if name := resolveContainerName(containerID, "crictl"); name != "" {
 					container = "k8s: " + name
 				} else {
-					container = "k8s (" + containerID[:12] + ")"
+					container = "k8s (" + shortID(containerID) + ")"
 				}
 			}
 
@@ -127,7 +103,7 @@ func ReadProcess(pid int) (model.Process, error) {
 				if name := resolveContainerName(containerID, "nerdctl"); name != "" {
 					container = "containerd: " + name
 				} else {
-					container = "containerd (" + containerID[:12] + ")"
+					container = "containerd (" + shortID(containerID) + ")"
 				}
 			}
 
@@ -140,6 +116,20 @@ func ReadProcess(pid int) (model.Process, error) {
 				}
 			} else if strings.Contains(cgroupStr, "colima") {
 				container = "colima: default"
+			}
+		}
+	}
+
+	// Snap/Flatpak sandbox detection via environment variables
+	if container == "" {
+		for _, e := range env {
+			if strings.HasPrefix(e, "SNAP_NAME=") {
+				container = "snap: " + e[len("SNAP_NAME="):]
+				break
+			}
+			if strings.HasPrefix(e, "FLATPAK_ID=") {
+				container = "flatpak: " + e[len("FLATPAK_ID="):]
+				break
 			}
 		}
 	}
@@ -162,48 +152,22 @@ func ReadProcess(pid int) (model.Process, error) {
 		}
 	}
 
-	// Git repo/branch detection (walk up to find .git)
-	gitRepo := ""
-	gitBranch := ""
-	if cwd != "unknown" {
-		searchDir := cwd
-		for searchDir != "/" && searchDir != "." && searchDir != "" {
-			gitDir := searchDir + "/.git"
-			if fi, err := os.Stat(gitDir); err == nil && fi.IsDir() {
-				// Repo name is the base dir
-				parts := strings.Split(strings.TrimRight(searchDir, "/"), "/")
-				gitRepo = parts[len(parts)-1]
-				// Try to read HEAD for branch
-				headFile := gitDir + "/HEAD"
-				if head, err := os.ReadFile(headFile); err == nil {
-					headStr := strings.TrimSpace(string(head))
-					if strings.HasPrefix(headStr, "ref: ") {
-						ref := strings.TrimPrefix(headStr, "ref: ")
-						refParts := strings.Split(ref, "/")
-						gitBranch = refParts[len(refParts)-1]
-					}
-				}
-				break
-			}
-			// Move up one directory
-			idx := strings.LastIndex(searchDir, "/")
-			if idx <= 0 {
-				break
-			}
-			searchDir = searchDir[:idx]
-		}
-	}
+	gitRepo, gitBranch := detectGitInfo(cwd)
 
 	// stat format is evil, command is inside ()
 	raw := string(stat)
 	open := strings.Index(raw, "(")
 	close := strings.LastIndex(raw, ")")
-	if open == -1 || close == -1 {
-		return model.Process{}, fmt.Errorf("invalid stat format")
+	if open == -1 || close == -1 || close+2 >= len(raw) {
+		return model.Process{}, fmt.Errorf("invalid stat format for pid %d", pid)
 	}
 
 	comm := raw[open+1 : close]
 	fields := strings.Fields(raw[close+2:])
+	// /proc/[pid]/stat has 52 fields after comm; we need at least index 21 (rss)
+	if len(fields) < 22 {
+		return model.Process{}, fmt.Errorf("unexpected stat format for pid %d: got %d fields", pid, len(fields))
+	}
 
 	ppid, _ := strconv.Atoi(fields[1])
 	state := processState(fields)
@@ -217,7 +181,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		forked = "not-forked"
 	}
 
-	startedAt := bootTime().Add(time.Duration(startTicks) * time.Second / ticksPerSecond())
+	startedAt := bootTime().Add(time.Duration(startTicks) * time.Second / time.Duration(ticksPerSecond()))
 
 	// Health: zombie/stopped
 	switch state {
@@ -245,7 +209,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	user := readUser(pid)
 
-	sockets, _ := readSockets()
+	sockets, _ := readSocketsCached()
 	inodes := socketsForPID(pid)
 
 	var ports []int
@@ -288,6 +252,12 @@ func ReadProcess(pid int) (model.Process, error) {
 		cmdline = strings.TrimSpace(cmd)
 	}
 
+	// Recover full process name when kernel comm field is truncated
+	displayName := deriveDisplayCommand(comm, cmdline)
+	if displayName == "" {
+		displayName = comm
+	}
+
 	if comm == "docker-proxy" && container == "" {
 		container = resolveDockerProxyContainer(cmdline)
 	}
@@ -295,7 +265,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	return model.Process{
 		PID:            pid,
 		PPID:           ppid,
-		Command:        comm,
+		Command:        displayName,
 		Cmdline:        cmdline,
 		StartedAt:      startedAt,
 		User:           user,
@@ -310,6 +280,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		Forked:         forked,
 		Env:            env,
 		ExeDeleted:     isBinaryDeleted(pid),
+		Capabilities:   ReadCapabilities(pid),
 	}, nil
 }
 
@@ -319,42 +290,6 @@ func isBinaryDeleted(pid int) bool {
 		return false
 	}
 	return strings.HasSuffix(exePath, " (deleted)")
-}
-
-func resolveDockerProxyContainer(cmdline string) string {
-	var containerIP string
-	parts := strings.Fields(cmdline)
-	for i, part := range parts {
-		if part == "-container-ip" && i+1 < len(parts) {
-			containerIP = parts[i+1]
-			break
-		}
-	}
-	if containerIP == "" {
-		return ""
-	}
-
-	out, err := exec.Command("docker", "network", "inspect", "bridge",
-		"--format", "{{range .Containers}}{{.Name}}:{{.IPv4Address}}{{\"\\n\"}}{{end}}").Output()
-	if err != nil {
-		return ""
-	}
-
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line == "" {
-			continue
-		}
-		colonIdx := strings.Index(line, ":")
-		if colonIdx == -1 {
-			continue
-		}
-		name := line[:colonIdx]
-		ip := strings.Split(line[colonIdx+1:], "/")[0]
-		if ip == containerIP {
-			return "target: " + name
-		}
-	}
-	return ""
 }
 
 // The kernel emits the state immediately after the command, so fields[0] always carries it.

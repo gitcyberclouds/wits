@@ -64,6 +64,38 @@ var (
 	confirmStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#ffaf5f")). // Orange-amber
 			Bold(true)
+
+	pidStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#22aa22")). // Green
+			Foreground(lipgloss.Color("#ffffff")). // White
+			Padding(0, 1).
+			Bold(true)
+
+	spacerStyle    = lipgloss.NewStyle().Height(1)
+	paddedStyle    = lipgloss.NewStyle().PaddingLeft(1)
+	statusBarStyle = lipgloss.NewStyle().MarginBottom(1).PaddingLeft(1)
+
+	paneDividerStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder(), false, false, false, true).
+				PaddingLeft(2)
+
+	detailDividerStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder(), false, false, false, true).
+				PaddingLeft(1)
+
+	envPanelStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			PaddingLeft(1)
+
+	// Cached table styles with customized selection colors
+	cachedTableStyles = func() table.Styles {
+		s := table.DefaultStyles()
+		s.Selected = s.Selected.
+			Foreground(lipgloss.Color("#ffffaf")). // Light Yellow
+			Background(lipgloss.Color("#5f00d7")). // Purple
+			Bold(false)
+		return s
+	}()
 )
 
 type tab int
@@ -129,12 +161,20 @@ type MainModel struct {
 	sortPortCol  string
 	sortPortDesc bool
 	showAllPorts bool
+	showCmdCol   bool
 	version      string
 
 	// Mouse double-click tracking
 	lastClickTime time.Time
 	lastClickX    int
 	lastClickY    int
+
+	// Ancestry navigation in the side panel
+	treePIDs      []int
+	treeCursor    int
+	treeResult    *model.Result
+	treeAncestry  []model.Process
+	treeTargetPID int
 
 	// Process action state
 	actionMenuOpen bool
@@ -159,16 +199,12 @@ func InitialModel(version string) MainModel {
 		table.WithHeight(20),
 	)
 
-	s := table.DefaultStyles()
+	s := cachedTableStyles
 	s.Header = tableHeaderStyle.BorderForeground(lipgloss.Color("#585858"))
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("#ffffaf")). // Light Yellow
-		Background(lipgloss.Color("#5f00d7")). // Purple
-		Bold(false)
 	t.SetStyles(s)
 
 	portColumns := []table.Column{
-		{Title: "Port", Width: 6},
+		{Title: centerHeader("Port", 6), Width: 6},
 		{Title: "Protocol", Width: 10},
 		{Title: "Address", Width: 30},
 		{Title: "State", Width: 20},
@@ -181,7 +217,7 @@ func InitialModel(version string) MainModel {
 	pt.SetStyles(s)
 
 	pdCols := []table.Column{
-		{Title: "PID", Width: 8},
+		{Title: centerHeader("PID", 8), Width: 8},
 		{Title: "User", Width: 12},
 		{Title: "Name", Width: 15},
 		{Title: "Command", Width: 20},

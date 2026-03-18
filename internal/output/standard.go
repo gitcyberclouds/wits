@@ -15,15 +15,15 @@ import (
 // Maximum number of items to display in any list before truncating
 const MaxDisplayItems = 10
 
-// formatDetailLabel formats a detail key into a padded label for display
+var detailLabels = map[string]string{
+	"type":      "              Type",
+	"plist":     "              Plist",
+	"triggers":  "              Trigger",
+	"keepalive": "              KeepAlive",
+}
+
 func formatDetailLabel(key string) string {
-	labels := map[string]string{
-		"type":      "              Type",
-		"plist":     "              Plist",
-		"triggers":  "              Trigger",
-		"keepalive": "              KeepAlive",
-	}
-	if label, ok := labels[key]; ok {
+	if label, ok := detailLabels[key]; ok {
 		return label
 	}
 	return "              " + key
@@ -40,7 +40,7 @@ func RenderWarnings(w io.Writer, r model.Result, colorEnabled bool) {
 	proc.Command = SanitizeTerminal(proc.Command)
 
 	if colorEnabled {
-		out.Printf("%sProcess%s     : %s%s%s (%spid %d%s)\n", ColorBlue, ColorReset, ColorGreen, proc.Command, ColorReset, ColorBold, proc.PID, ColorReset)
+		out.Printf("%sProcess%s     : %s%s%s (%spid %d%s)\n", ColorBlue, ColorReset, ColorGreen, proc.Command, ColorReset, ColorDim, proc.PID, ColorReset)
 		if proc.Cmdline != "" {
 			out.Printf("%sCommand%s     : %s\n", ColorBlue, ColorReset, proc.Cmdline)
 		} else {
@@ -79,18 +79,18 @@ func RenderWarnings(w io.Writer, r model.Result, colorEnabled bool) {
 
 func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool) {
 	out := NewPrinter(w)
-	// Target
-	target := "unknown"
-	if len(r.Ancestry) > 0 {
-		target = SanitizeTerminal(r.Ancestry[len(r.Ancestry)-1].Command)
+	if len(r.Ancestry) == 0 {
+		out.Println("No process information available.")
+		return
 	}
+
+	target := SanitizeTerminal(r.Ancestry[len(r.Ancestry)-1].Command)
 	if colorEnabled {
 		out.Printf("%sTarget%s      : %s\n\n", ColorBlue, ColorReset, target)
 	} else {
 		out.Printf("Target      : %s\n\n", target)
 	}
 
-	// Process
 	var proc = r.Ancestry[len(r.Ancestry)-1]
 	proc.Command = SanitizeTerminal(proc.Command)
 	proc.Cmdline = SanitizeTerminal(proc.Cmdline)
@@ -101,7 +101,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 	proc.GitRepo = SanitizeTerminal(proc.GitRepo)
 	proc.GitBranch = SanitizeTerminal(proc.GitBranch)
 	if colorEnabled {
-		out.Printf("%sProcess%s     : %s%s%s (%spid %d%s)", ColorBlue, ColorReset, ColorGreen, proc.Command, ColorReset, ColorBold, proc.PID, ColorReset)
+		out.Printf("%sProcess%s     : %s%s%s (%spid %d%s)", ColorBlue, ColorReset, ColorGreen, proc.Command, ColorReset, ColorDim, proc.PID, ColorReset)
 	} else {
 		out.Printf("Process     : %s (pid %d)", proc.Command, proc.PID)
 	}
@@ -194,6 +194,14 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		out.Printf("Started     : %s (%s)\n", rel, dtStr)
 	}
 
+	if schedule, ok := r.Source.Details["schedule"]; ok {
+		if colorEnabled {
+			out.Printf("%sSchedule%s    : %s\n", ColorMagenta, ColorReset, schedule)
+		} else {
+			out.Printf("Schedule    : %s\n", schedule)
+		}
+	}
+
 	// Why It Exists (short chain)
 	if colorEnabled {
 		out.Printf("\n%sWhy It Exists%s :\n  ", ColorMagenta, ColorReset)
@@ -208,7 +216,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			if i == len(r.Ancestry)-1 {
 				nameColor = ColorGreen
 			}
-			out.Printf("%s%s%s (%spid %d%s)", nameColor, name, ColorReset, ColorBold, p.PID, ColorReset)
+			out.Printf("%s%s%s (%spid %d%s)", nameColor, name, ColorReset, ColorDim, p.PID, ColorReset)
 			if i < len(r.Ancestry)-1 {
 				out.Printf(" %s\u2192%s ", ColorMagenta, ColorReset)
 			}
@@ -290,7 +298,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			if val, ok := r.Source.Details[key]; ok {
 				label := formatDetailLabel(key)
 				if colorEnabled {
-					out.Printf("%s%s%s : %s\n", ColorBold, label, ColorReset, SanitizeTerminal(val))
+					out.Printf("%s%s%s : %s\n", ColorDim, label, ColorReset, SanitizeTerminal(val))
 				} else {
 					out.Printf("%s : %s\n", label, SanitizeTerminal(val))
 				}
@@ -330,11 +338,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		for i := range proc.ListeningPorts {
 			if displayed >= MaxDisplayItems {
 				remaining := count - displayed
-				if colorEnabled {
-					out.Printf("              ... and %d more\n", remaining)
-				} else {
-					out.Printf("              ... and %d more\n", remaining)
-				}
+				out.Printf("              ... and %d more\n", remaining)
 				break
 			}
 			addr := proc.BindAddresses[i]

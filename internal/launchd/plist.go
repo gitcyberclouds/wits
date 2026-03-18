@@ -3,6 +3,7 @@
 package launchd
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -169,7 +170,7 @@ func ParsePlist(path string) (*LaunchdInfo, error) {
 
 // parsePlistXML parses XML plist data into LaunchdInfo
 func parsePlistXML(data []byte, info *LaunchdInfo) error {
-	decoder := xml.NewDecoder(strings.NewReader(string(data)))
+	decoder := xml.NewDecoder(bytes.NewReader(data))
 
 	var currentKey string
 	var dictDepth int // Track dict nesting depth (1 = root dict)
@@ -185,7 +186,13 @@ func parsePlistXML(data []byte, info *LaunchdInfo) error {
 			switch t.Name.Local {
 			case "dict":
 				dictDepth++
-				// Skip nested dicts by clearing currentKey
+				if dictDepth == 2 && currentKey == "StartCalendarInterval" {
+					cal := parseCalendarDict(decoder)
+					info.StartCalendarInterval = formatCalendarInterval(cal)
+					currentKey = ""
+					continue
+				}
+				// Skip other nested dicts by clearing currentKey
 				if dictDepth > 1 {
 					currentKey = ""
 				}
@@ -223,7 +230,11 @@ func parsePlistXML(data []byte, info *LaunchdInfo) error {
 					currentKey = ""
 				}
 			case "array":
-				if dictDepth == 1 && currentKey != "" {
+				if dictDepth == 1 && currentKey == "StartCalendarInterval" {
+					intervals := parseCalendarArray(decoder)
+					info.StartCalendarInterval = intervals
+					currentKey = ""
+				} else if dictDepth == 1 && currentKey != "" {
 					arr := parseArray(decoder)
 					handleArrayValue(info, currentKey, arr)
 					currentKey = ""
@@ -266,6 +277,112 @@ func parseArray(decoder *xml.Decoder) []string {
 	}
 
 	return result
+}
+
+// parseCalendarDict parses a single StartCalendarInterval dict into key-value pairs.
+func parseCalendarDict(decoder *xml.Decoder) map[string]int {
+	result := make(map[string]int)
+	var currentKey string
+
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			break
+		}
+		switch t := token.(type) {
+		case xml.StartElement:
+			switch t.Name.Local {
+			case "key":
+				var key string
+				decoder.DecodeElement(&key, &t)
+				currentKey = key
+			case "integer":
+				var val string
+				decoder.DecodeElement(&val, &t)
+				if currentKey != "" {
+					if i, err := strconv.Atoi(val); err == nil {
+						result[currentKey] = i
+					}
+					currentKey = ""
+				}
+			}
+		case xml.EndElement:
+			if t.Name.Local == "dict" {
+				return result
+			}
+		}
+	}
+	return result
+}
+
+// parseCalendarArray parses an array of StartCalendarInterval dicts.
+func parseCalendarArray(decoder *xml.Decoder) string {
+	var intervals []string
+	depth := 1
+
+	for depth > 0 {
+		token, err := decoder.Token()
+		if err != nil {
+			break
+		}
+		switch t := token.(type) {
+		case xml.StartElement:
+			if t.Name.Local == "array" {
+				depth++
+			} else if t.Name.Local == "dict" {
+				cal := parseCalendarDict(decoder)
+				if s := formatCalendarInterval(cal); s != "" {
+					intervals = append(intervals, s)
+				}
+			}
+		case xml.EndElement:
+			if t.Name.Local == "array" {
+				depth--
+			}
+		}
+	}
+
+	if len(intervals) == 0 {
+		return ""
+	}
+	return strings.Join(intervals, "; ")
+}
+
+// formatCalendarInterval converts a calendar dict into a human-readable string.
+// Keys: Month, Day, Weekday (0=Sun), Hour, Minute
+func formatCalendarInterval(cal map[string]int) string {
+	if len(cal) == 0 {
+		return ""
+	}
+
+	weekdays := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+
+	var parts []string
+	if w, ok := cal["Weekday"]; ok && w >= 0 && w < len(weekdays) {
+		parts = append(parts, weekdays[w])
+	}
+	if m, ok := cal["Month"]; ok {
+		parts = append(parts, fmt.Sprintf("month %d", m))
+	}
+	if d, ok := cal["Day"]; ok {
+		parts = append(parts, fmt.Sprintf("day %d", d))
+	}
+
+	h, hasHour := cal["Hour"]
+	min, hasMin := cal["Minute"]
+	switch {
+	case hasHour && hasMin:
+		parts = append(parts, fmt.Sprintf("at %02d:%02d", h, min))
+	case hasHour:
+		parts = append(parts, fmt.Sprintf("at %02d:00", h))
+	case hasMin:
+		parts = append(parts, fmt.Sprintf("at *:%02d", min))
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " ")
 }
 
 func handleStringValue(info *LaunchdInfo, key, val string) {

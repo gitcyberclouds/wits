@@ -8,6 +8,23 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
+var suspiciousDirs = map[string]bool{"/": true, "/tmp": true, "/var/tmp": true}
+
+var dangerousCapabilities = map[string]bool{
+	"CAP_SYS_ADMIN":       true,
+	"CAP_SYS_PTRACE":      true,
+	"CAP_NET_RAW":         true,
+	"CAP_DAC_OVERRIDE":    true,
+	"CAP_DAC_READ_SEARCH": true,
+	"CAP_FOWNER":          true,
+	"CAP_SYS_MODULE":      true,
+	"CAP_SYS_RAWIO":       true,
+}
+
+func isDangerousCapability(cap string) bool {
+	return dangerousCapabilities[cap]
+}
+
 type envSuspiciousRule struct {
 	pattern     string
 	match       func(key, pattern string) bool
@@ -36,6 +53,9 @@ func Detect(ancestry []model.Process) model.Source {
 	// Detection order prioritizes platform-specific init systems
 	// over generic supervisor detection to avoid false positives
 	if src := detectContainer(ancestry); src != nil {
+		return *src
+	}
+	if src := detectSSH(ancestry); src != nil {
 		return *src
 	}
 	if src := detectShell(ancestry); src != nil {
@@ -123,7 +143,11 @@ func envSuspiciousWarnings(env []string) []string {
 	return warnings
 }
 
-func Warnings(p []model.Process) []string {
+func Warnings(p []model.Process, srcType ...model.SourceType) []string {
+	if len(p) == 0 {
+		return nil
+	}
+
 	var w []string
 
 	last := p[len(p)-1]
@@ -159,9 +183,25 @@ func Warnings(p []model.Process) []string {
 
 	if last.User == "root" {
 		w = append(w, "Process is running as root")
+	} else if len(last.Capabilities) > 0 {
+		var dangerous []string
+		for _, cap := range last.Capabilities {
+			if isDangerousCapability(cap) {
+				dangerous = append(dangerous, cap)
+			}
+		}
+		if len(dangerous) > 0 {
+			w = append(w, "Process has dangerous capabilities: "+strings.Join(dangerous, ", "))
+		}
 	}
 
-	if Detect(p).Type == model.SourceUnknown {
+	st := model.SourceUnknown
+	if len(srcType) > 0 {
+		st = srcType[0]
+	} else {
+		st = Detect(p).Type
+	}
+	if st == model.SourceUnknown {
 		w = append(w, "No known supervisor or service manager detected")
 	}
 
@@ -170,20 +210,26 @@ func Warnings(p []model.Process) []string {
 		w = append(w, "Process has been running for over 90 days")
 	}
 
-	// Warn if working dir is suspicious
-	suspiciousDirs := map[string]bool{"/": true, "/tmp": true, "/var/tmp": true}
 	if suspiciousDirs[last.WorkingDir] {
 		w = append(w, "Process is running from a suspicious working directory: "+last.WorkingDir)
 	}
 
-	// Warn if container and no healthcheck (placeholder, as healthcheck not detected)
-	if last.Container != "" {
+	// Warn if container and no healthcheck (skip for snap/flatpak which don't use healthchecks)
+	if last.Container != "" && !strings.HasPrefix(last.Container, "snap:") && !strings.HasPrefix(last.Container, "flatpak:") {
 		w = append(w, "No healthcheck detected for container (best effort)")
 	}
 
-	// Warn if service name and process name mismatch
-	if last.Service != "" && last.Command != "" && last.Service != last.Command {
-		w = append(w, "Service name and process name do not match")
+	// Warn if service name and process name are genuinely unrelated
+	if last.Service != "" && last.Command != "" {
+		svcCore := last.Service
+		for _, suffix := range []string{".service", ".socket", ".timer", ".scope", ".slice", ".plist"} {
+			svcCore = strings.TrimSuffix(svcCore, suffix)
+		}
+		svcCore = strings.ToLower(svcCore)
+		cmdBase := strings.ToLower(last.Command)
+		if !strings.Contains(svcCore, cmdBase) && !strings.Contains(cmdBase, svcCore) {
+			w = append(w, "Service name and process name do not match")
+		}
 	}
 
 	// Warn if binary is deleted

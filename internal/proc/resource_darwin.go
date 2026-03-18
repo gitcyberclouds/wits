@@ -3,6 +3,7 @@
 package proc
 
 import (
+	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -44,11 +45,8 @@ func checkPreventsSleep(pid int) bool {
 
 	pidStr := strconv.Itoa(pid)
 
-	// Look for lines containing our PID in assertion listings
-	// Format varies but typically includes "pid <pid>" or "(<pid>)"
 	for line := range strings.Lines(string(out)) {
-		// Check if this line references our PID and is a sleep prevention assertion
-		if strings.Contains(line, pidStr) {
+		if containsWholeWord(line, pidStr) {
 			lower := strings.ToLower(line)
 			if strings.Contains(lower, "preventsystemsleep") ||
 				strings.Contains(lower, "preventuseridledisplaysleep") ||
@@ -144,7 +142,7 @@ func getCPUAndMemoryUsage(pid int) (float64, uint64, error) {
 	output := string(out)
 	fields := strings.Fields(output)
 	if len(fields) < 2 {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("could not read CPU and memory usage")
 	}
 
 	// Parse CPU usage
