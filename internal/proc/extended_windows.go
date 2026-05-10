@@ -4,7 +4,6 @@ package proc
 
 import (
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -21,10 +20,8 @@ func ReadExtendedInfo(pid int) (model.MemoryInfo, model.IOStats, []string, int, 
 	var fdCount int
 	var fdLimit uint64
 
-	// Use powershell to get process details
 	psScript := fmt.Sprintf("Get-CimInstance -ClassName Win32_Process -Filter \"ProcessId=%d\" | ForEach-Object { \"HandleCount=$($_.HandleCount)\"; \"ReadOperationCount=$($_.ReadOperationCount)\"; \"ReadTransferCount=$($_.ReadTransferCount)\"; \"ThreadCount=$($_.ThreadCount)\"; \"VirtualSize=$($_.VirtualSize)\"; \"WorkingSetSize=$($_.WorkingSetSize)\"; \"WriteOperationCount=$($_.WriteOperationCount)\"; \"WriteTransferCount=$($_.WriteTransferCount)\" }", pid)
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", psScript)
-	out, err := cmd.Output()
+	out, err := runPowerShell(psScript)
 	if err != nil {
 		return memInfo, ioStats, fileDescs, fdCount, fdLimit, threadCount, fmt.Errorf("powershell extended info: %w", err)
 	}

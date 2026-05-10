@@ -234,31 +234,13 @@ func getProcessImageName(handle syscall.Handle) string {
 }
 
 func getInfoFromSnapshot(pid int) (int, string, error) {
-	// CreateToolhelp32Snapshot
-	snap, _, _ := procCreateToolhelp32Snapshot.Call(uintptr(TH32CS_SNAPPROCESS), 0)
-	if syscall.Handle(snap) == syscall.InvalidHandle {
-		return 0, "", fmt.Errorf("failed to create snapshot")
+	procs, err := enumerateProcesses()
+	if err != nil {
+		return 0, "", err
 	}
-	defer syscall.CloseHandle(syscall.Handle(snap))
-
-	var pe32 PROCESSENTRY32
-	pe32.Size = uint32(unsafe.Sizeof(pe32))
-
-	// Process32First
-	ret, _, _ := procProcess32First.Call(snap, uintptr(unsafe.Pointer(&pe32)))
-	if ret == 0 {
-		return 0, "", fmt.Errorf("failed to get first process")
-	}
-
-	for {
-		if int(pe32.ProcessID) == pid {
-			exe := syscall.UTF16ToString(pe32.ExeFile[:])
-			return int(pe32.ParentProcessID), exe, nil
-		}
-		// Process32Next
-		ret, _, _ = procProcess32Next.Call(snap, uintptr(unsafe.Pointer(&pe32)))
-		if ret == 0 {
-			break
+	for _, p := range procs {
+		if p.PID == pid {
+			return p.PPID, p.Exe, nil
 		}
 	}
 	return 0, "", fmt.Errorf("process %d not found in snapshot", pid)

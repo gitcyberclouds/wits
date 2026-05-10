@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
@@ -372,15 +373,19 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 	}
 
 	// Warnings
-	if len(r.Warnings) > 0 {
+	warnings := r.Warnings
+	if procpkg.WMITimedOut() {
+		warnings = append(warnings, "WMI lookup timed out — some details (service name, extended info) may be missing.")
+	}
+	if len(warnings) > 0 {
 		if colorEnabled {
 			out.Printf("\n%sWarnings%s    :\n", ColorRed, ColorReset)
-			for _, w := range r.Warnings {
+			for _, w := range warnings {
 				out.Printf("  • %s\n", SanitizeTerminal(w))
 			}
 		} else {
 			out.Println("\nWarnings    :")
-			for _, w := range r.Warnings {
+			for _, w := range warnings {
 				out.Printf("  • %s\n", SanitizeTerminal(w))
 			}
 		}

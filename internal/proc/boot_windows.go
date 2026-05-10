@@ -3,14 +3,12 @@
 package proc
 
 import (
-	"os/exec"
 	"strings"
 	"time"
 )
 
 func bootTime() time.Time {
-	// powershell Get-CimInstance Win32_OperatingSystem
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty LastBootUpTime | Get-Date -Format 'yyyyMMddHHmmss'").Output()
+	out, err := runPowerShell("Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty LastBootUpTime | Get-Date -Format 'yyyyMMddHHmmss'")
 	if err != nil {
 		return time.Now()
 	}

@@ -4,7 +4,6 @@ package proc
 
 import (
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -12,10 +11,8 @@ import (
 )
 
 func GetResourceContext(pid int) *model.ResourceContext {
-	// powershell Get-CimInstance Win32_PerfFormattedData_PerfProc_Process
 	psScript := fmt.Sprintf("Get-CimInstance -ClassName Win32_PerfFormattedData_PerfProc_Process -Filter \"IDProcess=%d\" | ForEach-Object { 'PercentProcessorTime=' + $_.PercentProcessorTime; 'WorkingSetPrivate=' + $_.WorkingSetPrivate }", pid)
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", psScript)
-	out, err := cmd.Output()
+	out, err := runPowerShell(psScript)
 	if err != nil {
 		return nil
 	}
