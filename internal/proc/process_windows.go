@@ -23,30 +23,29 @@ func ReadProcess(pid int) (model.Process, error) {
 		name = filepath.Base(info.Exe)
 	}
 
-	ports, addrs := GetListeningPortsForPID(pid)
+	procSockets := GetSocketsForPID(pid)
 	serviceName := detectWindowsServiceSource(pid)
 	container := detectContainerFromCmdline(info.CommandLine)
 	gitRepo, gitBranch := detectGitInfo(info.Cwd)
 
 	return model.Process{
-		PID:            pid,
-		PPID:           info.PPID,
-		Command:        name,
-		Cmdline:        info.CommandLine,
-		Exe:            info.Exe,
-		StartedAt:      info.StartedAt,
-		User:           readUser(pid),
-		WorkingDir:     info.Cwd,
-		GitRepo:        gitRepo,
-		GitBranch:      gitBranch,
-		ListeningPorts: ports,
-		BindAddresses:  addrs,
-		Health:         "healthy",
-		Forked:         "unknown",
-		Env:            info.Env,
-		Service:        serviceName,
-		Container:      container,
-		ExeDeleted:     isWindowsBinaryDeleted(info.Exe),
+		PID:        pid,
+		PPID:       info.PPID,
+		Command:    name,
+		Cmdline:    info.CommandLine,
+		Exe:        info.Exe,
+		StartedAt:  info.StartedAt,
+		User:       readUser(pid),
+		WorkingDir: info.Cwd,
+		GitRepo:    gitRepo,
+		GitBranch:  gitBranch,
+		Sockets:    procSockets,
+		Health:     "healthy",
+		Forked:     "unknown",
+		Env:        info.Env,
+		Service:    serviceName,
+		Container:  container,
+		ExeDeleted: isWindowsBinaryDeleted(info.Exe),
 	}, nil
 }
 

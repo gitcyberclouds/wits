@@ -331,35 +331,42 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		}
 	}
 
-	// Listening section (address:port)
-	if len(proc.ListeningPorts) > 0 && len(proc.BindAddresses) == len(proc.ListeningPorts) {
-		count := len(proc.ListeningPorts)
-		displayed := 0
-		for i := range proc.ListeningPorts {
-			if displayed >= MaxDisplayItems {
-				remaining := count - displayed
-				out.Printf("              ... and %d more\n", remaining)
+	// Sockets section (address:port (proto | state))
+	if len(proc.Sockets) > 0 {
+		visible := make([]model.Socket, 0, len(proc.Sockets))
+		for _, s := range proc.Sockets {
+			if s.Address != "" && s.Port > 0 {
+				visible = append(visible, s)
+			}
+		}
+		// Group rows by address so the user can see all sockets on an
+		// interface together. Within an address, sort by port; ties break with
+		// LISTEN before connected sockets so the binding sits above its
+		// children.
+		sort.SliceStable(visible, func(i, j int) bool {
+			a, b := visible[i], visible[j]
+			if a.Address != b.Address {
+				return a.Address < b.Address
+			}
+			if a.Port != b.Port {
+				return a.Port < b.Port
+			}
+			return socketSortRank(a.State) < socketSortRank(b.State)
+		})
+		count := len(visible)
+		for i, s := range visible {
+			if i >= MaxDisplayItems {
+				out.Printf("              ... and %d more\n", count-i)
 				break
 			}
-			addr := proc.BindAddresses[i]
-			port := proc.ListeningPorts[i]
-			if addr != "" && port > 0 {
-				hostPort := net.JoinHostPort(addr, strconv.Itoa(port))
-				safeHostPort := SanitizeTerminal(hostPort)
-				if colorEnabled {
-					if i == 0 {
-						out.Printf("%sListening%s   : %s\n", ColorGreen, ColorReset, safeHostPort)
-					} else {
-						out.Printf("              %s\n", safeHostPort)
-					}
-				} else {
-					if i == 0 {
-						out.Printf("Listening   : %s\n", safeHostPort)
-					} else {
-						out.Printf("              %s\n", safeHostPort)
-					}
-				}
-				displayed++
+			line := SanitizeTerminal(formatSocket(s))
+			switch {
+			case i == 0 && colorEnabled:
+				out.Printf("%sSockets%s     : %s\n", ColorGreen, ColorReset, line)
+			case i == 0:
+				out.Printf("Sockets     : %s\n", line)
+			default:
+				out.Printf("              %s\n", line)
 			}
 		}
 	}
@@ -601,5 +608,47 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			out.Println("")
 			PrintChildren(w, r.Process, r.Children, colorEnabled)
 		}
+	}
+}
+
+// formatSocket renders one row of the Sockets section as
+// "<address>:<port> (<PROTO> | <STATE>)".
+func formatSocket(s model.Socket) string {
+	addr := s.Address
+	hostPort := net.JoinHostPort(addr, strconv.Itoa(s.Port))
+	proto := s.Protocol
+	if proto == "" {
+		proto = "?"
+	}
+	state := displayState(s.State)
+	return fmt.Sprintf("%s (%s | %s)", hostPort, proto, state)
+}
+
+// displayState pretty-prints socket states. The kernel-style "LISTEN" reads
+// awkwardly next to "ESTABLISHED" / "CLOSE_WAIT", so it's expanded here.
+func displayState(state string) string {
+	switch state {
+	case "":
+		return "?"
+	case "LISTEN":
+		return "LISTENING"
+	default:
+		return state
+	}
+}
+
+// socketSortRank orders sockets so listeners come first, then connected
+// sockets, then everything else. Within a rank, the renderer further sorts by
+// port for stable output.
+func socketSortRank(state string) int {
+	switch state {
+	case "LISTEN":
+		return 0
+	case "OPEN": // bound UDP — the UDP equivalent of LISTEN
+		return 1
+	case "ESTABLISHED":
+		return 2
+	default:
+		return 3
 	}
 }

@@ -14,45 +14,13 @@ import (
 )
 
 func ResolvePort(port int) ([]int, error) {
-	// Use sockstat to find the process listening on this port
-	// sockstat -4 -l -P tcp -p <port>
-	// sockstat -6 -l -P tcp -p <port>
-
-	// Map: bind address (IP:port) -> list of PIDs
-	addressToPIDs := make(map[string][]int)
-
-	// Query both TCP and UDP across IPv4 and IPv6
-	for _, proto := range []string{"tcp", "udp"} {
-		for _, flag := range []string{"-4", "-6"} {
-			out, err := exec.Command("sockstat", flag, "-l", "-P", proto, "-p", strconv.Itoa(port)).Output()
-			if err != nil {
-				continue
-			}
-
-			// Parse sockstat output
-			// USER     COMMAND    PID   FD PROTO  LOCAL ADDRESS         FOREIGN ADDRESS
-			// root     nginx      1234  6  tcp4   *:80                  *:*
-			// root     named      567   20 udp4   *:53                  *:*
-			for line := range strings.Lines(string(out)) {
-				fields := strings.Fields(line)
-				if len(fields) < 6 {
-					continue
-				}
-
-				// Skip header
-				if fields[0] == "USER" {
-					continue
-				}
-
-				pid, err := strconv.Atoi(fields[2])
-				if err != nil || pid <= 0 {
-					continue
-				}
-
-				// Extract LOCAL ADDRESS (field index 5)
-				localAddr := fields[5]
-				addressToPIDs[localAddr] = append(addressToPIDs[localAddr], pid)
-			}
+	addressToPIDs, err := sockstatPortLookup(port, true)
+	if err == nil && len(addressToPIDs) == 0 {
+		err = fmt.Errorf("empty")
+	}
+	if err != nil {
+		if fallback, fbErr := sockstatPortLookup(port, false); fbErr == nil && len(fallback) > 0 {
+			addressToPIDs = fallback
 		}
 	}
 
@@ -93,12 +61,56 @@ func ResolvePort(port int) ([]int, error) {
 	return result, nil
 }
 
+// sockstatPortLookup queries sockstat for the given port. When listenersOnly
+// is true, only listening sockets are returned (the historical behavior). When
+// false, all sockets bound to or connected on the local port are returned so
+// processes with established connections become discoverable.
+func sockstatPortLookup(port int, listenersOnly bool) (map[string][]int, error) {
+	addressToPIDs := make(map[string][]int)
+
+	for _, proto := range []string{"tcp", "udp"} {
+		for _, flag := range []string{"-4", "-6"} {
+			args := []string{flag, "-P", proto, "-p", strconv.Itoa(port)}
+			if listenersOnly {
+				args = append([]string{"-l"}, args...)
+			}
+			out, err := exec.Command("sockstat", args...).Output()
+			if err != nil {
+				continue
+			}
+
+			// Parse sockstat output
+			// USER     COMMAND    PID   FD PROTO  LOCAL ADDRESS         FOREIGN ADDRESS
+			// root     nginx      1234  6  tcp4   *:80                  *:*
+			for line := range strings.Lines(string(out)) {
+				fields := strings.Fields(line)
+				if len(fields) < 6 {
+					continue
+				}
+				if fields[0] == "USER" {
+					continue
+				}
+
+				pid, err := strconv.Atoi(fields[2])
+				if err != nil || pid <= 0 {
+					continue
+				}
+
+				localAddr := fields[5]
+				addressToPIDs[localAddr] = append(addressToPIDs[localAddr], pid)
+			}
+		}
+	}
+
+	return addressToPIDs, nil
+}
+
 func resolvePortNetstat(port int) ([]int, error) {
 	portStr := fmt.Sprintf(".%d", port)
 	portColonStr := fmt.Sprintf(":%d", port)
-	found := false
 
-	// Check both TCP and UDP via netstat
+	// Check both TCP and UDP via netstat. Any match — listener or connected —
+	// is enough to forward to fstat for PID resolution.
 	for _, proto := range []string{"tcp", "udp"} {
 		out, err := exec.Command("netstat", "-an", "-p", proto).Output()
 		if err != nil {
@@ -106,24 +118,14 @@ func resolvePortNetstat(port int) ([]int, error) {
 		}
 
 		for line := range strings.Lines(string(out)) {
-			if proto == "tcp" && !strings.Contains(line, "LISTEN") {
+			fields := strings.Fields(line)
+			if len(fields) < 4 {
 				continue
 			}
-			fields := strings.Fields(line)
-			if len(fields) >= 4 && (strings.HasSuffix(fields[3], portStr) || strings.HasSuffix(fields[3], portColonStr)) {
-				found = true
-				break
+			if strings.HasSuffix(fields[3], portStr) || strings.HasSuffix(fields[3], portColonStr) {
+				return resolvePortFstat(port)
 			}
 		}
-		if found {
-			break
-		}
-	}
-
-	if found {
-		// Unfortunately, basic netstat doesn't show PID on FreeBSD
-		// We need to use sockstat or fstat for that
-		return resolvePortFstat(port)
 	}
 
 	return nil, fmt.Errorf("no process listening on port %d", port)

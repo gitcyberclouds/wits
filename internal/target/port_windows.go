@@ -18,8 +18,9 @@ func ResolvePort(port int) ([]int, error) {
 
 	lines := strings.Split(string(out), "\n")
 	portStr := fmt.Sprintf(":%d", port)
-	var pids []int
+	var pids, fallbackPIDs []int
 	seen := make(map[int]bool)
+	fallbackSeen := make(map[int]bool)
 
 	for _, line := range lines {
 		if !strings.Contains(line, portStr) {
@@ -32,35 +33,50 @@ func ResolvePort(port int) ([]int, error) {
 
 		proto := strings.ToUpper(fields[0])
 		localAddr := fields[1]
-		if !strings.HasSuffix(localAddr, portStr) {
+		foreignAddr := fields[2]
+
+		matchesLocal := strings.HasSuffix(localAddr, portStr)
+		matchesForeign := strings.HasSuffix(foreignAddr, portStr)
+		if !matchesLocal && !matchesForeign {
 			continue
 		}
 
-		var pid int
 		if strings.HasPrefix(proto, "TCP") {
 			// TCP: Proto LocalAddr ForeignAddr State PID
-			if len(fields) < 5 || fields[3] != "LISTENING" {
+			if len(fields) < 5 {
 				continue
 			}
-			pid, _ = strconv.Atoi(fields[4])
+			pid, _ := strconv.Atoi(fields[4])
+			if pid == 0 {
+				continue
+			}
+			if matchesLocal && fields[3] == "LISTENING" {
+				if !seen[pid] {
+					pids = append(pids, pid)
+					seen[pid] = true
+				}
+			} else if !fallbackSeen[pid] {
+				fallbackPIDs = append(fallbackPIDs, pid)
+				fallbackSeen[pid] = true
+			}
 		} else if strings.HasPrefix(proto, "UDP") {
 			// UDP: Proto LocalAddr *:* PID (no state column)
-			if len(fields) < 4 {
+			if !matchesLocal || len(fields) < 4 {
 				continue
 			}
-			pid, _ = strconv.Atoi(fields[3])
-		} else {
-			continue
-		}
-
-		if pid != 0 && !seen[pid] {
-			pids = append(pids, pid)
-			seen[pid] = true
+			pid, _ := strconv.Atoi(fields[3])
+			if pid != 0 && !seen[pid] {
+				pids = append(pids, pid)
+				seen[pid] = true
+			}
 		}
 	}
 
 	if len(pids) == 0 {
-		return nil, fmt.Errorf("no process found listening on port %d", port)
+		if len(fallbackPIDs) == 0 {
+			return nil, fmt.Errorf("no process found listening on port %d", port)
+		}
+		return fallbackPIDs, nil
 	}
 	return pids, nil
 }

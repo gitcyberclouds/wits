@@ -105,19 +105,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	service := detectLaunchdService(pid)
 	gitRepo, gitBranch := detectGitInfo(cwd)
-	inodes := socketsForPID(pid)
-	var ports []int
-	var addrs []string
-
-	for _, inode := range inodes {
-		addrPort := strings.SplitN(inode, ":", 2)
-		if len(addrPort) < 2 {
-			continue
-		}
-		port, _ := strconv.Atoi(addrPort[1])
-		ports = append(ports, port)
-		addrs = append(addrs, addrPort[0])
-	}
+	procSockets := socketsForPID(pid)
 
 	exeDeleted := false
 	if binPath != "" {
@@ -126,23 +114,22 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:            pid,
-		PPID:           ppid,
-		Command:        displayName,
-		Cmdline:        cmdline,
-		StartedAt:      startedAt,
-		User:           user,
-		WorkingDir:     cwd,
-		GitRepo:        gitRepo,
-		GitBranch:      gitBranch,
-		Container:      container,
-		Service:        service,
-		ListeningPorts: ports,
-		BindAddresses:  addrs,
-		Health:         health,
-		Forked:         forked,
-		Env:            env,
-		ExeDeleted:     exeDeleted,
+		PID:        pid,
+		PPID:       ppid,
+		Command:    displayName,
+		Cmdline:    cmdline,
+		StartedAt:  startedAt,
+		User:       user,
+		WorkingDir: cwd,
+		GitRepo:    gitRepo,
+		GitBranch:  gitBranch,
+		Container:  container,
+		Service:    service,
+		Sockets:    procSockets,
+		Health:     health,
+		Forked:     forked,
+		Env:        env,
+		ExeDeleted: exeDeleted,
 	}, nil
 }
 

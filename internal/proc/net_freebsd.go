@@ -3,7 +3,6 @@
 package proc
 
 import (
-	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -45,27 +44,6 @@ func extractPID(inode string) int {
 		return pid
 	}
 	return 0
-}
-
-func readListeningSockets() (map[string]model.Socket, error) {
-	ports, err := ListOpenPorts()
-	if err != nil {
-		return nil, err
-	}
-	sockets := make(map[string]model.Socket)
-	for _, p := range ports {
-		if p.State == "LISTEN" || p.State == "OPEN" {
-			inode := fmt.Sprintf("%d:%d:%s", p.PID, p.Port, p.Address)
-			sockets[inode] = model.Socket{
-				Inode:    inode,
-				Port:     p.Port,
-				Address:  p.Address,
-				State:    p.State,
-				Protocol: p.Protocol,
-			}
-		}
-	}
-	return sockets, nil
 }
 
 func parseSockstatOutput(output string, sockets map[string]model.Socket) {

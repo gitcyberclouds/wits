@@ -177,7 +177,7 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 		w = append(w, "Process is using high memory (>1GB RSS)")
 	}
 
-	if IsPublicBind(last.BindAddresses) {
+	if IsPublicBind(last.Sockets) {
 		w = append(w, "Process is listening on a public interface")
 	}
 

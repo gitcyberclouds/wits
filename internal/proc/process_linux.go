@@ -212,14 +212,12 @@ func ReadProcess(pid int) (model.Process, error) {
 	sockets, _ := readSocketsCached()
 	inodes := socketsForPID(pid)
 
-	var ports []int
-	var addrs []string
+	var procSockets []model.Socket
 
 	// Check for IPv4 listeners first to avoid duplicates when synthesizing
 	ipv4Listeners := make(map[int]bool)
 	for _, inode := range inodes {
 		if s, ok := sockets[inode]; ok {
-			// Only consider listening sockets for this summary
 			if s.State != "LISTEN" {
 				continue
 			}
@@ -233,14 +231,16 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	for _, inode := range inodes {
 		if s, ok := sockets[inode]; ok {
-			ports = append(ports, s.Port)
-			addrs = append(addrs, s.Address)
+			procSockets = append(procSockets, s)
 
-			// Heuristic: If system allows dual-stack, we see ::, and there is NO explicit 0.0.0.0 listener,
-			// assume implicit dual-stack and show it.
-			if dualStackAllowed && s.Address == "::" && !ipv4Listeners[s.Port] {
-				ports = append(ports, s.Port)
-				addrs = append(addrs, "0.0.0.0")
+			// Heuristic: If system allows dual-stack, we see a `::` listener,
+			// and there is NO explicit 0.0.0.0 listener, synthesize the implicit
+			// IPv4 mapping so users see what the kernel actually accepts.
+			if dualStackAllowed && s.State == "LISTEN" && s.Address == "::" && !ipv4Listeners[s.Port] {
+				v4 := s
+				v4.Address = "0.0.0.0"
+				v4.Protocol = strings.TrimSuffix(s.Protocol, "6")
+				procSockets = append(procSockets, v4)
 			}
 		}
 	}
@@ -263,24 +263,23 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:            pid,
-		PPID:           ppid,
-		Command:        displayName,
-		Cmdline:        cmdline,
-		StartedAt:      startedAt,
-		User:           user,
-		WorkingDir:     cwd,
-		GitRepo:        gitRepo,
-		GitBranch:      gitBranch,
-		Container:      container,
-		Service:        service,
-		ListeningPorts: ports,
-		BindAddresses:  addrs,
-		Health:         health,
-		Forked:         forked,
-		Env:            env,
-		ExeDeleted:     isBinaryDeleted(pid),
-		Capabilities:   ReadCapabilities(pid),
+		PID:          pid,
+		PPID:         ppid,
+		Command:      displayName,
+		Cmdline:      cmdline,
+		StartedAt:    startedAt,
+		User:         user,
+		WorkingDir:   cwd,
+		GitRepo:      gitRepo,
+		GitBranch:    gitBranch,
+		Container:    container,
+		Service:      service,
+		Sockets:      procSockets,
+		Health:       health,
+		Forked:       forked,
+		Env:          env,
+		ExeDeleted:   isBinaryDeleted(pid),
+		Capabilities: ReadCapabilities(pid),
 	}, nil
 }
 

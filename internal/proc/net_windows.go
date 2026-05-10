@@ -79,20 +79,16 @@ func ListOpenPorts() ([]model.OpenPort, error) {
 	return ports, nil
 }
 
-func GetListeningPortsForPID(pid int) ([]int, []string) {
-	// netstat -ano | findstr LISTENING | findstr <pid>
-	// But findstr is not perfect.
-	// Better: netstat -ano
-	// Parse output.
-
+// GetSocketsForPID returns every IP socket owned by a PID, including
+// non-listening sockets, by parsing `netstat -ano`.
+func GetSocketsForPID(pid int) []model.Socket {
 	out, err := exec.Command("netstat", "-ano").Output()
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 
 	lines := strings.Split(string(out), "\n")
-	var ports []int
-	var addrs []string
+	var sockets []model.Socket
 	seen := make(map[string]bool)
 
 	pidStr := strconv.Itoa(pid)
@@ -106,13 +102,18 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 		}
 
 		proto := strings.ToUpper(fields[0])
-		var matchPID string
+		var matchPID, state string
 		if strings.HasPrefix(proto, "TCP") {
-			if len(fields) < 5 || fields[3] != "LISTENING" {
+			if len(fields) < 5 {
 				continue
+			}
+			state = fields[3]
+			if state == "LISTENING" {
+				state = "LISTEN"
 			}
 			matchPID = fields[4]
 		} else if strings.HasPrefix(proto, "UDP") {
+			state = "OPEN"
 			matchPID = fields[3]
 		} else {
 			continue
@@ -123,27 +124,31 @@ func GetListeningPortsForPID(pid int) ([]int, []string) {
 		}
 
 		localAddr := fields[1]
-		// Parse IP:Port
 		lastColon := strings.LastIndex(localAddr, ":")
 		if lastColon == -1 {
 			continue
 		}
 		portStr := localAddr[lastColon+1:]
 		ip := localAddr[:lastColon]
-		// specialized handling for [::] or [::1] on windows to avoid double bracket
 		if len(ip) > 2 && strings.HasPrefix(ip, "[") && strings.HasSuffix(ip, "]") {
 			ip = ip[1 : len(ip)-1]
 		}
 
 		port, err := strconv.Atoi(portStr)
-		if err == nil {
-			key := ip + ":" + portStr
-			if !seen[key] {
-				ports = append(ports, port)
-				addrs = append(addrs, ip)
-				seen[key] = true
-			}
+		if err != nil {
+			continue
 		}
+		key := proto + "|" + ip + "|" + portStr + "|" + state
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		sockets = append(sockets, model.Socket{
+			Port:     port,
+			Address:  ip,
+			Protocol: proto,
+			State:    state,
+		})
 	}
-	return ports, addrs
+	return sockets
 }

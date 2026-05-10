@@ -3,49 +3,59 @@
 package proc
 
 import (
-	"os/exec"
 	"strconv"
-	"strings"
+	"sync"
+	"time"
+
+	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// socketsForPID returns socket inodes/identifiers for a given PID
-// On macOS, we use lsof to get this information
-func socketsForPID(pid int) []string {
-	var inodes []string
-	// Use lsof to find sockets for this PID
-	// -i TCP = TCP sockets
-	// -s TCP:LISTEN = only in LISTEN state
-	// -n = don't resolve hostnames
-	// -P = don't resolve port names
-	out, err := exec.Command("lsof", "-i", "TCP", "-s", "TCP:LISTEN", "-n", "-P", "-F", "pn").Output()
-	if err != nil {
-		return inodes
-	}
+// Cached results of ListOpenPorts to avoid running lsof multiple times during
+// an ancestry walk (typically 5-10 ReadProcess calls within milliseconds).
+var (
+	openPortsCache     []model.OpenPort
+	openPortsCacheTime time.Time
+	openPortsCacheMu   sync.Mutex
+	openPortsCacheTTL  = 2 * time.Second
+)
 
-	// Parse lsof output
-	seen := make(map[string]bool)
-	var blocks = strings.Split(string(out), "p")
-	for i := range blocks {
-		if strings.HasPrefix(blocks[i], strconv.Itoa(pid)+"\n") {
-			for line := range strings.Lines(blocks[i]) {
-				if len(line) == 0 {
-					continue
-				}
-				if line[0] == 'n' {
-					// n<address>
-					addr, port := parseNetstatAddr(strings.TrimSpace(line[1:]))
-					if port > 0 {
-						// Create pseudo-inode matching the format in readListeningSockets
-						inode := addr + ":" + strconv.Itoa(port)
-						if !seen[inode] {
-							seen[inode] = true
-							inodes = append(inodes, inode)
-						}
-					}
-				}
-			}
-			break
-		}
+func listOpenPortsCached() []model.OpenPort {
+	openPortsCacheMu.Lock()
+	defer openPortsCacheMu.Unlock()
+
+	if openPortsCache != nil && time.Since(openPortsCacheTime) < openPortsCacheTTL {
+		return openPortsCache
 	}
-	return inodes
+	ports, err := ListOpenPorts()
+	if err != nil {
+		return nil
+	}
+	openPortsCache = ports
+	openPortsCacheTime = time.Now()
+	return ports
+}
+
+// socketsForPID returns every IP socket owned by a PID, including non-listening
+// sockets. Backed by `lsof -i -P -n` via ListOpenPorts.
+func socketsForPID(pid int) []model.Socket {
+	all := listOpenPortsCached()
+	var sockets []model.Socket
+	seen := make(map[string]bool)
+	for _, p := range all {
+		if p.PID != pid {
+			continue
+		}
+		key := p.Protocol + "|" + p.Address + "|" + strconv.Itoa(p.Port) + "|" + p.State
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		sockets = append(sockets, model.Socket{
+			Port:     p.Port,
+			Address:  p.Address,
+			Protocol: p.Protocol,
+			State:    p.State,
+		})
+	}
+	return sockets
 }
