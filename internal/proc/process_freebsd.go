@@ -16,12 +16,13 @@ import (
 func ReadProcess(pid int) (model.Process, error) {
 	pidStr := strconv.Itoa(pid)
 
-	// Format: pid(0) ppid(1) uid(2) jid(3) state(4) pcpu(5) rss(6) lstart(7-11) comm(12) args(13+)
-	// args= MUST be last because it is variable-width.
+	// Format: pid(0) ppid(1) uid(2) jid(3) state(4) pcpu(5) rss(6) lstart(7-11) args(12+)
+	// comm is excluded because it can contain spaces, which breaks strings.Fields parsing.
+	// The display name is derived from args instead.
 	cmd := exec.Command("ps", "-p", pidStr,
 		"-o", "pid=", "-o", "ppid=", "-o", "uid=", "-o", "jid=",
 		"-o", "state=", "-o", "pcpu=", "-o", "rss=",
-		"-o", "lstart=", "-o", "comm=", "-o", "args=")
+		"-o", "lstart=", "-o", "args=")
 	cmd.Env = buildEnvForPS()
 	out, err := cmd.Output()
 	if err != nil {
@@ -34,7 +35,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	fields := strings.Fields(line)
-	if len(fields) < 13 {
+	if len(fields) < 12 {
 		return model.Process{}, fmt.Errorf("unexpected ps output format for pid %d: got %d fields in %q", pid, len(fields), line)
 	}
 
@@ -51,12 +52,11 @@ func ReadProcess(pid int) (model.Process, error) {
 		startedAt = time.Now().UTC()
 	}
 
-	comm := fields[12]
-
-	cmdline := comm
-	if len(fields) > 13 {
-		cmdline = strings.Join(fields[13:], " ")
+	rawCmdline := ""
+	if len(fields) > 12 {
+		rawCmdline = strings.Join(fields[12:], " ")
 	}
+	cmdline := rawCmdline
 
 	cwd, binPath := getCwdAndBinaryPath(pid)
 	env := getEnvironment(pid)
@@ -82,7 +82,18 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "high-mem"
 	}
 
-	if ppid != 1 && comm != "init" {
+	displayName := extractExecutableName(rawCmdline)
+	if displayName == "" {
+		// Fall back to comm for processes with no visible command line
+		if commOut, commErr := exec.Command("ps", "-p", pidStr, "-o", "comm=").Output(); commErr == nil {
+			displayName = strings.TrimSpace(string(commOut))
+		}
+	}
+	if cmdline == "" {
+		cmdline = displayName
+	}
+
+	if ppid != 1 && displayName != "init" {
 		forked = "forked"
 	} else {
 		forked = "not-forked"
@@ -90,12 +101,8 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	user := readUserByUID(uid)
 	container := detectContainerFreeBSD(jid, cmdline)
-	displayName := deriveDisplayCommand(comm, cmdline)
-	if displayName == "" {
-		displayName = comm
-	}
 
-	if comm == "docker-proxy" && container == "" {
+	if displayName == "docker-proxy" && container == "" {
 		container = resolveDockerProxyContainer(cmdline)
 	}
 

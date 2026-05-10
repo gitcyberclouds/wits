@@ -16,8 +16,10 @@ import (
 // ListProcesses returns a list of all running processes with basic details (PID, Command, State).
 // This is used by the TUI to display the process list.
 func ListProcesses() ([]model.Process, error) {
-	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, comm, args
-	out, err := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,comm,args").Output()
+	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, args
+	// comm is excluded because it can contain spaces (e.g. "Microsoft Teams"),
+	// which breaks strings.Fields parsing. The display name is derived from args instead.
+	out, err := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,args").Output()
 	if err != nil {
 		// Fallback to fast snapshot if ps fails
 		return ListProcessSnapshot()
@@ -37,8 +39,8 @@ func ListProcesses() ([]model.Process, error) {
 		}
 		fields := strings.Fields(line)
 
-		// Expected minimum fields: pid(1) + ppid(1) + user(1) + lstart(5) + cpu(1) + rss(1) + mem(1) + comm(1) = 12
-		if len(fields) < 12 {
+		// Expected minimum fields: pid(1) + ppid(1) + user(1) + lstart(5) + cpu(1) + rss(1) + mem(1) = 11
+		if len(fields) < 11 {
 			continue
 		}
 
@@ -62,17 +64,20 @@ func ListProcesses() ([]model.Process, error) {
 
 		mem, _ := strconv.ParseFloat(fields[10], 64)
 
-		comm := fields[11]
-
-		cmdline := comm
-		if len(fields) > 12 {
-			cmdline = strings.Join(fields[12:], " ")
+		cmdline := ""
+		if len(fields) > 11 {
+			cmdline = strings.Join(fields[11:], " ")
 		}
 
-		// Recover full process name when kernel comm field is truncated
-		displayName := deriveDisplayCommand(comm, cmdline)
+		displayName := extractExecutableName(cmdline)
+		if displayName == "" && len(fields) > 11 {
+			displayName = fields[11]
+		}
 		if displayName == "" {
-			displayName = comm
+			continue
+		}
+		if cmdline == "" {
+			cmdline = displayName
 		}
 
 		processes = append(processes, model.Process{

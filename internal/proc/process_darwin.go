@@ -16,9 +16,10 @@ import (
 func ReadProcess(pid int) (model.Process, error) {
 	pidStr := strconv.Itoa(pid)
 
-	// Format: pid(0) ppid(1) uid(2) lstart(3-7) state(8) ucomm(9) pcpu(10) rss(11) args(12+)
-	// args= MUST be last because it is variable-width.
-	cmd := exec.Command("ps", "-p", pidStr, "-o", "pid=,ppid=,uid=,lstart=,state=,ucomm=,pcpu=,rss=,args=")
+	// Format: pid(0) ppid(1) uid(2) lstart(3-7) state(8) pcpu(9) rss(10) args(11+)
+	// ucomm is excluded because it can contain spaces (e.g. "Microsoft Teams"),
+	// which breaks strings.Fields parsing. The display name is derived from args instead.
+	cmd := exec.Command("ps", "-p", pidStr, "-o", "pid=,ppid=,uid=,lstart=,state=,pcpu=,rss=,args=")
 	cmd.Env = buildEnvForPS()
 	out, err := cmd.Output()
 	if err != nil {
@@ -31,7 +32,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	fields := strings.Fields(line)
-	if len(fields) < 12 {
+	if len(fields) < 11 {
 		return model.Process{}, fmt.Errorf("unexpected ps output format for pid %d", pid)
 	}
 
@@ -45,19 +46,15 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	state := fields[8]
-	comm := fields[9]
 
-	cpuPct, _ := strconv.ParseFloat(fields[10], 64)
-	rssKB, _ := strconv.ParseFloat(fields[11], 64)
+	cpuPct, _ := strconv.ParseFloat(fields[9], 64)
+	rssKB, _ := strconv.ParseFloat(fields[10], 64)
 
 	rawCmdline := ""
-	if len(fields) > 12 {
-		rawCmdline = strings.Join(fields[12:], " ")
+	if len(fields) > 11 {
+		rawCmdline = strings.Join(fields[11:], " ")
 	}
 	cmdline := rawCmdline
-	if cmdline == "" {
-		cmdline = comm
-	}
 
 	env := getEnvironment(pid)
 	cwd, binPath := getCwdAndBinaryPath(pid)
@@ -80,7 +77,20 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "high-mem"
 	}
 
-	if ppid != 1 && comm != "launchd" {
+	// Derive display name from the full command line to avoid kernel comm truncation
+	// and space-in-name parsing issues (e.g. "Microsoft Teams WebView Helper").
+	displayName := extractExecutableName(rawCmdline)
+	if displayName == "" {
+		// Fall back to ucomm for processes with no visible command line (kernel threads)
+		if ucommOut, ucommErr := exec.Command("ps", "-p", pidStr, "-o", "ucomm=").Output(); ucommErr == nil {
+			displayName = strings.TrimSpace(string(ucommOut))
+		}
+	}
+	if cmdline == "" {
+		cmdline = displayName
+	}
+
+	if ppid != 1 && displayName != "launchd" {
 		forked = "forked"
 	} else {
 		forked = "not-forked"
@@ -89,7 +99,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	user := readUserByUID(uid)
 	container := detectContainerFromCmdline(cmdline)
 
-	if comm == "docker-proxy" && container == "" {
+	if displayName == "docker-proxy" && container == "" {
 		container = resolveDockerProxyContainer(cmdline)
 	}
 
@@ -107,11 +117,6 @@ func ReadProcess(pid int) (model.Process, error) {
 		port, _ := strconv.Atoi(addrPort[1])
 		ports = append(ports, port)
 		addrs = append(addrs, addrPort[0])
-	}
-
-	displayName := deriveDisplayCommand(comm, rawCmdline)
-	if displayName == "" {
-		displayName = comm
 	}
 
 	exeDeleted := false
