@@ -14,11 +14,20 @@ import (
 func findSocketInodes(port int) (map[string]bool, error) {
 	inodes := make(map[string]bool)
 
-	files := []string{"/proc/net/tcp", "/proc/net/tcp6"}
+	type procNetFile struct {
+		path  string
+		isTCP bool
+	}
+	files := []procNetFile{
+		{"/proc/net/tcp", true},
+		{"/proc/net/tcp6", true},
+		{"/proc/net/udp", false},
+		{"/proc/net/udp6", false},
+	}
 	targetHex := fmt.Sprintf("%04X", port)
 
-	for _, file := range files {
-		data, err := os.ReadFile(file)
+	for _, f := range files {
+		data, err := os.ReadFile(f.path)
 		if err != nil {
 			continue
 		}
@@ -37,8 +46,18 @@ func findSocketInodes(port int) (map[string]bool, error) {
 			}
 
 			state := fields[3]
-			if state != "0A" { // 0A is the linux /proc/net/tcp* code for TCP_LISTEN, so we only report actual listeners for --port
-				continue
+			if f.isTCP {
+				// 0A = TCP_LISTEN — only report actual listeners
+				if state != "0A" {
+					continue
+				}
+			} else {
+				// UDP is connectionless; state 07 (CLOSE) means the socket is
+				// bound and ready to receive. Also accept 01 (ESTABLISHED) for
+				// connected UDP sockets.
+				if state != "07" && state != "01" {
+					continue
+				}
 			}
 
 			if parts[1] == targetHex {
@@ -85,6 +104,7 @@ func ResolvePort(port int) ([]int, error) {
 				inode, ok := strings.CutSuffix(rest, "]")
 				if ok && inodes[inode] {
 					pidSet[pid] = true
+					break
 				}
 			}
 		}

@@ -41,9 +41,10 @@ func detectLaunchd(ancestry []model.Process) *model.Source {
 
 	// Build the source with details
 	source := &model.Source{
-		Type:    model.SourceLaunchd,
-		Name:    info.Label,
-		Details: make(map[string]string),
+		Type:        model.SourceLaunchd,
+		Name:        info.Label,
+		Description: info.Comment,
+		Details:     make(map[string]string),
 	}
 
 	// Add domain description (Launch Agent vs Launch Daemon)
@@ -51,13 +52,24 @@ func detectLaunchd(ancestry []model.Process) *model.Source {
 
 	// Add plist path if found
 	if info.PlistPath != "" {
+		source.UnitFile = info.PlistPath
 		source.Details["plist"] = info.PlistPath
 	}
 
-	// Add triggers
-	triggers := info.FormatTriggers()
-	if len(triggers) > 0 {
-		source.Details["triggers"] = strings.Join(triggers, "; ")
+	// Separate schedule triggers from non-schedule triggers
+	var scheduleParts, triggerParts []string
+	for _, t := range info.FormatTriggers() {
+		if strings.HasPrefix(t, "StartInterval") || strings.HasPrefix(t, "StartCalendarInterval") {
+			scheduleParts = append(scheduleParts, t)
+		} else {
+			triggerParts = append(triggerParts, t)
+		}
+	}
+	if len(scheduleParts) > 0 {
+		source.Details["schedule"] = strings.Join(scheduleParts, "; ")
+	}
+	if len(triggerParts) > 0 {
+		source.Details["triggers"] = strings.Join(triggerParts, "; ")
 	}
 
 	// Add KeepAlive status

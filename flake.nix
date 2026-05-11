@@ -46,9 +46,9 @@
 
             vendorHash = null;
             ldflags = [
-              "-X main.version=v${version}"
-              "-X main.commit=${commit}"
-              "-X main.buildDate=${buildDate}"
+              "-X github.com/pranshuparmar/witr/internal/version.Version=v${version}"
+              "-X github.com/pranshuparmar/witr/internal/version.Commit=${commit}"
+              "-X github.com/pranshuparmar/witr/internal/version.BuildDate=${buildDate}"
             ];
 
             nativeBuildInputs = [ pkgs.installShellFiles ];

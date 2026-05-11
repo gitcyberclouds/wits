@@ -31,7 +31,7 @@ so that the embedded version data stays accurate:
 ```bash
 git clone https://github.com/pranshuparmar/witr.git
 cd witr
-go build -ldflags "-X main.version=v0.0.0-dev -X main.commit=$(git rev-parse --short HEAD) -X 'main.buildDate=$(date +%Y-%m-%d)'" -o witr ./cmd/witr
+go build -o witr ./cmd/witr
 ./witr --help  # quick smoke test
 ```
 

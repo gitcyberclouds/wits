@@ -1,12 +1,12 @@
 .nh
-.TH "WITR" "1" "Jan 2026" "" ""
+.TH "WITR" "1" "Mar 2026" "" ""
 
 .SH NAME
 witr - Why is this running?
 
 
 .SH SYNOPSIS
-\fBwitr [process name] [flags]\fP
+\fBwitr [process name...] [flags]\fP
 
 
 .SH DESCRIPTION
@@ -18,8 +18,20 @@ witr explains why a process or port is running by tracing its ancestry.
 	show environment variables for the process
 
 .PP
+\fB-x\fP, \fB--exact\fP[=false]
+	use exact name matching (no substring search)
+
+.PP
+\fB-f\fP, \fB--file\fP=[]
+	file path(s) to find process for (repeatable)
+
+.PP
 \fB-h\fP, \fB--help\fP[=false]
 	help for witr
+
+.PP
+\fB-i\fP, \fB--interactive\fP[=false]
+	interactive mode (TUI)
 
 .PP
 \fB--json\fP[=false]
@@ -30,19 +42,19 @@ witr explains why a process or port is running by tracing its ancestry.
 	disable colorized output
 
 .PP
-\fB--pid\fP=""
-	pid to look up
+\fB-p\fP, \fB--pid\fP=[]
+	pid(s) to look up (repeatable)
 
 .PP
-\fB--port\fP=""
-	port to look up
+\fB-o\fP, \fB--port\fP=[]
+	port(s) to look up (repeatable)
 
 .PP
-\fB--short\fP[=false]
+\fB-s\fP, \fB--short\fP[=false]
 	show only ancestry
 
 .PP
-\fB--tree\fP[=false]
+\fB-t\fP, \fB--tree\fP[=false]
 	show only ancestry as a tree
 
 .PP
@@ -65,6 +77,12 @@ witr explains why a process or port is running by tracing its ancestry.
 
   # Find the process listening on a specific port
   witr --port 5432
+
+  # Find the process holding a lock on a file
+  witr --file /var/lib/dpkg/lock
+
+  # Inspect a process by name with exact matching (no fuzzy search)
+  witr bun --exact
 
   # Show the full process ancestry (who started whom)
   witr postgres --tree
@@ -89,5 +107,13 @@ witr explains why a process or port is running by tracing its ancestry.
 
   # Combine flags: inspect port, show environment variables, output JSON
   witr --port 8080 --env --json
+
+  # Multiple inputs
+  witr nginx node
+  witr --port 8080 --port 3000
+  witr --pid 1234 --pid 5678
+
+  # Mixed inputs
+  witr nginx --pid 1234 --port 8080
 
 .EE

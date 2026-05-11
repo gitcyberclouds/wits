@@ -9,37 +9,61 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	procpkg "github.com/pranshuparmar/witr/internal/proc"
 )
 
-func ResolveName(name string) ([]int, error) {
+func ResolveName(name string, exact bool) ([]int, error) {
 	var procPIDs []int
 
-	// Process name and command line matching (case-insensitive, substring)
 	entries, _ := os.ReadDir("/proc")
 	lowerName := strings.ToLower(name)
 	selfPid := os.Getpid()
-	parentPid := os.Getppid()
+
+	// Build ignored PID set lazily — only resolve ancestry if we actually
+	// need to filter matches (avoids walking the chain on every invocation)
+	var ignoredPids map[int]bool
+	isIgnored := func(pid int) bool {
+		if pid == selfPid {
+			return true
+		}
+		if ignoredPids == nil {
+			ignoredPids = make(map[int]bool)
+			ignoredPids[selfPid] = true
+			if ancestry, err := procpkg.ResolveAncestry(selfPid); err == nil {
+				for _, p := range ancestry {
+					ignoredPids[p.PID] = true
+				}
+			}
+		}
+		return ignoredPids[pid]
+	}
+
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
 			continue
 		}
 
-		// Prevent matching the PID itself as a name
 		if lowerName == strconv.Itoa(pid) {
 			continue
 		}
 
-		// Exclude self and parent (witr, go run, etc.)
-		if pid == selfPid || pid == parentPid {
+		if isIgnored(pid) {
 			continue
 		}
 
 		comm, err := os.ReadFile("/proc/" + e.Name() + "/comm")
 		if err == nil {
-			if strings.Contains(strings.ToLower(strings.TrimSpace(string(comm))), lowerName) {
-				// Exclude grep-like processes
-				if !strings.Contains(strings.ToLower(string(comm)), "grep") {
+			commLower := strings.ToLower(strings.TrimSpace(string(comm)))
+			var match bool
+			if exact {
+				match = commLower == lowerName
+			} else {
+				match = strings.Contains(commLower, lowerName)
+			}
+			if match {
+				if !strings.Contains(commLower, "grep") {
 					procPIDs = append(procPIDs, pid)
 				}
 				continue
@@ -48,20 +72,22 @@ func ResolveName(name string) ([]int, error) {
 
 		cmdline, err := os.ReadFile("/proc/" + e.Name() + "/cmdline")
 		if err == nil {
-			// cmdline is null-separated
 			cmd := strings.ReplaceAll(string(cmdline), "\x00", " ")
-			// Exclude self, parent, and grep
-			if strings.Contains(strings.ToLower(cmd), lowerName) &&
-				!strings.Contains(strings.ToLower(cmd), "grep") {
+			cmdLower := strings.ToLower(cmd)
+			var match bool
+			if exact {
+				match = matchesExactToken(cmdLower, lowerName)
+			} else {
+				match = strings.Contains(cmdLower, lowerName)
+			}
+			if match && !strings.Contains(cmdLower, "grep") {
 				procPIDs = append(procPIDs, pid)
 			}
 		}
 	}
 
-	// Service detection (systemd)
 	servicePID, _ := resolveSystemdServiceMainPID(name)
 
-	// Merge and dedupe matches, keeping service PID first.
 	seen := map[int]bool{}
 	var procUnique []int
 	for _, pid := range procPIDs {

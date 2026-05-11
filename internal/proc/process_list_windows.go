@@ -12,9 +12,16 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// listProcessSnapshot collects a lightweight view of running processes
+// ListProcesses returns a list of all running processes with basic details (PID, Command, State).
+// This is used by the TUI to display the process list.
+func ListProcesses() ([]model.Process, error) {
+	// TODO: Enrich this with more data (User, Memory, CPU) for the TUI
+	return ListProcessSnapshot()
+}
+
+// ListProcessSnapshot collects a lightweight view of running processes
 // for child/descendant discovery.
-func listProcessSnapshot() ([]model.Process, error) {
+func ListProcessSnapshot() ([]model.Process, error) {
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "Get-CimInstance -ClassName Win32_Process | Select-Object Name,ParentProcessId,ProcessId | ConvertTo-Csv -NoTypeInformation")
 	out, err := cmd.Output()
 	if err != nil {

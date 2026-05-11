@@ -3,13 +3,16 @@ package model
 import "time"
 
 type Process struct {
-	PID       int
-	PPID      int
-	Command   string
-	Cmdline   string
-	Exe       string
-	StartedAt time.Time
-	User      string
+	PID           int
+	PPID          int
+	Command       string
+	Cmdline       string
+	Exe           string
+	StartedAt     time.Time
+	User          string
+	CPUPercent    float64
+	MemoryRSS     uint64 // In bytes
+	MemoryPercent float64
 
 	WorkingDir string
 	GitRepo    string
@@ -31,6 +34,9 @@ type Process struct {
 
 	// True if the executable was deleted after the process started
 	ExeDeleted bool
+
+	// Linux capabilities (e.g., CAP_NET_BIND_SERVICE, CAP_SYS_ADMIN)
+	Capabilities []string `json:",omitempty"`
 
 	// Extended information for verbose output
 	Memory      MemoryInfo `json:",omitempty"`

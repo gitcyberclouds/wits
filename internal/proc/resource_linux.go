@@ -20,6 +20,11 @@ func GetResourceContext(pid int) *model.ResourceContext {
 	ctx.PreventsSleep = checkPreventsSleep(pid)
 	ctx.ThermalState = getThermalState()
 	ctx.AppNapped = getAppNapped(pid)
+
+	if cpu, err := GetCPUPercent(pid, true); err == nil {
+		ctx.CPUUsage = cpu
+	}
+
 	ctx.EnergyImpact = GetEnergyImpact(pid)
 	return ctx
 }
@@ -65,17 +70,14 @@ func checkPreventsSleep(pid int) bool {
 	pidStr := strconv.Itoa(pid)
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
-		// Check if this line references our PID and is a sleep prevention assertion
-		if !strings.Contains(line, pidStr) {
+		if !containsWholeWord(line, pidStr) {
 			continue
 		}
-		if strings.Contains(line, pidStr) {
-			lower := strings.ToLower(line)
-			if strings.Contains(lower, "sleep") ||
-				strings.Contains(lower, "idle") ||
-				strings.Contains(lower, "shutdown") {
-				return true
-			}
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "sleep") ||
+			strings.Contains(lower, "idle") ||
+			strings.Contains(lower, "shutdown") {
+			return true
 		}
 	}
 	return false
@@ -105,62 +107,10 @@ func getAppNapped(pid int) bool {
 	return state == "T" || state == "t"
 }
 
-// GetEnergyImpact attempts to get energy impact for a process
 func GetEnergyImpact(pid int, usePs ...bool) string {
-	var cpu float64
-
-	shouldUsePs := len(usePs) > 0 && usePs[0]
-
-	if shouldUsePs {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		out, err := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "pcpu=").Output()
-		if err != nil {
-			return ""
-		}
-
-		cpuStr := strings.TrimSpace(string(out))
-		if cpuStr == "" {
-			return ""
-		}
-
-		cpu, err = strconv.ParseFloat(cpuStr, 64)
-		if err != nil {
-			return ""
-		}
-	} else {
-		// Use top (default)
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		out, err := exec.CommandContext(ctx, "top", "-b", "-n", "1", "-p", strconv.Itoa(pid)).Output()
-		if err != nil {
-			return ""
-		}
-
-		lines := strings.Split(string(out), "\n")
-		found := false
-
-		for _, line := range lines {
-			if strings.Contains(line, strconv.Itoa(pid)) {
-				fields := strings.Fields(line)
-				// CPU% is generally the 9th field in top output
-				// Output pattern: PID USER PR NI VIRT RES SHR S %CPU %MEM TIME+ COMMAND
-				if len(fields) >= 9 {
-					cpuStr := strings.TrimSuffix(fields[8], "%")
-					cpu, err = strconv.ParseFloat(cpuStr, 64)
-					if err == nil {
-						found = true
-						break
-					}
-				}
-			}
-		}
-
-		if !found {
-			return ""
-		}
+	cpu, err := GetCPUPercent(pid, usePs...)
+	if err != nil {
+		return ""
 	}
 
 	switch {
@@ -177,4 +127,60 @@ func GetEnergyImpact(pid int, usePs ...bool) string {
 	default:
 		return ""
 	}
+}
+
+func GetCPUPercent(pid int, usePs ...bool) (float64, error) {
+	var cpu float64
+
+	shouldUsePs := len(usePs) > 0 && usePs[0]
+
+	if shouldUsePs {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		out, err := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "pcpu=").Output()
+		if err != nil {
+			return 0, err
+		}
+
+		cpuStr := strings.TrimSpace(string(out))
+		if cpuStr == "" {
+			return 0, fmt.Errorf("empty ps output")
+		}
+
+		cpu, err = strconv.ParseFloat(cpuStr, 64)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		// Use top (default)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		out, err := exec.CommandContext(ctx, "top", "-b", "-n", "1", "-p", strconv.Itoa(pid)).Output()
+		if err != nil {
+			return 0, err
+		}
+
+		lines := strings.Split(string(out), "\n")
+		found := false
+
+		for _, line := range lines {
+			fields := strings.Fields(line)
+			if len(fields) >= 9 && fields[0] == strconv.Itoa(pid) {
+				cpuStr := strings.TrimSuffix(fields[8], "%")
+				cpu, err = strconv.ParseFloat(cpuStr, 64)
+				if err == nil {
+					found = true
+					break
+				}
+			}
+		}
+
+		if !found {
+			return 0, fmt.Errorf("process not found in top output")
+		}
+	}
+
+	return cpu, nil
 }

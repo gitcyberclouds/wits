@@ -10,85 +10,79 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// readListeningSockets returns a map of pseudo-inodes to sockets
-// On macOS, we use lsof to get listening sockets
-// We use a combination of PID:port as the "inode" since macOS doesn't expose inodes like Linux
-func readListeningSockets() (map[string]model.Socket, error) {
-	sockets := make(map[string]model.Socket)
-
-	// Use lsof to get listening TCP sockets
-	// -i TCP = only TCP sockets
-	// -s TCP:LISTEN = only in LISTEN state
-	// -n = don't resolve hostnames
-	// -P = don't resolve port names
-	out, err := exec.Command("lsof", "-i", "TCP", "-s", "TCP:LISTEN", "-n", "-P", "-F", "pn").Output()
+func ListOpenPorts() ([]model.OpenPort, error) {
+	cmd := exec.Command("lsof", "-i", "-P", "-n")
+	out, err := cmd.Output()
 	if err != nil {
-		// lsof might fail without root, try netstat as fallback
-		return readListeningSocketsNetstat()
+		return nil, err
 	}
 
-	// Parse lsof -F output format
-	// p<pid>
-	// n<address>
-	var currentPID string
-	for line := range strings.Lines(string(out)) {
-		if len(line) == 0 {
+	var ports []model.OpenPort
+	lines := strings.Split(string(out), "\n")
+
+	startIdx := 0
+	if len(lines) > 0 && strings.HasPrefix(lines[0], "COMMAND") {
+		startIdx = 1
+	}
+
+	for _, line := range lines[startIdx:] {
+		fields := strings.Fields(line)
+		if len(fields) < 9 {
 			continue
 		}
-		switch line[0] {
-		case 'p':
-			currentPID = line[1:]
-		case 'n':
-			// Format: n*:8080 or n127.0.0.1:8080 or n[::1]:8080
-			addr := line[1:]
-			address, port := parseNetstatAddr(addr)
-			if port > 0 {
-				// Use PID:port as pseudo-inode
-				inode := currentPID + ":" + strconv.Itoa(port)
-				sockets[inode] = model.Socket{
-					Inode:   inode,
-					Port:    port,
-					Address: address,
+
+		pidStr := fields[1]
+		pid, err := strconv.Atoi(pidStr)
+		if err != nil {
+			continue
+		}
+
+		protocol := fields[7]
+		if protocol != "TCP" && protocol != "UDP" {
+			if strings.Contains(line, "TCP") {
+				protocol = "TCP"
+			} else if strings.Contains(line, "UDP") {
+				protocol = "UDP"
+			} else {
+				protocol = "UNKNOWN"
+			}
+		}
+
+		nameField := fields[8] // Address:Port
+		state := "UNKNOWN"
+		if len(fields) > 9 {
+			state = strings.Trim(fields[9], "()")
+		} else if protocol == "UDP" {
+			state = "OPEN"
+		}
+
+		addr, port := parseNetstatAddr(nameField)
+		if port == 0 {
+			lastColon := strings.LastIndex(nameField, ":")
+			if lastColon != -1 {
+				portStr := nameField[lastColon+1:]
+				if p, err := strconv.Atoi(portStr); err == nil {
+					port = p
+					addr = nameField[:lastColon]
+					if addr == "*" {
+						addr = "0.0.0.0"
+					}
 				}
 			}
 		}
-	}
 
-	return sockets, nil
-}
-
-func readListeningSocketsNetstat() (map[string]model.Socket, error) {
-	sockets := make(map[string]model.Socket)
-
-	// Use netstat as fallback
-	out, err := exec.Command("netstat", "-an", "-p", "tcp").Output()
-	if err != nil {
-		return sockets, nil
-	}
-
-	for line := range strings.Lines(string(out)) {
-		if !strings.Contains(line, "LISTEN") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 4 {
-			continue
-		}
-		// Local address is typically field 3 (0-indexed)
-		localAddr := fields[3]
-		address, port := parseNetstatAddr(localAddr)
 		if port > 0 {
-			// Generate a unique key
-			inode := "netstat:" + localAddr
-			sockets[inode] = model.Socket{
-				Inode:   inode,
-				Port:    port,
-				Address: address,
-			}
+			ports = append(ports, model.OpenPort{
+				PID:      pid,
+				Port:     port,
+				Address:  addr,
+				Protocol: protocol,
+				State:    state,
+			})
 		}
 	}
 
-	return sockets, nil
+	return ports, nil
 }
 
 // parseNetstatAddr parses addresses like "*.8080", "127.0.0.1.8080", "[::1].8080"
