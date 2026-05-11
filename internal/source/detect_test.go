@@ -198,10 +198,38 @@ func TestEnrichSocketInfo(t *testing.T) {
 	tests := []struct {
 		state           string
 		wantExplanation string
+		wantWorkaround  string // empty means no workaround should be set
 	}{
-		{"TIME_WAIT", "The local OS is holding the port in a protocol-wait state to ensure all packets are received."},
-		{"CLOSE_WAIT", "The remote end has closed the connection, but the local application hasn't responded."},
-		{"LISTEN", "The process is actively waiting for incoming connections."},
+		{
+			state:           "TIME_WAIT",
+			wantExplanation: "The local OS is holding the port in a protocol-wait state to ensure all packets are received.",
+			wantWorkaround:  "Wait ~60s for the OS to release it, or enable SO_REUSEADDR in your code.",
+		},
+		{
+			state:           "CLOSE_WAIT",
+			wantExplanation: "The remote end has closed the connection, but the local application hasn't responded.",
+			wantWorkaround:  "This usually indicates a resource leak in the application. Restart the process.",
+		},
+		{
+			state:           "LISTEN",
+			wantExplanation: "The process is actively waiting for incoming connections.",
+			wantWorkaround:  "", // no workaround for a healthy listener
+		},
+		{
+			state:           "ESTABLISHED",
+			wantExplanation: "The connection is active and data can be transferred.",
+			wantWorkaround:  "",
+		},
+		{
+			state:           "FIN_WAIT_1",
+			wantExplanation: "The connection is in the process of being closed.",
+			wantWorkaround:  "",
+		},
+		{
+			state:           "FIN_WAIT_2",
+			wantExplanation: "The connection is in the process of being closed.",
+			wantWorkaround:  "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -210,5 +238,32 @@ func TestEnrichSocketInfo(t *testing.T) {
 		if si.Explanation != tt.wantExplanation {
 			t.Errorf("state %s: got explanation %q, want %q", tt.state, si.Explanation, tt.wantExplanation)
 		}
+		if si.Workaround != tt.wantWorkaround {
+			t.Errorf("state %s: got workaround %q, want %q", tt.state, si.Workaround, tt.wantWorkaround)
+		}
 	}
+}
+
+// TestEnrichSocketInfoUnknownState ensures unknown states pass through
+// without panic and without populating either string. Forward-compatible
+// states added by newer kernels (e.g. NEW_SYN_RECV) must not corrupt the
+// record.
+func TestEnrichSocketInfoUnknownState(t *testing.T) {
+	si := &model.SocketInfo{State: "MYSTERY"}
+	EnrichSocketInfo(si)
+	if si.Explanation != "" || si.Workaround != "" {
+		t.Errorf("unknown state should leave fields blank, got explanation=%q workaround=%q",
+			si.Explanation, si.Workaround)
+	}
+}
+
+// TestEnrichSocketInfoNilSafe ensures EnrichSocketInfo is safe to call on a
+// nil pointer (some callers pass *SocketInfo conditionally).
+func TestEnrichSocketInfoNilSafe(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("EnrichSocketInfo(nil) panicked: %v", r)
+		}
+	}()
+	EnrichSocketInfo(nil)
 }

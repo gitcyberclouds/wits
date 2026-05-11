@@ -334,26 +334,8 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 
 	// Sockets section (address:port (proto | state))
 	if len(proc.Sockets) > 0 {
-		visible := make([]model.Socket, 0, len(proc.Sockets))
-		for _, s := range proc.Sockets {
-			if s.Address != "" && s.Port > 0 {
-				visible = append(visible, s)
-			}
-		}
-		// Group rows by address so the user can see all sockets on an
-		// interface together. Within an address, sort by port; ties break with
-		// LISTEN before connected sockets so the binding sits above its
-		// children.
-		sort.SliceStable(visible, func(i, j int) bool {
-			a, b := visible[i], visible[j]
-			if a.Address != b.Address {
-				return a.Address < b.Address
-			}
-			if a.Port != b.Port {
-				return a.Port < b.Port
-			}
-			return socketSortRank(a.State) < socketSortRank(b.State)
-		})
+		visible := visibleSockets(proc.Sockets)
+		sortSockets(visible)
 		count := len(visible)
 		for i, s := range visible {
 			if i >= MaxDisplayItems {
@@ -656,4 +638,32 @@ func socketSortRank(state string) int {
 	default:
 		return 3
 	}
+}
+
+// visibleSockets returns sockets that have enough information to be rendered.
+// Anything with a blank address or port-zero is silently dropped.
+func visibleSockets(sockets []model.Socket) []model.Socket {
+	out := make([]model.Socket, 0, len(sockets))
+	for _, s := range sockets {
+		if s.Address != "" && s.Port > 0 {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// sortSockets orders sockets for the Sockets section in place: addresses
+// grouped together, ports ascending within an address, LISTEN above
+// ESTABLISHED when they share an address:port pair.
+func sortSockets(sockets []model.Socket) {
+	sort.SliceStable(sockets, func(i, j int) bool {
+		a, b := sockets[i], sockets[j]
+		if a.Address != b.Address {
+			return a.Address < b.Address
+		}
+		if a.Port != b.Port {
+			return a.Port < b.Port
+		}
+		return socketSortRank(a.State) < socketSortRank(b.State)
+	})
 }
