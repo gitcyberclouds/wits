@@ -16,9 +16,13 @@ import (
 // ListProcesses returns a list of all running processes with basic details (PID, Command, State).
 // This is used by the TUI to display the process list.
 func ListProcesses() ([]model.Process, error) {
-	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, args
+	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, args.
 	// comm is excluded because it can contain spaces, which breaks strings.Fields parsing.
-	out, err := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,args").Output()
+	// LC_ALL=C is required so lstart yields the expected 5-token English format;
+	// otherwise field offsets shift and %cpu picks up the rss column
+	cmd := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,args")
+	cmd.Env = buildEnvForPS()
+	out, err := cmd.Output()
 	if err != nil {
 		// Fallback to fast snapshot if ps fails
 		return ListProcessSnapshot()
