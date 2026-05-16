@@ -9,38 +9,38 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-func TestRenderDockerFallback(t *testing.T) {
-	match := &model.DockerPortMatch{
-		ID:    "abc123",
-		Name:  "my-container",
-		Image: "nginx:latest",
-		Ports: "0.0.0.0:8080->80/tcp",
+func TestRenderContainerFallback(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime: "docker",
+		ID:      "abc123",
+		Name:    "my-container",
+		Image:   "nginx:latest",
+		Ports:   "0.0.0.0:8080->80/tcp",
 	}
 
 	var buf bytes.Buffer
-	RenderDockerFallback(&buf, "8080", match, false)
+	RenderContainerFallback(&buf, "port 8080", match, false, false)
 	out := buf.String()
 
 	expected := []string{
 		"Target      : port 8080",
-		"Container   : my-container",
+		"Container   : my-container (id abc123)",
 		"Image       : nginx:latest",
-		"Ports       : 0.0.0.0:8080->80/tcp",
+		"Sockets     : 0.0.0.0:8080->80/tcp",
 		"Why It Exists",
-		"Docker Desktop",
 		"Source      : docker",
 		"Note",
 	}
-
 	for _, want := range expected {
 		if !strings.Contains(out, want) {
-			t.Errorf("RenderDockerFallback output missing %q\nGot:\n%s", want, out)
+			t.Errorf("RenderContainerFallback output missing %q\nGot:\n%s", want, out)
 		}
 	}
 }
 
-func TestRenderDockerFallbackWithCompose(t *testing.T) {
-	match := &model.DockerPortMatch{
+func TestRenderContainerFallbackWithCompose(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime:        "docker",
 		ID:             "abc123",
 		Name:           "myapp-db-1",
 		Image:          "postgres:16",
@@ -50,7 +50,7 @@ func TestRenderDockerFallbackWithCompose(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	RenderDockerFallback(&buf, "5432", match, false)
+	RenderContainerFallback(&buf, "port 5432", match, false, false)
 	out := buf.String()
 
 	if !strings.Contains(out, "docker-compose: myapp/db") {
@@ -58,46 +58,117 @@ func TestRenderDockerFallbackWithCompose(t *testing.T) {
 	}
 }
 
-func TestRenderDockerFallbackShort(t *testing.T) {
-	match := &model.DockerPortMatch{
-		ID:    "abc123",
-		Name:  "my-container",
-		Image: "nginx:latest",
-		Ports: "0.0.0.0:8080->80/tcp",
+func TestRenderContainerFallbackRuntimeLabel(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime: "podman",
+		ID:      "def456",
+		Name:    "rootless",
+		Image:   "alpine:3",
 	}
 
 	var buf bytes.Buffer
-	RenderDockerFallbackShort(&buf, "8080", match, false)
+	RenderContainerFallback(&buf, "container rootless", match, false, false)
 	out := buf.String()
 
-	if !strings.Contains(out, "my-container") {
-		t.Errorf("short output missing container name, got: %s", out)
+	if !strings.Contains(out, "Source      : podman") {
+		t.Errorf("expected podman source label, got:\n%s", out)
 	}
-	if !strings.Contains(out, "nginx:latest") {
-		t.Errorf("short output missing image, got: %s", out)
+}
+
+func TestRenderContainerFallbackShort(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime: "docker",
+		ID:      "abc123",
+		Name:    "my-container",
+		Image:   "nginx:latest",
+		Ports:   "0.0.0.0:8080->80/tcp",
 	}
-	if !strings.Contains(out, "[docker]") {
-		t.Errorf("short output missing source, got: %s", out)
+
+	var buf bytes.Buffer
+	RenderContainerFallbackShort(&buf, "port 8080", match, false)
+	out := buf.String()
+
+	want := "docker → my-container"
+	if !strings.Contains(out, want) {
+		t.Errorf("short output missing %q, got: %s", want, out)
 	}
-	// Should be a single line
 	if strings.Count(out, "\n") != 1 {
 		t.Errorf("short output should be single line, got: %s", out)
 	}
 }
 
-func TestDockerFallbackToJSON(t *testing.T) {
-	match := &model.DockerPortMatch{
+func TestRenderContainerFallbackShortWithCompose(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime:        "docker",
 		ID:             "abc123",
-		Name:           "sql-proxy",
-		Image:          "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.13.0",
-		Ports:          "127.0.0.1:5432->5432/tcp",
-		ComposeProject: "",
-		ComposeService: "",
+		Name:           "redis",
+		Image:          "redis:7-alpine",
+		ComposeProject: "myapp",
+		ComposeService: "redis",
 	}
 
-	jsonStr, err := DockerFallbackToJSON("5432", match)
+	var buf bytes.Buffer
+	RenderContainerFallbackShort(&buf, "container redis", match, false)
+	out := buf.String()
+
+	want := "docker → myapp (docker-compose) → redis"
+	if !strings.Contains(out, want) {
+		t.Errorf("short output missing chain %q, got: %s", want, out)
+	}
+}
+
+func TestRenderContainerFallbackTree(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime:        "docker",
+		ID:             "abc123",
+		Name:           "redis",
+		Image:          "redis:7-alpine",
+		ComposeProject: "myapp",
+		ComposeService: "redis",
+	}
+
+	var buf bytes.Buffer
+	RenderContainerFallbackTree(&buf, match, false)
+	out := buf.String()
+
+	for _, want := range []string{"docker\n", "└─ myapp (docker-compose)", "└─ redis"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("tree output missing %q, got:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderContainerFallbackWarnings(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime: "docker",
+		ID:      "abc123",
+		Name:    "redis",
+		Image:   "redis:7-alpine",
+	}
+
+	var buf bytes.Buffer
+	RenderContainerFallbackWarnings(&buf, match, false)
+	out := buf.String()
+
+	for _, want := range []string{"Container   : redis", "No warnings"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("warnings output missing %q, got: %s", want, out)
+		}
+	}
+}
+
+func TestContainerFallbackToJSON(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime: "docker",
+		ID:      "abc123",
+		Name:    "sql-proxy",
+		Image:   "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.13.0",
+		Ports:   "127.0.0.1:5432->5432/tcp",
+	}
+
+	jsonStr, err := ContainerFallbackToJSON("port 5432", match)
 	if err != nil {
-		t.Fatalf("DockerFallbackToJSON() error: %v", err)
+		t.Fatalf("ContainerFallbackToJSON() error: %v", err)
 	}
 
 	var result map[string]interface{}
@@ -111,13 +182,17 @@ func TestDockerFallbackToJSON(t *testing.T) {
 	if result["ContainerName"] != "sql-proxy" {
 		t.Errorf("ContainerName = %v, want %q", result["ContainerName"], "sql-proxy")
 	}
+	if result["Runtime"] != "docker" {
+		t.Errorf("Runtime = %v, want %q", result["Runtime"], "docker")
+	}
 	if result["Source"] != "docker" {
 		t.Errorf("Source = %v, want %q", result["Source"], "docker")
 	}
 }
 
-func TestDockerFallbackToJSONCompose(t *testing.T) {
-	match := &model.DockerPortMatch{
+func TestContainerFallbackToJSONCompose(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime:        "docker",
 		ID:             "def456",
 		Name:           "myapp-db-1",
 		Image:          "postgres:16",
@@ -126,9 +201,9 @@ func TestDockerFallbackToJSONCompose(t *testing.T) {
 		ComposeService: "db",
 	}
 
-	jsonStr, err := DockerFallbackToJSON("5432", match)
+	jsonStr, err := ContainerFallbackToJSON("port 5432", match)
 	if err != nil {
-		t.Fatalf("DockerFallbackToJSON() error: %v", err)
+		t.Fatalf("ContainerFallbackToJSON() error: %v", err)
 	}
 
 	var result map[string]interface{}
@@ -141,17 +216,17 @@ func TestDockerFallbackToJSONCompose(t *testing.T) {
 	}
 }
 
-func TestRenderDockerFallbackSanitizesOutput(t *testing.T) {
-	// Simulate a malicious container name with ANSI escape sequence
-	match := &model.DockerPortMatch{
-		ID:    "abc123",
-		Name:  "evil\x1b[31mcontainer",
-		Image: "evil\x1b[0mimage",
-		Ports: "0.0.0.0:80->80/tcp",
+func TestRenderContainerFallbackSanitizesOutput(t *testing.T) {
+	match := &model.ContainerMatch{
+		Runtime: "docker",
+		ID:      "abc123",
+		Name:    "evil\x1b[31mcontainer",
+		Image:   "evil\x1b[0mimage",
+		Ports:   "0.0.0.0:80->80/tcp",
 	}
 
 	var buf bytes.Buffer
-	RenderDockerFallback(&buf, "80", match, false)
+	RenderContainerFallback(&buf, "port 80", match, false, false)
 	out := buf.String()
 
 	if strings.Contains(out, "\x1b") {

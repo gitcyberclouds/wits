@@ -23,8 +23,11 @@ witr [process name...] [flags]
   # Find the process listening on a specific port
   witr --port 5432
 
-  # Find the process holding a lock on a file
+  # Find the process holding a file open
   witr --file /var/lib/dpkg/lock
+
+  # Inspect a container by name
+  witr --container redis
 
   # Inspect a process by name with exact matching (no fuzzy search)
   witr bun --exact
@@ -66,18 +69,19 @@ witr [process name...] [flags]
 ### Options
 
 ```
-      --env            show environment variables for the process
-  -x, --exact          use exact name matching (no substring search)
-  -f, --file strings   file path(s) to find process for (repeatable)
-  -h, --help           help for witr
-  -i, --interactive    interactive mode (TUI)
-      --json           show result as JSON
-      --no-color       disable colorized output
-  -p, --pid strings    pid(s) to look up (repeatable)
-  -o, --port strings   port(s) to look up (repeatable)
-  -s, --short          show only ancestry
-  -t, --tree           show only ancestry as a tree
-      --verbose        show extended process information
-      --warnings       show only warnings
+  -c, --container strings   container(s) to look up (repeatable)
+      --env                 show environment variables for the process
+  -x, --exact               use exact name matching (no substring search)
+  -f, --file strings        file(s) held open by a process (repeatable)
+  -h, --help                help for witr
+  -i, --interactive         interactive mode (TUI)
+      --json                show result as JSON
+      --no-color            disable colorized output
+  -p, --pid strings         pid(s) to look up (repeatable)
+  -o, --port strings        port(s) to look up (repeatable)
+  -s, --short               show only ancestry
+  -t, --tree                show only ancestry as a tree
+      --verbose             show extended process information
+      --warnings            show only warnings
 ```
 

@@ -20,9 +20,9 @@ type Process struct {
 	Container  string
 	Service    string
 
-	// Network context
-	ListeningPorts []int
-	BindAddresses  []string
+	// Network context — every socket the process owns (LISTEN, ESTABLISHED,
+	// CLOSE_WAIT, etc.). Each entry carries protocol and state.
+	Sockets []Socket
 
 	// Health status ("healthy", "zombie", "stopped", "high-cpu", "high-mem")
 	Health string

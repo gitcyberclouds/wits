@@ -5,82 +5,79 @@ package target
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"strconv"
 	"strings"
 
 	procpkg "github.com/pranshuparmar/witr/internal/proc"
 )
 
+// ResolveName matches running processes by name (and, when needed, command
+// line). The first pass uses ToolHelp32 (instant, no PowerShell) and matches
+// against the executable basename. If nothing matches and the user wants
+// fuzzy/exact-token matching that includes the command line, only then do we
+// pay for per-PID PEB reads — bounded to candidates that survive a cheap
+// pre-filter.
 func ResolveName(name string, exact bool) ([]int, error) {
-	// powershell Get-CimInstance Win32_Process
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "Get-CimInstance -ClassName Win32_Process | ForEach-Object { 'Name=' + $_.Name; 'CommandLine=' + $_.CommandLine; 'ProcessId=' + $_.ProcessId }").Output()
+	procs, err := procpkg.ListProcessSnapshot()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("enumerate processes: %w", err)
 	}
 
-	var pids []int
 	lowerName := strings.ToLower(name)
-	lines := strings.Split(string(out), "\n")
-
-	var currentPID int
-	var currentName string
-	var currentCmd string
-
 	selfPid := os.Getpid()
-
-	// Resolve own ancestry to exclude parents (sudo, shell, etc.) from matching
-	ignoredPids := make(map[int]bool)
-	ignoredPids[selfPid] = true
+	ignoredPids := map[int]bool{selfPid: true}
 	if ancestry, err := procpkg.ResolveAncestry(selfPid); err == nil {
 		for _, p := range ancestry {
 			ignoredPids[p.PID] = true
 		}
 	}
 
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	// Pass 1: name-only match against the executable basename. This is
+	// equivalent to what `Get-CimInstance Win32_Process | Select Name`
+	// returned and covers the typical `witr chrome.exe` case.
+	var pids []int
+	var nameMatched bool
+	for _, p := range procs {
+		if ignoredPids[p.PID] {
 			continue
 		}
+		exeLower := strings.ToLower(p.Command)
+		var match bool
+		if exact {
+			match = exeLower == lowerName
+		} else {
+			match = strings.Contains(exeLower, lowerName)
+		}
+		if match {
+			pids = append(pids, p.PID)
+			nameMatched = true
+		}
+	}
+	if nameMatched {
+		return pids, nil
+	}
 
-		if strings.HasPrefix(line, "CommandLine=") {
-			currentCmd = strings.TrimPrefix(line, "CommandLine=")
-		} else if strings.HasPrefix(line, "Name=") {
-			currentName = strings.TrimPrefix(line, "Name=")
-		} else if strings.HasPrefix(line, "ProcessId=") {
-			val := strings.TrimPrefix(line, "ProcessId=")
-			currentPID, _ = strconv.Atoi(val)
-
-			// Check match
-			if currentPID != 0 {
-				// Exclude self and ancestry
-				if ignoredPids[currentPID] {
-					// Reset
-					currentPID = 0
-					currentName = ""
-					currentCmd = ""
-					continue
-				}
-
-				var match bool
-				if exact {
-					match = strings.ToLower(currentName) == lowerName
-					if !match {
-						match = matchesExactToken(strings.ToLower(currentCmd), lowerName)
-					}
-				} else {
-					match = strings.Contains(strings.ToLower(currentName), lowerName) ||
-						strings.Contains(strings.ToLower(currentCmd), lowerName)
-				}
-				if match {
-					pids = append(pids, currentPID)
-				}
-			}
-			// Reset
-			currentPID = 0
-			currentName = ""
-			currentCmd = ""
+	// Pass 2: cmdline match. Resolving the command line on Windows requires
+	// reading each candidate's PEB, which is more expensive than the snapshot
+	// scan. Only do it when the name pass produced nothing, and bound the
+	// work by skipping ignored PIDs.
+	for _, p := range procs {
+		if ignoredPids[p.PID] {
+			continue
+		}
+		// Best-effort PEB read; if denied (e.g. SYSTEM-owned), skip.
+		info, err := procpkg.GetProcessDetailedInfo(p.PID)
+		if err != nil {
+			continue
+		}
+		cmdLower := strings.ToLower(info.CommandLine)
+		var match bool
+		if exact {
+			match = matchesExactToken(cmdLower, lowerName)
+		} else {
+			match = strings.Contains(cmdLower, lowerName)
+		}
+		if match {
+			pids = append(pids, p.PID)
 		}
 	}
 

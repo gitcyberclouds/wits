@@ -103,6 +103,8 @@ type tab int
 const (
 	tabProcesses tab = iota
 	tabPorts
+	tabContainers
+	tabLocks
 )
 
 type modelState int
@@ -133,36 +135,50 @@ const (
 )
 
 type MainModel struct {
-	state           modelState
-	table           table.Model
-	input           textinput.Model
-	viewport        viewport.Model
-	treeViewport    viewport.Model
-	envViewport     viewport.Model
-	processes       []model.Process
-	filtered        []model.Process
-	selectedDetail  *model.Result
-	detailFocus     focusState
-	listFocus       focusState
-	activeTab       tab
-	portTable       table.Model
-	portDetailTable table.Model
-	portInput       textinput.Model
-	ports           []model.OpenPort
-	statusMsg       string // transient status/error message shown in status line
-	width           int
-	height          int
-	quitting        bool
+	state              modelState
+	table              table.Model
+	input              textinput.Model
+	viewport           viewport.Model
+	treeViewport       viewport.Model
+	envViewport        viewport.Model
+	processes          []model.Process
+	filtered           []model.Process
+	selectedDetail     *model.Result
+	detailFocus        focusState
+	listFocus          focusState
+	activeTab          tab
+	portTable          table.Model
+	portDetailTable    table.Model
+	portInput          textinput.Model
+	ports              []model.OpenPort
+	containerTable     table.Model
+	containerInput     textinput.Model
+	containers         []*model.ContainerMatch
+	filteredContainers []*model.ContainerMatch
+	selectedContainer  *model.ContainerMatch
+	lockTable          table.Model
+	lockInput          textinput.Model
+	locks              []*model.LockedFile
+	filteredLocks      []*model.LockedFile
+	statusMsg          string // transient status/error message shown in status line
+	width              int
+	height             int
+	quitting           bool
 
 	selectionID int
 
-	sortCol      string
-	sortDesc     bool
-	sortPortCol  string
-	sortPortDesc bool
-	showAllPorts bool
-	showCmdCol   bool
-	version      string
+	sortCol           string
+	sortDesc          bool
+	sortPortCol       string
+	sortPortDesc      bool
+	sortContainerCol  string
+	sortContainerDesc bool
+	sortLockCol       string
+	sortLockDesc      bool
+	showAllPorts      bool
+	showAllFiles      bool
+	showCmdCol        bool
+	version           string
 
 	// Mouse double-click tracking
 	lastClickTime time.Time
@@ -229,6 +245,52 @@ func InitialModel(version string) MainModel {
 	)
 	pdt.SetStyles(s)
 
+	containerColumns := []table.Column{
+		{Title: "ID", Width: 14},
+		{Title: "Name", Width: 22},
+		{Title: "Runtime", Width: 10},
+		{Title: "Image", Width: 28},
+		{Title: "Status", Width: 22},
+		{Title: "Ports", Width: 24},
+		{Title: "Command", Width: 28},
+	}
+	ct := table.New(
+		table.WithColumns(containerColumns),
+		table.WithFocused(true),
+		table.WithHeight(20),
+	)
+	ct.SetStyles(s)
+
+	lockColumns := []table.Column{
+		{Title: centerHeader("PID", 8), Width: 8},
+		{Title: "Process", Width: 18},
+		{Title: "Type", Width: 8},
+		{Title: "Mode", Width: 8},
+		{Title: "Path", Width: 50},
+	}
+	lt := table.New(
+		table.WithColumns(lockColumns),
+		table.WithFocused(true),
+		table.WithHeight(20),
+	)
+	lt.SetStyles(s)
+
+	li := textinput.New()
+	li.Placeholder = "Search PID, Process, Type, Mode, Path..."
+	li.CharLimit = 156
+	li.Width = 50
+	li.Prompt = "> "
+	li.PromptStyle = promptStyle
+	li.Blur()
+
+	ci := textinput.New()
+	ci.Placeholder = "Search ID, Name, Runtime, Image, Status, Ports, Command..."
+	ci.CharLimit = 156
+	ci.Width = 50
+	ci.Prompt = "> "
+	ci.PromptStyle = promptStyle
+	ci.Blur()
+
 	ti := textinput.New()
 	ti.Placeholder = "Search PID, Name, User, Command..."
 	ti.CharLimit = 156
@@ -261,24 +323,32 @@ func InitialModel(version string) MainModel {
 	ri.Blur()
 
 	return MainModel{
-		state:           stateList,
-		table:           t,
-		portTable:       pt,
-		portDetailTable: pdt,
-		input:           ti,
-		portInput:       pi,
-		viewport:        vp,
-		treeViewport:    tvp,
-		envViewport:     evp,
-		reniceInput:     ri,
-		detailFocus:     focusDetail,
-		listFocus:       focusMain,
-		activeTab:       tabProcesses,
-		sortCol:         "mem",
-		sortDesc:        true,
-		sortPortCol:     "port",
-		sortPortDesc:    false,
-		version:         version,
+		state:             stateList,
+		table:             t,
+		portTable:         pt,
+		portDetailTable:   pdt,
+		containerTable:    ct,
+		containerInput:    ci,
+		lockTable:         lt,
+		lockInput:         li,
+		input:             ti,
+		portInput:         pi,
+		viewport:          vp,
+		treeViewport:      tvp,
+		envViewport:       evp,
+		reniceInput:       ri,
+		detailFocus:       focusDetail,
+		listFocus:         focusMain,
+		activeTab:         tabProcesses,
+		sortCol:           "mem",
+		sortDesc:          true,
+		sortPortCol:       "port",
+		sortPortDesc:      false,
+		sortContainerCol:  "name",
+		sortContainerDesc: false,
+		sortLockCol:       "pid",
+		sortLockDesc:      false,
+		version:           version,
 	}
 }
 

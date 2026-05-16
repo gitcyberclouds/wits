@@ -33,8 +33,19 @@ func ResolvePort(port int) ([]int, error) {
 	}
 
 	if len(pidSet) == 0 {
-		// Try alternative: netstat fallback
-		return resolvePortNetstat(port)
+		// Fallback: include processes with connected (non-listening) sockets
+		// on this port — `lsof -i :port` matches either side of the connection.
+		if out, err := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port), "-n", "-P", "-t").Output(); err == nil {
+			for _, pidStr := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+				if pid, err := strconv.Atoi(strings.TrimSpace(pidStr)); err == nil && pid > 0 {
+					pidSet[pid] = true
+				}
+			}
+		}
+		if len(pidSet) == 0 {
+			// Try alternative: netstat fallback
+			return resolvePortNetstat(port)
+		}
 	}
 
 	// collect all owning pids so callers can handle multi-owner sockets
@@ -49,24 +60,33 @@ func ResolvePort(port int) ([]int, error) {
 
 func resolvePortNetstat(port int) ([]int, error) {
 	pidSet := make(map[int]bool)
+	fallbackSet := make(map[int]bool)
 	portStr := fmt.Sprintf(".%d", port)
 
-	// Check TCP listeners: netstat -anv -p tcp
+	// Check TCP: netstat -anv -p tcp
 	if out, err := exec.Command("netstat", "-anv", "-p", "tcp").Output(); err == nil {
 		for line := range strings.Lines(string(out)) {
-			if !strings.Contains(line, "LISTEN") {
+			fields := strings.Fields(line)
+			if len(fields) < 9 {
 				continue
 			}
-			fields := strings.Fields(line)
-			if len(fields) >= 9 && strings.HasSuffix(fields[3], portStr) {
-				if pid, err := strconv.Atoi(fields[8]); err == nil && pid > 0 {
-					pidSet[pid] = true
-				}
+			// Local address may be in field 3 (IPv4) or 4 (IPv6 with -v); be lenient.
+			if !strings.HasSuffix(fields[3], portStr) && !(len(fields) > 4 && strings.HasSuffix(fields[4], portStr)) {
+				continue
+			}
+			pid, err := strconv.Atoi(fields[8])
+			if err != nil || pid <= 0 {
+				continue
+			}
+			if strings.Contains(line, "LISTEN") {
+				pidSet[pid] = true
+			} else {
+				fallbackSet[pid] = true
 			}
 		}
 	}
 
-	// Check UDP bound sockets: netstat -anv -p udp
+	// Check UDP bound/connected sockets: netstat -anv -p udp (no LISTEN state).
 	if out, err := exec.Command("netstat", "-anv", "-p", "udp").Output(); err == nil {
 		for line := range strings.Lines(string(out)) {
 			fields := strings.Fields(line)
@@ -76,6 +96,10 @@ func resolvePortNetstat(port int) ([]int, error) {
 				}
 			}
 		}
+	}
+
+	if len(pidSet) == 0 && len(fallbackSet) > 0 {
+		pidSet = fallbackSet
 	}
 
 	result := make([]int, 0, len(pidSet))

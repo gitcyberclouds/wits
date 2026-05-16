@@ -49,6 +49,24 @@ func TestFindLongHexID(t *testing.T) {
 	}
 }
 
+func TestShortID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		in, want string
+	}{
+		{"a1b2c3d4e5f6a1b2c3d4e5f6", "a1b2c3d4e5f6"},
+		{"a1b2c3d4e5f6", "a1b2c3d4e5f6"},
+		{"a1b2", "a1b2"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := shortID(tt.in); got != tt.want {
+			t.Errorf("shortID(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestExtractFlagValue(t *testing.T) {
 	tests := []struct {
 		name    string

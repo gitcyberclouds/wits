@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -163,31 +162,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			out.Printf("Command     : %s\n", proc.Command)
 		}
 	}
-	// Format as: 2 days ago (Mon 2025-02-02 11:42:10 +0530)
-	startedAt := proc.StartedAt
-	now := time.Now()
-	dur := now.Sub(startedAt)
-	var rel string
-	switch {
-	case dur.Hours() >= 48:
-		days := int(dur.Hours()) / 24
-		rel = fmt.Sprintf("%d days ago", days)
-	case dur.Hours() >= 24:
-		rel = "1 day ago"
-	case dur.Hours() >= 2:
-		hours := int(dur.Hours())
-		rel = fmt.Sprintf("%d hours ago", hours)
-	case dur.Minutes() >= 60:
-		rel = "1 hour ago"
-	default:
-		mins := int(dur.Minutes())
-		if mins > 0 {
-			rel = fmt.Sprintf("%d min ago", mins)
-		} else {
-			rel = "just now"
-		}
-	}
-	dtStr := startedAt.Format("Mon 2006-01-02 15:04:05 -07:00")
+	rel, dtStr := FormatStartedAt(proc.StartedAt)
 	if colorEnabled {
 		out.Printf("%sStarted%s     : %s (%s)\n", ColorMagenta, ColorReset, rel, dtStr)
 	} else {
@@ -331,35 +306,24 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		}
 	}
 
-	// Listening section (address:port)
-	if len(proc.ListeningPorts) > 0 && len(proc.BindAddresses) == len(proc.ListeningPorts) {
-		count := len(proc.ListeningPorts)
-		displayed := 0
-		for i := range proc.ListeningPorts {
-			if displayed >= MaxDisplayItems {
-				remaining := count - displayed
-				out.Printf("              ... and %d more\n", remaining)
+	// Sockets section (address:port (proto | state))
+	if len(proc.Sockets) > 0 {
+		visible := visibleSockets(proc.Sockets)
+		sortSockets(visible)
+		count := len(visible)
+		for i, s := range visible {
+			if i >= MaxDisplayItems {
+				out.Printf("              ... and %d more\n", count-i)
 				break
 			}
-			addr := proc.BindAddresses[i]
-			port := proc.ListeningPorts[i]
-			if addr != "" && port > 0 {
-				hostPort := net.JoinHostPort(addr, strconv.Itoa(port))
-				safeHostPort := SanitizeTerminal(hostPort)
-				if colorEnabled {
-					if i == 0 {
-						out.Printf("%sListening%s   : %s\n", ColorGreen, ColorReset, safeHostPort)
-					} else {
-						out.Printf("              %s\n", safeHostPort)
-					}
-				} else {
-					if i == 0 {
-						out.Printf("Listening   : %s\n", safeHostPort)
-					} else {
-						out.Printf("              %s\n", safeHostPort)
-					}
-				}
-				displayed++
+			line := SanitizeTerminal(formatSocket(s))
+			switch {
+			case i == 0 && colorEnabled:
+				out.Printf("%sSockets%s     : %s\n", ColorGreen, ColorReset, line)
+			case i == 0:
+				out.Printf("Sockets     : %s\n", line)
+			default:
+				out.Printf("              %s\n", line)
 			}
 		}
 	}
@@ -602,4 +566,74 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			PrintChildren(w, r.Process, r.Children, colorEnabled)
 		}
 	}
+}
+
+// formatSocket renders one row of the Sockets section as
+// "<address>:<port> (<PROTO> | <STATE>)".
+func formatSocket(s model.Socket) string {
+	addr := s.Address
+	hostPort := net.JoinHostPort(addr, strconv.Itoa(s.Port))
+	proto := s.Protocol
+	if proto == "" {
+		proto = "?"
+	}
+	state := displayState(s.State)
+	return fmt.Sprintf("%s (%s | %s)", hostPort, proto, state)
+}
+
+// displayState pretty-prints socket states. The kernel-style "LISTEN" reads
+// awkwardly next to "ESTABLISHED" / "CLOSE_WAIT", so it's expanded here.
+func displayState(state string) string {
+	switch state {
+	case "":
+		return "?"
+	case "LISTEN":
+		return "LISTENING"
+	default:
+		return state
+	}
+}
+
+// socketSortRank orders sockets so listeners come first, then connected
+// sockets, then everything else. Within a rank, the renderer further sorts by
+// port for stable output.
+func socketSortRank(state string) int {
+	switch state {
+	case "LISTEN":
+		return 0
+	case "OPEN": // bound UDP — the UDP equivalent of LISTEN
+		return 1
+	case "ESTABLISHED":
+		return 2
+	default:
+		return 3
+	}
+}
+
+// visibleSockets returns sockets that have enough information to be rendered.
+// Anything with a blank address or port-zero is silently dropped.
+func visibleSockets(sockets []model.Socket) []model.Socket {
+	out := make([]model.Socket, 0, len(sockets))
+	for _, s := range sockets {
+		if s.Address != "" && s.Port > 0 {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// sortSockets orders sockets for the Sockets section in place: addresses
+// grouped together, ports ascending within an address, LISTEN above
+// ESTABLISHED when they share an address:port pair.
+func sortSockets(sockets []model.Socket) {
+	sort.SliceStable(sockets, func(i, j int) bool {
+		a, b := sockets[i], sockets[j]
+		if a.Address != b.Address {
+			return a.Address < b.Address
+		}
+		if a.Port != b.Port {
+			return a.Port < b.Port
+		}
+		return socketSortRank(a.State) < socketSortRank(b.State)
+	})
 }

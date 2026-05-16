@@ -74,6 +74,76 @@ func TestResolvePIDWithExactFlag(t *testing.T) {
 	}
 }
 
+func TestMatchesExactToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cmdline string
+		needle  string
+		want    bool
+	}{
+		{
+			name:    "matches a path segment in the executable arg",
+			cmdline: "/usr/bin/nginx -g daemon off",
+			needle:  "nginx",
+			want:    true,
+		},
+		{
+			name:    "matches path component (snap pattern)",
+			cmdline: "/snap/core24/1349/bin/python",
+			needle:  "core24",
+			want:    true,
+		},
+		{
+			name:    "does not match substring of a token",
+			cmdline: "/usr/local/bin/foo-bar",
+			needle:  "foo",
+			want:    false,
+		},
+		{
+			name:    "matches a bare argument",
+			cmdline: "node server.js production",
+			needle:  "node",
+			want:    true,
+		},
+		{
+			name:    "matches across backslash-separated paths (Windows-style)",
+			cmdline: `C:\Program Files\App\bin.exe`,
+			needle:  "App",
+			want:    true,
+		},
+		{
+			name:    "does not match partial filename",
+			cmdline: "/usr/bin/python3",
+			needle:  "python",
+			want:    false,
+		},
+		{
+			name:    "matches file basename with extension",
+			cmdline: `C:\Program Files\App\witr.exe`,
+			needle:  "witr.exe",
+			want:    true,
+		},
+		{
+			name:    "empty cmdline never matches",
+			cmdline: "",
+			needle:  "nginx",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := matchesExactToken(tt.cmdline, tt.needle); got != tt.want {
+				t.Errorf("matchesExactToken(%q, %q) = %v, want %v", tt.cmdline, tt.needle, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestResolvePortWithExactFlag(t *testing.T) {
 	tests := []struct {
 		name  string

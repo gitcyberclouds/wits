@@ -1,59 +1,36 @@
+//go:build windows
+
 package proc
 
 import (
 	"fmt"
-	"os/exec"
-	"strconv"
-	"strings"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
 // ResolveChildren returns the direct child processes for the provided PID.
-// Windows implementation using direct powershell query instead of global snapshot.
+// Backed by ToolHelp32 so it never blocks on a stalled WMI/CIM service.
 func ResolveChildren(pid int) ([]model.Process, error) {
 	if pid <= 0 {
 		return nil, fmt.Errorf("invalid pid")
 	}
 
-	children := make([]model.Process, 0)
-
-	// powershell Get-CimInstance Win32_Process
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", fmt.Sprintf("Get-CimInstance -ClassName Win32_Process -Filter \"ParentProcessId=%d\" | Select-Object Name,ProcessId | ConvertTo-Csv -NoTypeInformation", pid))
-	out, err := cmd.Output()
+	procs, err := enumerateProcesses()
 	if err != nil {
-		return nil, fmt.Errorf("powershell child query: %w", err)
+		return nil, fmt.Errorf("enumerate processes: %w", err)
 	}
 
-	// Parse CSV output cleanly
-	// "Name","ProcessId"
-	// "chrome.exe","1234"
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "\"Name\"") {
+	children := make([]model.Process, 0)
+	for _, p := range procs {
+		if p.PPID != pid {
 			continue
 		}
-
-		parts := strings.Split(line, ",")
-		// "chrome.exe","1234"
-		if len(parts) >= 2 {
-			pidStr := strings.Trim(parts[len(parts)-1], "\"")
-			name := strings.Trim(parts[len(parts)-2], "\"")
-
-			cpid, err := strconv.Atoi(pidStr)
-			if err != nil {
-				continue
-			}
-
-			children = append(children, model.Process{
-				PID:     cpid,
-				PPID:    pid,
-				Command: name,
-			})
-		}
+		children = append(children, model.Process{
+			PID:     p.PID,
+			PPID:    p.PPID,
+			Command: p.Exe,
+		})
 	}
-
 	sortProcesses(children)
 	return children, nil
 }

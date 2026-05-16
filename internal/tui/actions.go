@@ -8,6 +8,8 @@ import (
 	"syscall"
 )
 
+const actionsSupported = true
+
 func killProcess(pid int) error   { return sendSignal(pid, syscall.SIGKILL) }
 func termProcess(pid int) error   { return sendSignal(pid, syscall.SIGTERM) }
 func pauseProcess(pid int) error  { return sendSignal(pid, syscall.SIGSTOP) }

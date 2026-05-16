@@ -4,6 +4,8 @@ package tui
 
 import "fmt"
 
+const actionsSupported = false
+
 func killProcess(pid int) error    { return fmt.Errorf("not supported on Windows") }
 func termProcess(pid int) error    { return fmt.Errorf("not supported on Windows") }
 func pauseProcess(pid int) error   { return fmt.Errorf("not supported on Windows") }

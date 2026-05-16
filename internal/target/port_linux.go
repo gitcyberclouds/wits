@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func findSocketInodes(port int) (map[string]bool, error) {
+func findSocketInodes(port int, listenersOnly bool) (map[string]bool, error) {
 	inodes := make(map[string]bool)
 
 	type procNetFile struct {
@@ -39,18 +39,22 @@ func findSocketInodes(port int) (map[string]bool, error) {
 				continue
 			}
 
-			localAddr := fields[1]
-			parts := strings.Split(localAddr, ":")
-			if len(parts) != 2 {
+			localParts := strings.Split(fields[1], ":")
+			if len(localParts) != 2 {
 				continue
 			}
+			remoteParts := strings.Split(fields[2], ":")
 
 			state := fields[3]
 			if f.isTCP {
-				// 0A = TCP_LISTEN — only report actual listeners
-				if state != "0A" {
-					continue
+				if listenersOnly {
+					// 0A = TCP_LISTEN — only report actual listeners
+					if state != "0A" {
+						continue
+					}
 				}
+				// In fallback mode, accept any TCP state so connected sockets
+				// (ESTABLISHED, TIME_WAIT, etc.) are also surfaced.
 			} else {
 				// UDP is connectionless; state 07 (CLOSE) means the socket is
 				// bound and ready to receive. Also accept 01 (ESTABLISHED) for
@@ -60,23 +64,36 @@ func findSocketInodes(port int) (map[string]bool, error) {
 				}
 			}
 
-			if parts[1] == targetHex {
+			matches := localParts[1] == targetHex
+			if !listenersOnly && !matches && len(remoteParts) == 2 {
+				// Match either side of the connection so a process with an
+				// outbound connection to :port is also found.
+				matches = remoteParts[1] == targetHex
+			}
+			if matches {
 				inodes[fields[9]] = true
 			}
 		}
 	}
 
 	if len(inodes) == 0 {
-		return nil, fmt.Errorf("no process listening on port %d", port)
+		if listenersOnly {
+			return nil, fmt.Errorf("no process listening on port %d", port)
+		}
+		return nil, fmt.Errorf("no process bound to or connected on port %d", port)
 	}
 
 	return inodes, nil
 }
 
 func ResolvePort(port int) ([]int, error) {
-	inodes, err := findSocketInodes(port)
+	inodes, err := findSocketInodes(port, true)
 	if err != nil {
-		return nil, err
+		fallbackInodes, fallbackErr := findSocketInodes(port, false)
+		if fallbackErr != nil {
+			return nil, err
+		}
+		inodes = fallbackInodes
 	}
 
 	// collect all owning pids so callers can handle multi-owner sockets.
