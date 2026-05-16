@@ -14,6 +14,10 @@ witr explains why a process or port is running by tracing its ancestry.
 
 
 .SH OPTIONS
+\fB-c\fP, \fB--container\fP=[]
+	container(s) to look up (repeatable)
+
+.PP
 \fB--env\fP[=false]
 	show environment variables for the process
 
@@ -23,7 +27,7 @@ witr explains why a process or port is running by tracing its ancestry.
 
 .PP
 \fB-f\fP, \fB--file\fP=[]
-	file path(s) to find process for (repeatable)
+	file(s) held open by a process (repeatable)
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
@@ -78,8 +82,11 @@ witr explains why a process or port is running by tracing its ancestry.
   # Find the process listening on a specific port
   witr --port 5432
 
-  # Find the process holding a lock on a file
+  # Find the process holding a file open
   witr --file /var/lib/dpkg/lock
+
+  # Inspect a container by name
+  witr --container redis
 
   # Inspect a process by name with exact matching (no fuzzy search)
   witr bun --exact

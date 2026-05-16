@@ -7,7 +7,7 @@
 
 <a href="https://trendshift.io/repositories/18714" target="_blank"><img src="https://trendshift.io/api/badge/repositories/18714" alt="pranshuparmar%2Fwitr | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr?style=flat-square)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Release](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/release.yml?style=flat-square)](https://github.com/pranshuparmar/witr/actions/workflows/release.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](#6-platform-support) <br>
+[![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr?style=flat-square)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Release](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/release.yml?style=flat-square)](https://github.com/pranshuparmar/witr/actions/workflows/release.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](#8-platform-support) <br>
 [![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20npm%20|%20ports%20|%20...%20-blue?style=flat-square)](https://repology.org/project/witr/versions)
 
 📖 Read the [story](https://medium.com/@pranshu.parmar/witr-why-is-this-running-a9a97cbedd18) behind witr
@@ -20,9 +20,9 @@
 
 <div align="center">
 
-[**Purpose**](#1-purpose) • [**Installation**](#2-installation) • ✨ [**TUI**](#3-interactive-mode-tui) • [**Flags**](#4-flags--options) • [**Examples**](#5-example-outputs) • [**Platforms**](#6-platform-support)
+[**Purpose**](#1-purpose) • [**Installation**](#2-installation) • [**TUI**](#3-interactive-mode-tui) • [**Flags**](#4-flags--options) • [**Core Concept**](#5-core-concept) • [**Examples**](#6-example-outputs)
 <br>
-[**Goals**](#7-goals) • [**Core Concept**](#8-core-concept) • [**Output Behavior**](#9-output-behavior) • [**Success Criteria**](#10-success-criteria) • [**Sponsors**](#11-sponsors)
+[**Output Behavior**](#7-output-behavior) • [**Platforms**](#8-platform-support) • [**Success Criteria**](#9-success-criteria) • [**Sponsors**](#10-sponsors)
 
 </div>
 
@@ -97,6 +97,20 @@ The script will:
 ### 2.2 Package Managers
 
 <details>
+<summary><strong>APT (Debian, Ubuntu & Derivatives)</strong> <a href="https://packages.debian.org/sid/witr"><img src="https://repology.org/badge/version-for-repo/debian_unstable/witr.svg?style=flat-square" alt="Debian"></a></summary>
+<br>
+
+
+You can install **witr** from the official Debian and Ubuntu repositories (Ubuntu 26.04+, Debian sid and later), as well as derivative distributions like Kali Linux, Devuan, and Raspbian:
+
+```bash
+sudo apt install witr
+```
+
+> Note: The apt-shipped version may lag the latest GitHub release. For the newest features, use the install script or another installation method.
+</details>
+
+<details>
 <summary><strong>Homebrew (macOS & Linux)</strong> <a href="https://formulae.brew.sh/formula/witr"><img src="https://img.shields.io/homebrew/v/witr?style=flat-square" alt="Homebrew"></a></summary>
 <br>
 
@@ -105,6 +119,18 @@ You can install **witr** using [Homebrew](https://brew.sh/) on macOS or Linux:
 
 ```bash
 brew install witr
+```
+</details>
+
+<details>
+<summary><strong>MacPorts (macOS)</strong> <a href="https://ports.macports.org/port/witr/"><img src="https://repology.org/badge/version-for-repo/macports/witr.svg?style=flat-square" alt="MacPorts"></a></summary>
+<br>
+
+
+You can install **witr** using [MacPorts](https://www.macports.org/) on macOS:
+
+```bash
+sudo port install witr
 ```
 </details>
 
@@ -259,7 +285,7 @@ aqua i pranshuparmar/witr
 </details>
 
 <details>
-<summary><strong>Brioche (Linux)</strong> <a href="https://github.com/brioche-dev/brioche-packages/tree/main/packages/witr"><img src="https://img.shields.io/static/v1?label=brioche&message=v0.3.0&color=blue&style=flat-square" alt="Brioche"></a></summary>
+<summary><strong>Brioche (Linux)</strong> <a href="https://github.com/brioche-dev/brioche-packages/tree/main/packages/witr"><img src="https://img.shields.io/static/v1?label=brioche&message=v0.3.1&color=blue&style=flat-square" alt="Brioche"></a></summary>
 <br>
 
 You can install **witr** using [brioche](https://brioche.dev/):
@@ -270,18 +296,13 @@ brioche install -r witr
 </details>
 
 <details>
-<summary><strong>Mise (macOS, Linux & Windows)</strong></summary>
+<summary><strong>Mise (macOS, Linux & Windows)</strong> <a href="https://github.com/pranshuparmar/witr/releases/latest"><img src="https://img.shields.io/github/v/release/pranshuparmar/witr?label=mise&style=flat-square" alt="Mise"></a></summary>
 <br>
 
 You can install **witr** using [mise](https://mise.jdx.dev/):
 
-Latest version:
 ```bash
 mise use github:pranshuparmar/witr
-```
-Specific version:
-```bash
-mise use github:pranshuparmar/witr@v.0.3.1
 ```
 </details>
 
@@ -505,13 +526,15 @@ Remove-Item -Recurse -Force "$env:LocalAppData\witr"
  
 ## 3. Interactive Mode (TUI)
 
-Running `witr` without any arguments or with the `-i` flag launches the **Interactive Mode (TUI)**. This provides a real-time, terminal-based dashboard for exploring processes and ports.
+Running `witr` without any arguments or with the `-i` flag launches the **Interactive Mode (TUI)**. This provides a real-time, terminal-based dashboard with four tabs for exploring processes, ports, containers, and file locks.
 
 ### Key Features:
-- **Live Process List**: Real-time view of all running processes with sorting and filtering.
-- **Port View**: Explore open ports and immediately see which processes are holding them.
-- **Process Details**: Deep-dive into a specific process to see its full ancestry tree, child processes, environment variables, working directory, and more.
-- **Process Actions**: Send signals (Kill, Terminate, Pause, Resume) or Renice processes directly from the UI.
+- **Processes Tab**: Live, sortable, filterable list of all running processes with a side panel showing the ancestry tree of the highlighted process.
+- **Ports Tab**: Open/listening ports with the owning processes attached in a side panel. Toggle between LISTEN-only and ALL with `a`.
+- **Containers Tab**: All running containers across Docker, Podman, nerdctl, K8s/crictl, and FreeBSD jails in one list - name, image, status, ports, command, plus a per-container detail view with mounts, networks, and compose project metadata.
+- **Locks Tab**: System-wide file locks (POSIX/FLOCK on Linux, lsof-derived on macOS/FreeBSD). Press `a` to switch into "all open files" mode, where locked entries are merged with every interesting open fd; type into `/` to search across the merged set.
+- **Process Details**: Deep-dive into a process to see its full ancestry tree, child processes, environment variables, working directory, sockets, file context, and more.
+- **Process Actions**: Send signals (Kill, Terminate, Pause, Resume) or Renice processes directly from the UI (Unix only).
 - **Mouse Support**: Navigate, sort columns, and click rows using your mouse.
 
 ---
@@ -519,9 +542,10 @@ Running `witr` without any arguments or with the `-i` flag launches the **Intera
 ## 4. Flags & Options
 
 ```
+  -c, --container strings container(s) to look up (repeatable)
       --env              show environment variables for the process
   -x, --exact            use exact name matching (no substring search)
-  -f, --file strings     file path(s) to find process for (repeatable)
+  -f, --file strings     file(s) held open by a process (repeatable)
   -h, --help             help for witr
   -i, --interactive      interactive mode (TUI)
       --json             show result as JSON
@@ -537,15 +561,32 @@ Running `witr` without any arguments or with the `-i` flag launches the **Intera
 
 Positional arguments (without flags) are treated as process or service names. Multiple names can be passed. By default, name matching uses substring matching (fuzzy search). Use `--exact` to match only processes with the exact name.
 
-All target flags (`--pid`, `--port`, `--file`) are repeatable and can be mixed with each other and with positional name arguments. When multiple targets are provided, results are shown sequentially with labeled dividers. All output modes (standard, short, tree, JSON, env, warnings, verbose) work with multiple inputs.
+All target flags (`--pid`, `--port`, `--file`, `--container`) are repeatable and can be mixed with each other and with positional name arguments. When multiple targets are provided, results are shown sequentially with labeled dividers. All output modes (standard, short, tree, JSON, env, warnings, verbose) work with multiple inputs.
 
-The TUI is launched if no arguments or relevant flags (`--pid`, `--port`, `--file`) are provided, or if the `--interactive` flag is explicitly used.
+The `--container` flag searches across Docker, Podman, nerdctl, K8s/crictl, and FreeBSD jails, and matches against container name, image, command, and compose project/service labels.
+
+The TUI is launched if no arguments or relevant flags (`--pid`, `--port`, `--file`, `--container`) are provided, or if the `--interactive` flag is explicitly used.
 
 ---
 
-## 5. Example Outputs
+## 5. Core Concept
 
-### 5.1 Name Based Query
+witr treats **everything as a process question**.
+
+Ports, services, containers, and commands all eventually map to **PIDs**. Once a PID is identified, witr builds a causal chain explaining _why that PID exists_.
+
+At its core, witr answers:
+
+1. What is running?
+2. How did it start?
+3. What is keeping it running?
+4. What context does it belong to?
+
+---
+
+## 6. Example Outputs
+
+### 6.1 Name Based Query
 
 ```bash
 witr node
@@ -572,7 +613,7 @@ Listening   : 127.0.0.1:5001
 
 ---
 
-### 5.2 Short Output
+### 6.2 Short Output
 
 ```bash
 witr --port 5000 --short
@@ -584,7 +625,7 @@ systemd (pid 1) → PM2 v5.3.1: God (pid 1481580) → python (pid 1482060)
 
 ---
 
-### 5.3 Tree Output
+### 6.3 Tree Output
 
 ```bash
 witr --pid 143895 --tree
@@ -607,7 +648,7 @@ Note: _Tree view includes child processes (up to 10) and highlights the target p
 
 ---
 
-### 5.4 Multiple Matches
+### 6.4 Multiple Matches
 
 ```bash
 witr ng
@@ -635,7 +676,7 @@ witr nginx -x
 
 ---
 
-### 5.5 File Based Query
+### 6.5 File Based Query
 
 ```bash
 witr --file /var/lib/dpkg/lock
@@ -645,7 +686,17 @@ Explains the process holding a file open.
 
 ---
 
-### 5.6 Multiple Inputs
+### 6.6 Container Based Query
+
+```bash
+witr --container redis
+```
+
+Looks up a container by name, image, command, or compose project/service across every detected runtime (Docker, Podman, nerdctl, K8s/crictl, FreeBSD jails). Pass `--verbose` to include mounts, networks, and compose metadata in the output.
+
+---
+
+### 6.7 Multiple Inputs
 
 ```bash
 witr nginx --port 5432 --pid 1234
@@ -672,133 +723,9 @@ All target flags are repeatable and can be mixed. Results appear in the order yo
 
 ---
 
-## 6. Platform Support
+## 7. Output Behavior
 
-- **Linux** (x86_64, arm64) - Full feature support (`/proc`).
-- **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, `sysctl`, `pgrep`.
-- **Windows** (x86_64, arm64) - Uses `Get-CimInstance`, `tasklist`, `netstat`.
-- **FreeBSD** (x86_64, arm64) - Uses `procstat`, `ps`, `lsof`.
-
----
-
-### 5.1 Feature Compatibility Matrix
-
-| Feature | Linux | macOS | Windows | FreeBSD | Notes |
-|---------|:-----:|:-----:|:-------:|:-------:|-------|
-| **Process Selection** |
-| By Name | ✅ | ✅ | ✅ | ✅ | |
-| By PID | ✅ | ✅ | ✅ | ✅ | |
-| By Port | ✅ | ✅ | ✅ | ✅ | |
-| By File | ✅ | ✅ | ❌ | ✅ | |
-| Multiple/mixed inputs | ✅ | ✅ | ✅ | ✅ | Repeatable flags, mixed types. |
-| Exact Match | ✅ | ✅ | ✅ | ✅ | |
-| Full command line | ✅ | ✅ | ✅ | ✅ | |
-| Process start time | ✅ | ✅ | ✅ | ✅ | |
-| Working directory | ✅ | ✅ | ✅ | ✅ | |
-| Environment variables | ✅ | ⚠️ | ❌ | ✅ | macOS: Partial support due to SIP restrictions. |
-| **Network** |
-| Listening ports | ✅ | ✅ | ✅ | ✅ | |
-| Bind addresses | ✅ | ✅ | ✅ | ✅ | |
-| Port → PID resolution | ✅ | ✅ | ✅ | ✅ | |
-| **Service Detection** |
-| Service Manager | ✅ | ✅ | ✅ | ✅ | Linux: systemd, macOS: launchd, Windows: Services, FreeBSD: rc.d |
-| Service Description | ✅ | ✅ | ✅ | ✅ | Linux: `Description`, macOS: `Comment`, Windows: `Display Name`, FreeBSD: `rc` header |
-| Configuration Source | ✅ | ✅ | ✅ | ✅ | Linux: Unit File, macOS: Plist, Windows: Registry Key, FreeBSD: Rc Script |
-| Supervisor | ✅ | ✅ | ✅ | ✅ | |
-| Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus Compose mappings), Podman, K8s (Kubepods), Containerd. Colima on macOS/Linux. Jails on FreeBSD. |
-| SSH session detection | ✅ | ✅ | ✅ | ✅ | Detects remote IP and terminal. |
-| tmux/screen detection | ✅ | ✅ | ❌ | ✅ | Shows session name in source. |
-| Schedule detection | ✅ | ✅ | ❌ | ❌ | Linux: systemd timers, macOS: launchd intervals/calendar. |
-| Snap/Flatpak detection | ✅ | ❌ | ❌ | ❌ | |
-| **Health & Diagnostics** |
-| CPU usage detection | ✅ | ✅ | ✅ | ✅ | |
-| Memory usage detection | ✅ | ✅ | ✅ | ✅ | |
-| Health status detection | ✅ | ✅ | ✅ | ✅ | |
-| Open Files / Handles | ✅ | ✅ | ⚠️ | ✅ | Windows: count only. |
-| Deleted binary detection | ✅ | ✅ | ✅ | ✅ | Warns if executable is missing. |
-| Capability warnings | ✅ | ❌ | ❌ | ❌ | Warns about dangerous capabilities on non-root processes. |
-| **Context** |
-| Git repo/branch detection | ✅ | ✅ | ✅ | ✅ | |
-| **Interactive Mode (TUI)** |
-| Process Dashboard | ✅ | ✅ | ✅ | ✅ | |
-| Port Dashboard | ✅ | ✅ | ✅ | ✅ | |
-| Process Details | ✅ | ✅ | ✅ | ✅ | |
-| Process Actions | ✅ | ✅ | ❌ | ✅ | |
-
-**Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
-
----
-
-### 5.2 Permissions Note
-
-#### Linux/FreeBSD
-
-witr inspects system directories which may require elevated permissions.
-
-If you are not seeing the expected information, try running witr with sudo:
-
-```bash
-sudo witr [your arguments]
-```
-
-#### macOS
-
-On macOS, witr uses `ps`, `lsof`, and `launchctl` to gather process information. Some operations may require elevated permissions:
-
-```bash
-sudo witr [your arguments]
-```
-
-Note: Due to macOS System Integrity Protection (SIP), some system process details may not be accessible even with sudo.
-
-#### Windows
-
-On Windows, witr uses `Get-CimInstance`, `tasklist`, and `netstat`. To see details for processes owned by other users or system services, you must run the terminal as **Administrator**.
-
-```powershell
-# Run in Administrator PowerShell
-.\witr.exe [your arguments]
-```
-
----
-
-## 7. Goals
-
-### Primary goals
-
-- Explain **why a process exists**, not just that it exists
-- Reduce time‑to‑understanding during debugging and outages
-- Work with zero configuration
-- Be safe, read‑only, and non‑destructive
-- Prefer clarity over completeness
-
-### Non‑goals
-
-- Not a monitoring tool
-- Not a performance profiler
-- Not a replacement for systemd/docker tooling
-- Not a remediation or auto‑fix tool
-
----
-
-## 8. Core Concept
-
-witr treats **everything as a process question**.
-
-Ports, services, containers, and commands all eventually map to **PIDs**. Once a PID is identified, witr builds a causal chain explaining _why that PID exists_.
-
-At its core, witr answers:
-
-1. What is running?
-2. How did it start?
-3. What is keeping it running?
-4. What context does it belong to?
-
----
-
-## 9. Output Behavior
-
-### 9.1 Output Principles
+### 7.1 Output Principles
 
 - Single screen by default (best effort)
 - Deterministic ordering
@@ -807,7 +734,7 @@ At its core, witr answers:
 
 ---
 
-### 9.2 Exit Codes
+### 7.2 Exit Codes
 
 witr returns meaningful exit codes for use in scripts, CI pipelines, and monitoring:
 
@@ -834,7 +761,7 @@ esac
 
 ---
 
-### 9.3 Standard Output Sections
+### 7.3 Standard Output Sections
 
 #### Target
 
@@ -887,7 +814,102 @@ Non‑blocking observations such as:
 
 ---
 
-## 10. Success Criteria
+## 8. Platform Support
+
+- **Linux** (x86_64, arm64) - Full feature support (`/proc`).
+- **macOS** (x86_64, arm64) - Uses `ps`, `lsof`, `sysctl`, `pgrep`.
+- **Windows** (x86_64, arm64) - Native Win32 APIs (ToolHelp32, PSAPI, Service Control Manager). No PowerShell or WMI dependency.
+- **FreeBSD** (x86_64, arm64) - Uses `procstat`, `ps`, `lsof`.
+
+---
+
+### 8.1 Feature Compatibility Matrix
+
+| Feature | Linux | macOS | Windows | FreeBSD | Notes |
+|---------|:-----:|:-----:|:-------:|:-------:|-------|
+| **Process Selection** |
+| By Name | ✅ | ✅ | ✅ | ✅ | |
+| By PID | ✅ | ✅ | ✅ | ✅ | |
+| By Port | ✅ | ✅ | ✅ | ✅ | |
+| By File | ✅ | ✅ | ❌ | ✅ | |
+| By Container | ✅ | ✅ | ✅ | ✅ | Requires the runtime CLI on PATH (docker/podman/nerdctl/crictl/jls). |
+| Multiple/mixed inputs | ✅ | ✅ | ✅ | ✅ | Repeatable flags, mixed types. |
+| Exact Match | ✅ | ✅ | ✅ | ✅ | |
+| Full command line | ✅ | ✅ | ✅ | ✅ | |
+| Process start time | ✅ | ✅ | ✅ | ✅ | |
+| Working directory | ✅ | ✅ | ✅ | ✅ | |
+| Environment variables | ✅ | ⚠️ | ❌ | ✅ | macOS: Partial support due to SIP restrictions. |
+| **Network** |
+| Listening ports | ✅ | ✅ | ✅ | ✅ | |
+| Bind addresses | ✅ | ✅ | ✅ | ✅ | |
+| Port → PID resolution | ✅ | ✅ | ✅ | ✅ | |
+| Port → Container fallback | ✅ | ✅ | ✅ | ✅ | Used when the port is owned by PID 1 via systemd socket activation or a container runtime. |
+| **Service Detection** |
+| Service Manager | ✅ | ✅ | ✅ | ✅ | Linux: systemd, macOS: launchd, Windows: Services, FreeBSD: rc.d |
+| Service Description | ✅ | ✅ | ✅ | ✅ | Linux: `Description`, macOS: `Comment`, Windows: `Display Name`, FreeBSD: `rc` header |
+| Configuration Source | ✅ | ✅ | ✅ | ✅ | Linux: Unit File, macOS: Plist, Windows: Registry Key, FreeBSD: Rc Script |
+| Supervisor | ✅ | ✅ | ✅ | ✅ | |
+| Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus compose mappings), Podman, nerdctl, K8s (Kubepods/crictl), Containerd. Colima on macOS/Linux. Jails on FreeBSD. |
+| SSH session detection | ✅ | ✅ | ✅ | ✅ | Detects remote IP and terminal. |
+| tmux/screen detection | ✅ | ✅ | ❌ | ✅ | Shows session name in source. |
+| Schedule detection | ✅ | ✅ | ❌ | ❌ | Linux: systemd timers, macOS: launchd intervals/calendar. |
+| Snap/Flatpak detection | ✅ | ❌ | ❌ | ❌ | |
+| **Health & Diagnostics** |
+| CPU usage detection | ✅ | ✅ | ✅ | ✅ | |
+| Memory usage detection | ✅ | ✅ | ✅ | ✅ | |
+| Health status detection | ✅ | ✅ | ✅ | ✅ | |
+| Open Files / Handles | ✅ | ✅ | ⚠️ | ✅ | Windows: count only. |
+| File Locks | ✅ | ✅ | ❌ | ✅ | Linux: `/proc/locks`; macOS/FreeBSD: derived from `lsof`/`fstat`. |
+| Deleted binary detection | ✅ | ✅ | ✅ | ✅ | Warns if executable is missing. |
+| Capability warnings | ✅ | ❌ | ❌ | ❌ | Warns about dangerous capabilities on non-root processes. |
+| **Context** |
+| Git repo/branch detection | ✅ | ✅ | ✅ | ✅ | |
+| **Interactive Mode (TUI)** |
+| Processes Tab | ✅ | ✅ | ✅ | ✅ | |
+| Ports Tab | ✅ | ✅ | ✅ | ✅ | |
+| Containers Tab | ✅ | ✅ | ✅ | ✅ | |
+| Locks Tab | ✅ | ✅ | ❌ | ✅ | Toggle (`a`) shows all open files. |
+| Process Details | ✅ | ✅ | ✅ | ✅ | |
+| Process Actions | ✅ | ✅ | ❌ | ✅ | |
+
+**Legend:** ✅ Full support | ⚠️ Partial/limited support | ❌ Not available
+
+---
+
+### 8.2 Permissions Note
+
+#### Linux/FreeBSD
+
+witr inspects system directories which may require elevated permissions.
+
+If you are not seeing the expected information, try running witr with sudo:
+
+```bash
+sudo witr [your arguments]
+```
+
+#### macOS
+
+On macOS, witr uses `ps`, `lsof`, and `launchctl` to gather process information. Some operations may require elevated permissions:
+
+```bash
+sudo witr [your arguments]
+```
+
+Note: Due to macOS System Integrity Protection (SIP), some system process details may not be accessible even with sudo.
+
+#### Windows
+
+On Windows, witr talks directly to Win32 APIs (ToolHelp32, PSAPI, Service Control Manager) rather than spawning PowerShell or WMI, startup is fast and there's no `Get-CimInstance` hang. To see details for processes owned by other users or system services, you must run the terminal as **Administrator**.
+
+```powershell
+# Run in Administrator PowerShell
+.\witr.exe [your arguments]
+```
+
+---
+
+## 9. Success Criteria
 
 witr is successful if:
 
@@ -898,7 +920,7 @@ witr is successful if:
 
 ---
 
-## 11. Sponsors
+## 10. Sponsors
 
 Special thanks to the people supporting **witr** ❤️
 

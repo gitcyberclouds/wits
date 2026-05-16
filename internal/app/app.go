@@ -57,6 +57,9 @@ func _genExamples() string {
   # Find the process holding a file open
   witr --file /var/lib/dpkg/lock
 
+  # Inspect a container by name
+  witr --container redis
+
   # Inspect a process by name with exact matching (no fuzzy search)
   witr bun --exact
 
@@ -330,6 +333,8 @@ func targetLabel(t model.Target) string {
 		return fmt.Sprintf("port: %s", t.Value)
 	case model.TargetFile:
 		return fmt.Sprintf("file: %s", t.Value)
+	case model.TargetContainer:
+		return fmt.Sprintf("container: %s", t.Value)
 	default:
 		return fmt.Sprintf("name: %s", t.Value)
 	}
