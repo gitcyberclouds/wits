@@ -30,9 +30,9 @@ func commandAsOriginalUser(ctx context.Context, bin string, args ...string) *exe
 		return cmd
 	}
 
-	uid, err1 := strconv.Atoi(uidStr)
-	gid, err2 := strconv.Atoi(gidStr)
-	if err1 != nil || err2 != nil || uid <= 0 {
+	uid, err1 := strconv.ParseUint(uidStr, 10, 32)
+	gid, err2 := strconv.ParseUint(gidStr, 10, 32)
+	if err1 != nil || err2 != nil || uid == 0 {
 		return cmd
 	}
 
