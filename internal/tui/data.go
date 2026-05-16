@@ -50,6 +50,37 @@ func (m MainModel) refreshPorts() tea.Cmd {
 	}
 }
 
+func (m MainModel) refreshContainers() tea.Cmd {
+	return func() tea.Msg {
+		return proc.ListAllContainers()
+	}
+}
+
+// fetchContainerDetail mirrors `witr -c <name> --verbose`: enrich the match,
+// try the host-visible PID path through the normal pipeline, fall back to
+// returning the bare ContainerMatch for the runtime-info render.
+func (m MainModel) fetchContainerDetail(match *model.ContainerMatch) tea.Cmd {
+	return func() tea.Msg {
+		proc.EnrichContainer(match)
+		pid := proc.ResolveContainerHostPID(match.Runtime, match.ID)
+		if pid > 0 && proc.PIDBelongsToContainer(pid, match.ID) {
+			res, err := pipeline.AnalyzePID(pipeline.AnalyzeConfig{
+				PID:     pid,
+				Verbose: true,
+				Tree:    true,
+			})
+			if err == nil {
+				res.Process.Container = output.FormatContainerLine(match)
+				if len(res.Ancestry) > 0 {
+					res.Ancestry[len(res.Ancestry)-1].Container = res.Process.Container
+				}
+				return res
+			}
+		}
+		return match
+	}
+}
+
 func (m MainModel) fetchTree(p model.Process) tea.Cmd {
 	return func() tea.Msg {
 		res, err := pipeline.AnalyzePID(pipeline.AnalyzeConfig{
@@ -418,13 +449,29 @@ func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 }
 
 func (m *MainModel) updateDetailViewport() {
-	if m.selectedDetail == nil {
+	var b strings.Builder
+	switch {
+	case m.selectedDetail != nil:
+		// Process detail shares space with the env pane on the right.
+		if m.width > 6 {
+			availableWidth := m.width - 6
+			detailViewWidth := int(float64(availableWidth) * 0.7)
+			m.viewport.Width = detailViewWidth - 4
+			if m.viewport.Width < 1 {
+				m.viewport.Width = 1
+			}
+		}
+		output.RenderStandard(&b, *m.selectedDetail, true, true)
+	case m.selectedContainer != nil:
+		// Container detail occupies the full width — no env pane to share with.
+		if w := m.width - 6; w > 0 {
+			m.viewport.Width = w
+		}
+		label := "container " + m.selectedContainer.Name
+		output.RenderContainerFallback(&b, label, m.selectedContainer, true, true)
+	default:
 		return
 	}
-	res := *m.selectedDetail
-	var b strings.Builder
-
-	output.RenderStandard(&b, res, true, true)
 
 	content := b.String()
 	if m.viewport.Width > 0 {
@@ -601,4 +648,49 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 		content = wrap.String(content, m.treeViewport.Width)
 	}
 	m.treeViewport.SetContent(content)
+}
+
+func (m *MainModel) updateContainerTable() {
+	filter := strings.ToLower(strings.TrimSpace(m.containerInput.Value()))
+
+	cols := m.containerTable.Columns()
+	w := func(i int) int {
+		if i < len(cols) {
+			return cols[i].Width
+		}
+		return 20
+	}
+
+	rows := make([]table.Row, 0, len(m.containers))
+	filtered := make([]*model.ContainerMatch, 0, len(m.containers))
+	for _, c := range m.containers {
+		if filter != "" {
+			haystack := strings.ToLower(c.ID + " " + c.Name + " " + c.Runtime + " " + c.Image + " " + c.Status + " " + c.Ports + " " + c.Command)
+			if !strings.Contains(haystack, filter) {
+				continue
+			}
+		}
+		rows = append(rows, table.Row{
+			output.ShortContainerID(c.ID),
+			truncate(c.Name, w(1)),
+			c.Runtime,
+			truncate(c.Image, w(3)),
+			truncate(c.Status, w(4)),
+			truncate(c.Ports, w(5)),
+			truncate(c.Command, w(6)),
+		})
+		filtered = append(filtered, c)
+	}
+	m.containerTable.SetRows(rows)
+	m.filteredContainers = filtered
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	return s[:n-1] + "…"
 }

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/pranshuparmar/witr/internal/output"
 )
 
 func (m MainModel) View() string {
@@ -24,12 +25,18 @@ func (m MainModel) View() string {
 		}
 		inputView := m.input.View()
 
-		if m.activeTab == tabPorts {
+		switch m.activeTab {
+		case tabPorts:
 			if m.portInput.Focused() {
 				status = "Mode: Searching (↑↓ to navigate, Esc/Enter to stop)"
 			}
 			inputView = m.portInput.View()
-		} else {
+		case tabContainers:
+			if m.containerInput.Focused() {
+				status = "Mode: Searching (↑↓ to navigate, Esc/Enter to stop)"
+			}
+			inputView = m.containerInput.View()
+		default:
 			if m.input.Focused() {
 				status = "Mode: Searching (↑↓ to navigate, Esc/Enter to stop)"
 			}
@@ -95,6 +102,13 @@ func (m MainModel) View() string {
 			),
 		)
 
+		if m.activeTab == tabContainers {
+			s1 := cachedTableStyles
+			s1.Header = s.Header
+			m.containerTable.SetStyles(s1)
+			mainContent = lipgloss.NewStyle().Width(m.width - 4).Render(m.containerTable.View())
+		}
+
 		if m.activeTab == tabPorts {
 			sideBorderColor := dimBorderColor
 			sideHeaderColor := lipgloss.Color("#bcbcbc") // Light Gray
@@ -143,12 +157,15 @@ func (m MainModel) View() string {
 		}
 
 		helpText := fmt.Sprintf("Total: %d | Enter: Detail | p/n/u/c/m/t: Sort | Esc/q: Quit | Tab: Focus | Up/Down: Scroll", len(m.filtered))
-		if m.activeTab == tabPorts {
+		switch m.activeTab {
+		case tabPorts:
 			filterStatus := "LISTEN"
 			if m.showAllPorts {
 				filterStatus = "ALL"
 			}
 			helpText = fmt.Sprintf("Total: %d [%s] | p/t/n/s: Sort | a: Toggle All | Esc/q: Quit | Tab: Focus | Up/Down: Scroll", len(m.portTable.Rows()), filterStatus)
+		case tabContainers:
+			helpText = fmt.Sprintf("Total: %d | /: Search | Esc/q: Quit | Up/Down: Scroll", len(m.containerTable.Rows()))
 		}
 		footerContent := helpText
 		if m.version != "" {
@@ -158,19 +175,23 @@ func (m MainModel) View() string {
 			}
 		}
 
-		var processesTab, portsTab string
-		if m.activeTab == tabProcesses {
+		processesTab := inactiveTabStyle.Render("1. Processes")
+		portsTab := inactiveTabStyle.Render("2. Ports")
+		containersTab := inactiveTabStyle.Render("3. Containers")
+		switch m.activeTab {
+		case tabProcesses:
 			processesTab = activeTabStyle.Render("1. Processes")
-			portsTab = inactiveTabStyle.Render("2. Ports")
-		} else {
-			processesTab = inactiveTabStyle.Render("1. Processes")
+		case tabPorts:
 			portsTab = activeTabStyle.Render("2. Ports")
+		case tabContainers:
+			containersTab = activeTabStyle.Render("3. Containers")
 		}
 
 		header := lipgloss.JoinHorizontal(lipgloss.Top,
 			titleStyle.Render("witr"),
 			processesTab,
 			portsTab,
+			containersTab,
 		)
 
 		return outerStyle.Render(
@@ -187,7 +208,7 @@ func (m MainModel) View() string {
 	}
 
 	if m.state == stateDetail {
-		if m.selectedDetail == nil {
+		if m.selectedDetail == nil && m.selectedContainer == nil {
 			helpText := "Esc/q: Back"
 			footerContent := helpText
 			if m.version != "" {
@@ -202,6 +223,61 @@ func (m MainModel) View() string {
 					lipgloss.JoinHorizontal(lipgloss.Center, titleStyle.Render("witr")),
 					spacerStyle.Render(""),
 					lipgloss.NewStyle().Width(m.width-4).Height(m.height-7).Render("Loading details..."),
+					spacerStyle.Render(""),
+					footerStyle.Width(m.width-4).Render(footerContent),
+				),
+			)
+		}
+
+		if m.selectedContainer != nil {
+			activeBorderColor := lipgloss.Color("#5f5fd7")
+			detailHeader := tableHeaderStyle.
+				BorderForeground(activeBorderColor).
+				Foreground(activeBorderColor)
+			title := "Container Detail"
+			if !m.viewport.AtTop() && !m.viewport.AtBottom() {
+				title += " ↕"
+			} else if !m.viewport.AtTop() {
+				title += " ↑"
+			} else if !m.viewport.AtBottom() {
+				title += " ↓"
+			}
+
+			headerComponents := []string{titleStyle.Render("witr")}
+			if id := output.ShortContainerID(m.selectedContainer.ID); id != "" {
+				headerComponents = append(headerComponents, pidStyle.Render("ID "+id))
+			}
+
+			helpText := "Esc/q: Back | Up/Down: Scroll"
+			footerContent := helpText
+			if m.version != "" {
+				gap := m.width - 6 - lipgloss.Width(helpText) - lipgloss.Width(m.version)
+				if gap > 0 {
+					footerContent = helpText + strings.Repeat(" ", gap) + m.version
+				}
+			}
+
+			// Match the structure used for process detail: a single Width-
+			// and Height-pinned pane that contains the title row plus the
+			// scrollable viewport. The pane absorbs any content/scroll
+			// variation so the surrounding layout stays put.
+			paneWidth := m.width - 4
+			if paneWidth < 1 {
+				paneWidth = 1
+			}
+			contentPane := lipgloss.NewStyle().
+				Width(paneWidth).
+				Height(m.viewport.Height + 2).
+				Render(lipgloss.JoinVertical(lipgloss.Left,
+					detailHeader.Width(m.viewport.Width).Render(title),
+					paddedStyle.Render(m.viewport.View()),
+				))
+
+			return outerStyle.Render(
+				lipgloss.JoinVertical(lipgloss.Left,
+					lipgloss.JoinHorizontal(lipgloss.Center, headerComponents...),
+					spacerStyle.Render(""),
+					contentPane,
 					spacerStyle.Render(""),
 					footerStyle.Width(m.width-4).Render(footerContent),
 				),

@@ -11,9 +11,9 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// ResolveContainerByPort queries the Docker CLI for a container publishing the given port.
-// Returns nil if Docker is not available or no container matches.
-func ResolveContainerByPort(port int) *model.DockerPortMatch {
+// ResolveContainerByPort queries the Docker CLI for a container publishing
+// the given port. Returns nil if Docker is unavailable or no container matches.
+func ResolveContainerByPort(port int) *model.ContainerMatch {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return nil
 	}
@@ -21,8 +21,12 @@ func ResolveContainerByPort(port int) *model.DockerPortMatch {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	format := "{{.ID}}|{{.Names}}|{{.Image}}|{{.Ports}}|{{.Label \"com.docker.compose.project\"}}|{{.Label \"com.docker.compose.service\"}}"
-	cmd := exec.CommandContext(ctx, "docker", "ps", "--filter", fmt.Sprintf("publish=%d", port), "--format", format)
+	format := strings.Join([]string{
+		"{{.ID}}", "{{.Names}}", "{{.Image}}", "{{.Command}}",
+		"{{.State}}", "{{.Status}}", "{{.CreatedAt}}",
+		"{{.Networks}}", "{{.Mounts}}", "{{.Ports}}", "{{.Labels}}",
+	}, "|")
+	cmd := exec.CommandContext(ctx, "docker", "ps", "--no-trunc", "--filter", fmt.Sprintf("publish=%d", port), "--format", format)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil
@@ -32,24 +36,33 @@ func ResolveContainerByPort(port int) *model.DockerPortMatch {
 	if line == "" {
 		return nil
 	}
-
-	// Take the first matching container if multiple lines
 	if idx := strings.Index(line, "\n"); idx >= 0 {
 		line = line[:idx]
 	}
 
-	parts := strings.SplitN(line, "|", 6)
-	if len(parts) < 6 {
+	parts := strings.SplitN(line, "|", 11)
+	if len(parts) < 11 {
 		return nil
 	}
+	labels := parseLabelString(parts[10])
 
-	return &model.DockerPortMatch{
-		ID:             parts[0],
-		Name:           parts[1],
-		Image:          parts[2],
-		Ports:          parts[3],
-		ComposeProject: parts[4],
-		ComposeService: parts[5],
+	return &model.ContainerMatch{
+		Runtime:           "docker",
+		ID:                parts[0],
+		Name:              parts[1],
+		Image:             parts[2],
+		Command:           strings.Trim(parts[3], "\""),
+		State:             parts[4],
+		Status:            parts[5],
+		Health:            healthFromStatus(parts[5]),
+		StartedAt:         parseDockerTime(parts[6]),
+		Networks:          parts[7],
+		Mounts:            parts[8],
+		Ports:             parts[9],
+		ComposeProject:    labels["com.docker.compose.project"],
+		ComposeService:    labels["com.docker.compose.service"],
+		ComposeConfigFile: labels["com.docker.compose.project.config_files"],
+		ComposeWorkingDir: labels["com.docker.compose.project.working_dir"],
 	}
 }
 

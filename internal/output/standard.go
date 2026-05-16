@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -163,31 +162,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			out.Printf("Command     : %s\n", proc.Command)
 		}
 	}
-	// Format as: 2 days ago (Mon 2025-02-02 11:42:10 +0530)
-	startedAt := proc.StartedAt
-	now := time.Now()
-	dur := now.Sub(startedAt)
-	var rel string
-	switch {
-	case dur.Hours() >= 48:
-		days := int(dur.Hours()) / 24
-		rel = fmt.Sprintf("%d days ago", days)
-	case dur.Hours() >= 24:
-		rel = "1 day ago"
-	case dur.Hours() >= 2:
-		hours := int(dur.Hours())
-		rel = fmt.Sprintf("%d hours ago", hours)
-	case dur.Minutes() >= 60:
-		rel = "1 hour ago"
-	default:
-		mins := int(dur.Minutes())
-		if mins > 0 {
-			rel = fmt.Sprintf("%d min ago", mins)
-		} else {
-			rel = "just now"
-		}
-	}
-	dtStr := startedAt.Format("Mon 2006-01-02 15:04:05 -07:00")
+	rel, dtStr := FormatStartedAt(proc.StartedAt)
 	if colorEnabled {
 		out.Printf("%sStarted%s     : %s (%s)\n", ColorMagenta, ColorReset, rel, dtStr)
 	} else {

@@ -29,10 +29,13 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tickMsg:
-		if m.state == stateList && !m.quitting && !m.input.Focused() && !m.portInput.Focused() {
+		if m.state == stateList && !m.quitting && !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() {
 			cmd = m.refreshProcesses()
-			if m.activeTab == tabPorts {
+			switch m.activeTab {
+			case tabPorts:
 				cmd = tea.Batch(cmd, m.refreshPorts())
+			case tabContainers:
+				cmd = tea.Batch(cmd, m.refreshContainers())
 			}
 		}
 		return m, tea.Batch(cmd, waitTick())
@@ -479,19 +482,50 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		case "1":
-			if !m.input.Focused() && !m.portInput.Focused() {
+			if !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() {
 				m.activeTab = tabProcesses
+				m.listFocus = focusMain
 				return m, nil
 			}
 		case "2":
-			if !m.input.Focused() && !m.portInput.Focused() {
+			if !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() {
 				m.activeTab = tabPorts
+				m.listFocus = focusMain
+				m.portTable.Focus()
+				m.portDetailTable.Blur()
 				return m, m.refreshPorts()
+			}
+		case "3":
+			if !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() {
+				m.activeTab = tabContainers
+				m.listFocus = focusMain
+				return m, m.refreshContainers()
 			}
 		}
 
 		if m.state == stateList {
-			if m.activeTab == tabPorts {
+			if m.activeTab == tabContainers {
+				if m.containerInput.Focused() {
+					if msg.String() == "enter" || msg.String() == "esc" {
+						m.containerInput.Blur()
+						return m, nil
+					}
+					if msg.Type == tea.KeyUp || msg.Type == tea.KeyDown {
+						m.containerInput.Blur()
+					} else {
+						var inputCmd tea.Cmd
+						m.containerInput, inputCmd = m.containerInput.Update(msg)
+						m.updateContainerTable()
+						m.containerTable.SetCursor(0)
+						return m, inputCmd
+					}
+				}
+
+				if msg.String() == "/" {
+					m.containerInput.Focus()
+					return m, textinput.Blink
+				}
+			} else if m.activeTab == tabPorts {
 				if m.portInput.Focused() {
 					if msg.String() == "enter" || msg.String() == "esc" {
 						m.portInput.Blur()
@@ -556,6 +590,17 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.quitting = true
 				return m, tea.Quit
 			case "enter":
+				if m.activeTab == tabContainers {
+					cursor := m.containerTable.Cursor()
+					if cursor >= 0 && cursor < len(m.filteredContainers) {
+						match := m.filteredContainers[cursor]
+						m.state = stateDetail
+						m.selectedDetail = nil
+						m.selectedContainer = nil
+						m.viewport.GotoTop()
+						return m, m.fetchContainerDetail(match)
+					}
+				}
 				if m.activeTab == tabProcesses && m.listFocus == focusMain {
 					selected := m.table.SelectedRow()
 					if len(selected) > 0 {
@@ -601,8 +646,12 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Focus Switching
 			case "tab", "right", "left", "l", "L", "h", "H":
-				if m.input.Focused() || m.portInput.Focused() {
+				if m.input.Focused() || m.portInput.Focused() || m.containerInput.Focused() {
 					break
+				}
+				// Containers tab has no side panel to switch focus to.
+				if m.activeTab == tabContainers {
+					return m, nil
 				}
 				if msg.String() == "tab" || msg.String() == "right" || msg.String() == "l" || msg.String() == "L" {
 					if m.listFocus == focusMain {
@@ -734,6 +783,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							}
 						}
 					}
+					return m, cmd
+				} else if m.activeTab == tabContainers {
+					m.containerTable, cmd = m.containerTable.Update(msg)
 					return m, cmd
 				} else {
 					prevSelected := m.portTable.Cursor()
@@ -878,11 +930,15 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc", "q", "Q", "backspace":
 				m.state = stateList
 				m.selectedDetail = nil
+				m.selectedContainer = nil
 				m.detailFocus = focusDetail
 				m.actionMenuOpen = false
 				m.pendingAction = actionNone
 				m.reniceInput.SetValue("")
 				m.reniceInput.Blur()
+				if m.activeTab == tabContainers {
+					return m, m.refreshContainers()
+				}
 				return m, m.refreshProcesses()
 			case "a", "A":
 				if m.selectedDetail != nil {
@@ -1014,6 +1070,31 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.portDetailTable.SetWidth(portDetailWidth)
 		m.portDetailTable.SetHeight(portListHeight - 2)
 
+		m.containerTable.SetWidth(availableWidth)
+		m.containerTable.SetHeight(processListHeight)
+		// Size the trailing Command column so total column widths match the
+		// table width — bubbles table draws the header underline across
+		// SetWidth, so column overflow leaves a partial border.
+		containerCols := m.containerTable.Columns()
+		fixedCC := 0
+		const cmdColIdx = 6
+		for i, c := range containerCols {
+			if i == cmdColIdx {
+				continue
+			}
+			fixedCC += c.Width
+		}
+		const cellPadding = 2 // tableHeaderStyle Padding(0, 1) → 1 char per side
+		paddingBudget := cellPadding * len(containerCols)
+		if cmdColIdx < len(containerCols) {
+			cmdWidth := availableWidth - fixedCC - paddingBudget
+			if cmdWidth < 10 {
+				cmdWidth = 10
+			}
+			containerCols[cmdColIdx].Width = cmdWidth
+			m.containerTable.SetColumns(containerCols)
+		}
+
 		vpHeight := msg.Height - 9
 		if vpHeight < 0 {
 			vpHeight = 0
@@ -1102,6 +1183,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updatePortTable()
 		m.updatePortDetails()
 
+	case []*model.ContainerMatch:
+		m.containers = msg
+		m.updateContainerTable()
+
 	case treeMsg:
 		selected := m.table.SelectedRow()
 		if len(selected) > 0 {
@@ -1114,13 +1199,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case model.Result:
 		m.selectedDetail = &msg
+		m.selectedContainer = nil
 		m.updateDetailViewport()
 		m.updateEnvViewport()
+
+	case *model.ContainerMatch:
+		m.selectedContainer = msg
+		m.selectedDetail = nil
+		m.updateDetailViewport()
 
 	case error:
 		// Revert to list view on any error
 		m.state = stateList
 		m.selectedDetail = nil
+		m.selectedContainer = nil
 		m.statusMsg = fmt.Sprintf("Error: %v", msg)
 		return m, m.refreshProcesses()
 	}
