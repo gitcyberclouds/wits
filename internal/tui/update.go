@@ -29,13 +29,15 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tickMsg:
-		if m.state == stateList && !m.quitting && !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() {
+		if m.state == stateList && !m.quitting && !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() && !m.lockInput.Focused() {
 			cmd = m.refreshProcesses()
 			switch m.activeTab {
 			case tabPorts:
 				cmd = tea.Batch(cmd, m.refreshPorts())
 			case tabContainers:
 				cmd = tea.Batch(cmd, m.refreshContainers())
+			case tabLocks:
+				cmd = tea.Batch(cmd, m.refreshLocks())
 			}
 		}
 		return m, tea.Batch(cmd, waitTick())
@@ -496,15 +498,42 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.refreshPorts()
 			}
 		case "3":
-			if !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() {
+			if !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() && !m.lockInput.Focused() {
 				m.activeTab = tabContainers
 				m.listFocus = focusMain
 				return m, m.refreshContainers()
 			}
+		case "4":
+			if locksTabEnabled && !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() && !m.lockInput.Focused() {
+				m.activeTab = tabLocks
+				m.listFocus = focusMain
+				return m, m.refreshLocks()
+			}
 		}
 
 		if m.state == stateList {
-			if m.activeTab == tabContainers {
+			if m.activeTab == tabLocks {
+				if m.lockInput.Focused() {
+					if msg.String() == "enter" || msg.String() == "esc" {
+						m.lockInput.Blur()
+						return m, nil
+					}
+					if msg.Type == tea.KeyUp || msg.Type == tea.KeyDown {
+						m.lockInput.Blur()
+					} else {
+						var inputCmd tea.Cmd
+						m.lockInput, inputCmd = m.lockInput.Update(msg)
+						m.updateLockTable()
+						m.lockTable.SetCursor(0)
+						return m, inputCmd
+					}
+				}
+
+				if msg.String() == "/" {
+					m.lockInput.Focus()
+					return m, textinput.Blink
+				}
+			} else if m.activeTab == tabContainers {
 				if m.containerInput.Focused() {
 					if msg.String() == "enter" || msg.String() == "esc" {
 						m.containerInput.Blur()
@@ -590,6 +619,20 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.quitting = true
 				return m, tea.Quit
 			case "enter":
+				if m.activeTab == tabLocks {
+					cursor := m.lockTable.Cursor()
+					if cursor >= 0 && cursor < len(m.filteredLocks) {
+						pid := m.filteredLocks[cursor].PID
+						if pid > 0 {
+							m.state = stateDetail
+							m.selectedDetail = nil
+							m.selectedContainer = nil
+							m.viewport.GotoTop()
+							m.envViewport.GotoTop()
+							return m, m.fetchProcessDetail(pid)
+						}
+					}
+				}
 				if m.activeTab == tabContainers {
 					cursor := m.containerTable.Cursor()
 					if cursor >= 0 && cursor < len(m.filteredContainers) {
@@ -646,11 +689,11 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Focus Switching
 			case "tab", "right", "left", "l", "L", "h", "H":
-				if m.input.Focused() || m.portInput.Focused() || m.containerInput.Focused() {
+				if m.input.Focused() || m.portInput.Focused() || m.containerInput.Focused() || m.lockInput.Focused() {
 					break
 				}
-				// Containers tab has no side panel to switch focus to.
-				if m.activeTab == tabContainers {
+				// Tabs without a side panel — these keys are no-ops there.
+				if m.activeTab == tabContainers || m.activeTab == tabLocks {
 					return m, nil
 				}
 				if msg.String() == "tab" || msg.String() == "right" || msg.String() == "l" || msg.String() == "L" {
@@ -691,9 +734,18 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.updatePortTable()
 					return m, nil
 				}
+				if m.activeTab == tabLocks {
+					m.showAllFiles = !m.showAllFiles
+					m.locks = nil
+					m.filteredLocks = nil
+					m.lockTable.SetRows(nil)
+					m.lockTable.SetCursor(0)
+					return m, m.refreshLocks()
+				}
 
-			// Sorting Keys
-			case "c", "C", "p", "P", "n", "N", "m", "M", "t", "T", "u", "U", "s", "S":
+			// Sorting Keys (union across all tabs; per-tab dispatch below picks the relevant ones)
+			case "c", "C", "p", "P", "n", "N", "m", "M", "t", "T", "u", "U", "s", "S",
+				"i", "I", "r", "R", "g", "G", "f", "F":
 				switch m.activeTab {
 				case tabProcesses:
 					newCol := ""
@@ -754,6 +806,56 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.updatePortTable()
 						return m, nil
 					}
+
+				case tabContainers:
+					newCol := ""
+					switch msg.String() {
+					case "i", "I":
+						newCol = "id"
+					case "n", "N":
+						newCol = "name"
+					case "r", "R":
+						newCol = "runtime"
+					case "g", "G":
+						newCol = "image"
+					case "s", "S":
+						newCol = "status"
+					}
+					if newCol != "" {
+						if m.sortContainerCol == newCol {
+							m.sortContainerDesc = !m.sortContainerDesc
+						} else {
+							m.sortContainerCol = newCol
+							m.sortContainerDesc = false
+						}
+						m.updateContainerTable()
+						return m, nil
+					}
+
+				case tabLocks:
+					newCol := ""
+					switch msg.String() {
+					case "p", "P":
+						newCol = "pid"
+					case "n", "N":
+						newCol = "process"
+					case "t", "T":
+						newCol = "type"
+					case "m", "M":
+						newCol = "mode"
+					case "f", "F":
+						newCol = "path"
+					}
+					if newCol != "" {
+						if m.sortLockCol == newCol {
+							m.sortLockDesc = !m.sortLockDesc
+						} else {
+							m.sortLockCol = newCol
+							m.sortLockDesc = false
+						}
+						m.updateLockTable()
+						return m, nil
+					}
 				}
 			}
 
@@ -786,6 +888,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, cmd
 				} else if m.activeTab == tabContainers {
 					m.containerTable, cmd = m.containerTable.Update(msg)
+					return m, cmd
+				} else if m.activeTab == tabLocks {
+					m.lockTable, cmd = m.lockTable.Update(msg)
 					return m, cmd
 				} else {
 					prevSelected := m.portTable.Cursor()
@@ -941,7 +1046,7 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, m.refreshProcesses()
 			case "a", "A":
-				if m.selectedDetail != nil {
+				if actionsSupported && m.selectedDetail != nil {
 					m.actionMenuOpen = true
 				}
 				return m, nil
@@ -1095,6 +1200,27 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.containerTable.SetColumns(containerCols)
 		}
 
+		m.lockTable.SetWidth(availableWidth)
+		m.lockTable.SetHeight(processListHeight)
+		// Last column (Path) absorbs remaining width, same pattern as Command.
+		lockCols := m.lockTable.Columns()
+		fixedLC := 0
+		pathColIdx := len(lockCols) - 1
+		for i, c := range lockCols {
+			if i == pathColIdx {
+				continue
+			}
+			fixedLC += c.Width
+		}
+		if pathColIdx >= 0 {
+			pathWidth := availableWidth - fixedLC - cellPadding*len(lockCols)
+			if pathWidth < 10 {
+				pathWidth = 10
+			}
+			lockCols[pathColIdx].Width = pathWidth
+			m.lockTable.SetColumns(lockCols)
+		}
+
 		vpHeight := msg.Height - 9
 		if vpHeight < 0 {
 			vpHeight = 0
@@ -1186,6 +1312,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case []*model.ContainerMatch:
 		m.containers = msg
 		m.updateContainerTable()
+
+	case []*model.LockedFile:
+		m.locks = msg
+		m.updateLockTable()
 
 	case treeMsg:
 		selected := m.table.SelectedRow()

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -53,7 +54,7 @@ func _genExamples() string {
   # Find the process listening on a specific port
   witr --port 5432
 
-  # Find the process holding a lock on a file
+  # Find the process holding a file open
   witr --file /var/lib/dpkg/lock
 
   # Inspect a process by name with exact matching (no fuzzy search)
@@ -137,7 +138,7 @@ func init() {
 
 	rootCmd.Flags().StringSliceP("pid", "p", nil, "pid(s) to look up (repeatable)")
 	rootCmd.Flags().StringSliceP("port", "o", nil, "port(s) to look up (repeatable)")
-	rootCmd.Flags().StringSliceP("file", "f", nil, "file path(s) to find process for (repeatable)")
+	rootCmd.Flags().StringSliceP("file", "f", nil, "file(s) held open by a process (repeatable)")
 	rootCmd.Flags().StringSliceP("container", "c", nil, "container(s) to look up (repeatable)")
 	rootCmd.Flags().BoolP("short", "s", false, "show only ancestry")
 	rootCmd.Flags().BoolP("tree", "t", false, "show only ancestry as a tree")
@@ -508,6 +509,22 @@ func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer,
 	errStr := err.Error()
 	colorEnabled := !flags.noColor
 
+	// Platform-unsupported target (e.g. -f on Windows). Don't tack on the
+	// generic "try a different name/port/PID" suffix — the operation isn't a
+	// failed lookup, it's unavailable on this OS.
+	if strings.Contains(errStr, "not supported on") {
+		if multiMode {
+			if flags.json {
+				*jsonResults = append(*jsonResults, jsonErrorEntry(t, errStr))
+			} else {
+				outp.Printf("Error: %v\n", err)
+			}
+		} else {
+			cmd.PrintErrln(errStr)
+		}
+		return ExitInvalidInput
+	}
+
 	if strings.Contains(errStr, "socket found but owning process not detected") {
 		if t.Type == model.TargetPort {
 			if portNum, convErr := strconv.Atoi(t.Value); convErr == nil {
@@ -555,6 +572,9 @@ func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer,
 		return classifyError(err)
 	}
 	errorMsg := fmt.Sprintf("%s\n\nNo matching process or service found. Please check your query or try a different name/port/PID.\nFor usage and options, run: witr --help", errStr)
+	if t.Type == model.TargetFile && runtime.GOOS != "windows" && os.Geteuid() != 0 {
+		errorMsg += "\n\nIf the file is held by another user's process, retry with sudo:\n  sudo " + strings.Join(os.Args, " ")
+	}
 	cmd.PrintErrln(errorMsg)
 	return classifyError(err)
 }

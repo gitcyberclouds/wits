@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -36,6 +37,11 @@ func (m MainModel) View() string {
 				status = "Mode: Searching (↑↓ to navigate, Esc/Enter to stop)"
 			}
 			inputView = m.containerInput.View()
+		case tabLocks:
+			if m.lockInput.Focused() {
+				status = "Mode: Searching (↑↓ to navigate, Esc/Enter to stop)"
+			}
+			inputView = m.lockInput.View()
 		default:
 			if m.input.Focused() {
 				status = "Mode: Searching (↑↓ to navigate, Esc/Enter to stop)"
@@ -109,6 +115,13 @@ func (m MainModel) View() string {
 			mainContent = lipgloss.NewStyle().Width(m.width - 4).Render(m.containerTable.View())
 		}
 
+		if m.activeTab == tabLocks {
+			s1 := cachedTableStyles
+			s1.Header = s.Header
+			m.lockTable.SetStyles(s1)
+			mainContent = lipgloss.NewStyle().Width(m.width - 4).Render(m.lockTable.View())
+		}
+
 		if m.activeTab == tabPorts {
 			sideBorderColor := dimBorderColor
 			sideHeaderColor := lipgloss.Color("#bcbcbc") // Light Gray
@@ -165,7 +178,23 @@ func (m MainModel) View() string {
 			}
 			helpText = fmt.Sprintf("Total: %d [%s] | p/t/n/s: Sort | a: Toggle All | Esc/q: Quit | Tab: Focus | Up/Down: Scroll", len(m.portTable.Rows()), filterStatus)
 		case tabContainers:
-			helpText = fmt.Sprintf("Total: %d | /: Search | Esc/q: Quit | Up/Down: Scroll", len(m.containerTable.Rows()))
+			helpText = fmt.Sprintf("Total: %d | Enter: Detail | i/n/r/g/s: Sort | /: Search | Esc/q: Quit | Up/Down: Scroll", len(m.containerTable.Rows()))
+		case tabLocks:
+			suffix := ""
+			if os.Geteuid() != 0 {
+				suffix = " | (use sudo for full paths)"
+			}
+			mode := "LOCKED"
+			if m.showAllFiles {
+				mode = "OPEN"
+			}
+			shown := len(m.lockTable.Rows())
+			total := len(m.filteredLocks)
+			countText := fmt.Sprintf("Total: %d", total)
+			if shown < total {
+				countText = fmt.Sprintf("%d of %d", shown, total)
+			}
+			helpText = fmt.Sprintf("%s [%s] | Enter: Detail | a: Toggle Open Files | p/n/t/m/f: Sort | /: Search | Esc/q: Quit | Up/Down: Scroll%s", countText, mode, suffix)
 		}
 		footerContent := helpText
 		if m.version != "" {
@@ -178,6 +207,7 @@ func (m MainModel) View() string {
 		processesTab := inactiveTabStyle.Render("1. Processes")
 		portsTab := inactiveTabStyle.Render("2. Ports")
 		containersTab := inactiveTabStyle.Render("3. Containers")
+		locksTab := inactiveTabStyle.Render("4. Locks")
 		switch m.activeTab {
 		case tabProcesses:
 			processesTab = activeTabStyle.Render("1. Processes")
@@ -185,14 +215,20 @@ func (m MainModel) View() string {
 			portsTab = activeTabStyle.Render("2. Ports")
 		case tabContainers:
 			containersTab = activeTabStyle.Render("3. Containers")
+		case tabLocks:
+			locksTab = activeTabStyle.Render("4. Locks")
 		}
 
-		header := lipgloss.JoinHorizontal(lipgloss.Top,
+		headerSegs := []string{
 			titleStyle.Render("witr"),
 			processesTab,
 			portsTab,
 			containersTab,
-		)
+		}
+		if locksTabEnabled {
+			headerSegs = append(headerSegs, locksTab)
+		}
+		header := lipgloss.JoinHorizontal(lipgloss.Top, headerSegs...)
 
 		return outerStyle.Render(
 			lipgloss.JoinVertical(lipgloss.Left,
@@ -373,7 +409,11 @@ func (m MainModel) View() string {
 		case m.statusMsg != "":
 			helpText = errorStyle.Render(m.statusMsg)
 		default:
-			helpText = "a: Actions | Esc/q: Back | Tab: Focus | Up/Down: Scroll"
+			if actionsSupported {
+				helpText = "a: Actions | Esc/q: Back | Tab: Focus | Up/Down: Scroll"
+			} else {
+				helpText = "Esc/q: Back | Tab: Focus | Up/Down: Scroll"
+			}
 		}
 		footerContent := helpText
 		if m.version != "" && !m.actionMenuOpen && m.pendingAction == actionNone && m.statusMsg == "" {

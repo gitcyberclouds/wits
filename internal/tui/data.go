@@ -56,6 +56,39 @@ func (m MainModel) refreshContainers() tea.Cmd {
 	}
 }
 
+func (m MainModel) refreshLocks() tea.Cmd {
+	return func() tea.Msg {
+		if m.showAllFiles {
+			return mergeLocksAndOpenFiles(proc.ListLockedFiles(), proc.ListAllOpenFiles())
+		}
+		return proc.ListLockedFiles()
+	}
+}
+
+// mergeLocksAndOpenFiles returns the union of locks and open files. When the
+// same (pid, path) appears in both, the lock entry wins so the Type column
+// surfaces the lock kind (POSIX/FLOCK) and Mode reflects lock access rather
+// than the raw fd access mode.
+func mergeLocksAndOpenFiles(locks, opens []*model.LockedFile) []*model.LockedFile {
+	seen := make(map[string]struct{}, len(locks)+len(opens))
+	key := func(l *model.LockedFile) string {
+		return fmt.Sprintf("%d\x00%s", l.PID, l.Path)
+	}
+
+	merged := make([]*model.LockedFile, 0, len(locks)+len(opens))
+	for _, l := range locks {
+		merged = append(merged, l)
+		seen[key(l)] = struct{}{}
+	}
+	for _, o := range opens {
+		if _, dup := seen[key(o)]; dup {
+			continue
+		}
+		merged = append(merged, o)
+	}
+	return merged
+}
+
 // fetchContainerDetail mirrors `witr -c <name> --verbose`: enrich the match,
 // try the host-visible PID path through the normal pipeline, fall back to
 // returning the bare ContainerMatch for the runtime-info render.
@@ -650,8 +683,128 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 	m.treeViewport.SetContent(content)
 }
 
+func (m *MainModel) sortContainers() {
+	col := m.sortContainerCol
+	desc := m.sortContainerDesc
+	sort.SliceStable(m.containers, func(i, j int) bool {
+		a, b := m.containers[i], m.containers[j]
+		var less bool
+		switch col {
+		case "id":
+			less = a.ID < b.ID
+		case "runtime":
+			less = strings.ToLower(a.Runtime) < strings.ToLower(b.Runtime)
+		case "image":
+			less = strings.ToLower(a.Image) < strings.ToLower(b.Image)
+		case "status":
+			less = strings.ToLower(a.Status) < strings.ToLower(b.Status)
+		default: // "name"
+			less = strings.ToLower(a.Name) < strings.ToLower(b.Name)
+		}
+		if desc {
+			return !less
+		}
+		return less
+	})
+}
+
+func (m *MainModel) sortLocks() {
+	col := m.sortLockCol
+	desc := m.sortLockDesc
+	sort.SliceStable(m.locks, func(i, j int) bool {
+		a, b := m.locks[i], m.locks[j]
+		var less bool
+		switch col {
+		case "process":
+			less = strings.ToLower(a.Process) < strings.ToLower(b.Process)
+		case "type":
+			less = a.Type < b.Type
+		case "mode":
+			less = a.Mode < b.Mode
+		case "path":
+			less = a.Path < b.Path
+		default: // "pid"
+			less = a.PID < b.PID
+		}
+		if desc {
+			return !less
+		}
+		return less
+	})
+}
+
+// getContainerColumns returns container columns with sort-arrow suffixes.
+func (m *MainModel) getContainerColumns() []table.Column {
+	cols := []table.Column{
+		{Title: "ID", Width: 14},
+		{Title: "Name", Width: 22},
+		{Title: "Runtime", Width: 10},
+		{Title: "Image", Width: 28},
+		{Title: "Status", Width: 22},
+		{Title: "Ports", Width: 24},
+		{Title: "Command", Width: 28},
+	}
+	arrow := " ↑"
+	if m.sortContainerDesc {
+		arrow = " ↓"
+	}
+	switch m.sortContainerCol {
+	case "id":
+		cols[0].Title += arrow
+	case "name":
+		cols[1].Title += arrow
+	case "runtime":
+		cols[2].Title += arrow
+	case "image":
+		cols[3].Title += arrow
+	case "status":
+		cols[4].Title += arrow
+	}
+	return cols
+}
+
+// getLockColumns returns lock columns with sort-arrow suffixes.
+func (m *MainModel) getLockColumns() []table.Column {
+	cols := []table.Column{
+		{Title: centerHeader("PID", 8), Width: 8},
+		{Title: "Process", Width: 18},
+		{Title: "Type", Width: 8},
+		{Title: "Mode", Width: 8},
+		{Title: "Path", Width: 50},
+	}
+	arrow := " ↑"
+	if m.sortLockDesc {
+		arrow = " ↓"
+	}
+	switch m.sortLockCol {
+	case "pid":
+		cols[0].Title = centerHeader("PID"+arrow, 8)
+	case "process":
+		cols[1].Title += arrow
+	case "type":
+		cols[2].Title += arrow
+	case "mode":
+		cols[3].Title += arrow
+	case "path":
+		cols[4].Title += arrow
+	}
+	return cols
+}
+
 func (m *MainModel) updateContainerTable() {
+	m.sortContainers()
 	filter := strings.ToLower(strings.TrimSpace(m.containerInput.Value()))
+
+	// Preserve any width changes the WindowSizeMsg handler made (the trailing
+	// Command column flexes) before re-applying header arrows.
+	existing := m.containerTable.Columns()
+	newCols := m.getContainerColumns()
+	for i := range existing {
+		if i < len(newCols) {
+			newCols[i].Width = existing[i].Width
+		}
+	}
+	m.containerTable.SetColumns(newCols)
 
 	cols := m.containerTable.Columns()
 	w := func(i int) int {
@@ -694,3 +847,59 @@ func truncate(s string, n int) string {
 	}
 	return s[:n-1] + "…"
 }
+
+func (m *MainModel) updateLockTable() {
+	m.sortLocks()
+	filter := strings.ToLower(strings.TrimSpace(m.lockInput.Value()))
+
+	existing := m.lockTable.Columns()
+	newCols := m.getLockColumns()
+	for i := range existing {
+		if i < len(newCols) {
+			newCols[i].Width = existing[i].Width
+		}
+	}
+	m.lockTable.SetColumns(newCols)
+
+	cols := m.lockTable.Columns()
+	w := func(i int) int {
+		if i < len(cols) {
+			return cols[i].Width
+		}
+		return 20
+	}
+
+	// In "all open files" mode with no search, cap rows to keep the UI snappy.
+	// Typing into the search box lifts the cap so users can drill into the full set.
+	rowLimit := 0
+	if m.showAllFiles && filter == "" {
+		rowLimit = openFilesDisplayCap
+	}
+
+	rows := make([]table.Row, 0, len(m.locks))
+	filtered := make([]*model.LockedFile, 0, len(m.locks))
+	for _, l := range m.locks {
+		if filter != "" {
+			haystack := strings.ToLower(fmt.Sprintf("%d %s %s %s %s", l.PID, l.Process, l.Type, l.Mode, l.Path))
+			if !strings.Contains(haystack, filter) {
+				continue
+			}
+		}
+		if rowLimit > 0 && len(rows) >= rowLimit {
+			filtered = append(filtered, l)
+			continue
+		}
+		rows = append(rows, table.Row{
+			fmt.Sprintf("%8d", l.PID),
+			truncate(l.Process, w(1)),
+			truncate(l.Type, w(2)),
+			truncate(l.Mode, w(3)),
+			truncate(l.Path, w(4)),
+		})
+		filtered = append(filtered, l)
+	}
+	m.lockTable.SetRows(rows)
+	m.filteredLocks = filtered
+}
+
+const openFilesDisplayCap = 100
