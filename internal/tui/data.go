@@ -246,6 +246,16 @@ func (m *MainModel) filterProcesses() {
 	filter := strings.ToLower(m.input.Value())
 	var rows []table.Row
 
+	cols := m.table.Columns()
+	colWidth := func(i int) int {
+		if i < len(cols) {
+			return cols[i].Width
+		}
+		return 20
+	}
+	nameWidth := colWidth(2)
+	cmdlineWidth := colWidth(6)
+
 	m.filtered = nil
 	for _, p := range m.processes {
 		cmd := strings.ToLower(p.Command)
@@ -270,13 +280,13 @@ func (m *MainModel) filterProcesses() {
 			row := table.Row{
 				fmt.Sprintf("%8d", p.PID),
 				p.User,
-				p.Command,
+				truncateMiddle(p.Command, nameWidth),
 				fmt.Sprintf("%6s", fmt.Sprintf("%.1f%%", p.CPUPercent)),
 				fmt.Sprintf("%16s", fmt.Sprintf("%s (%.1f%%)", formatBytes(p.MemoryRSS), p.MemoryPercent)),
 				startedStr,
 			}
 			if m.showCmdCol {
-				row = append(row, p.Cmdline)
+				row = append(row, truncateMiddle(p.Cmdline, cmdlineWidth))
 			}
 			rows = append(rows, row)
 		}
@@ -827,10 +837,10 @@ func (m *MainModel) updateContainerTable() {
 			output.ShortContainerID(c.ID),
 			truncate(c.Name, w(1)),
 			c.Runtime,
-			truncate(c.Image, w(3)),
+			truncateMiddle(c.Image, w(3)),
 			truncate(c.Status, w(4)),
 			truncate(c.Ports, w(5)),
-			truncate(c.Command, w(6)),
+			truncateMiddle(c.Command, w(6)),
 		})
 		filtered = append(filtered, c)
 	}
@@ -846,6 +856,29 @@ func truncate(s string, n int) string {
 		return "…"
 	}
 	return s[:n-1] + "…"
+}
+
+// truncateMiddle preserves the head and tail of s and replaces the middle
+// with an ellipsis when the string is wider than n. Better than head-only
+// truncation for paths and command lines where the unique part is usually
+// at the end (e.g. .../Google Chrome Helper).
+func truncateMiddle(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	// Below ~8 chars there's no room to show meaningful head+tail; fall
+	// back to head truncation rather than emit something like "/…r".
+	if n < 8 {
+		return string(runes[:n-1]) + "…"
+	}
+	keep := n - 1 // reserve one cell for the ellipsis
+	head := keep / 2
+	tail := keep - head
+	return string(runes[:head]) + "…" + string(runes[len(runes)-tail:])
 }
 
 func (m *MainModel) updateLockTable() {
@@ -894,7 +927,7 @@ func (m *MainModel) updateLockTable() {
 			truncate(l.Process, w(1)),
 			truncate(l.Type, w(2)),
 			truncate(l.Mode, w(3)),
-			truncate(l.Path, w(4)),
+			truncateMiddle(l.Path, w(4)),
 		})
 		filtered = append(filtered, l)
 	}
