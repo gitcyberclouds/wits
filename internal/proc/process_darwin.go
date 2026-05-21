@@ -77,14 +77,21 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "high-mem"
 	}
 
-	// Derive display name from the full command line to avoid kernel comm truncation
-	// and space-in-name parsing issues (e.g. "Microsoft Teams WebView Helper").
-	displayName := extractExecutableName(rawCmdline)
+	// Display name resolution order:
+	//   1. filepath.Base(binPath) — binPath comes from `lsof ftxt` as a single
+	//      unsplit line, so spaces in .app bundle paths are preserved.
+	//   2. `ps -p <pid> -o comm=` on its own line — also preserves spaces.
+	//   3. extractExecutableName(rawCmdline) — last resort. `ps -o args=` joins
+	//      argv with single spaces and does not quote paths, so this can
+	//      truncate names when the executable path contains spaces (issue #201).
+	displayName := binaryBasename(binPath)
 	if displayName == "" {
-		// Fall back to ucomm for processes with no visible command line (kernel threads)
-		if ucommOut, ucommErr := exec.Command("ps", "-p", pidStr, "-o", "ucomm=").Output(); ucommErr == nil {
-			displayName = strings.TrimSpace(string(ucommOut))
+		if commOut, commErr := exec.Command("ps", "-p", pidStr, "-o", "comm=").Output(); commErr == nil {
+			displayName = binaryBasename(string(commOut))
 		}
+	}
+	if displayName == "" {
+		displayName = extractExecutableName(rawCmdline)
 	}
 	if cmdline == "" {
 		cmdline = displayName

@@ -82,12 +82,22 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "high-mem"
 	}
 
-	displayName := extractExecutableName(rawCmdline)
+	// Display name resolution order:
+	//   1. filepath.Base(binPath) — binPath comes from `procstat -f` as a
+	//      single unsplit line, preserving any spaces in the path.
+	//   2. `ps -p <pid> -o comm=` on its own line — also preserves spaces.
+	//   3. extractExecutableName(rawCmdline) — last resort. `ps -o args=`
+	//      joins argv with single spaces and does not quote paths, so this
+	//      can truncate names when the executable path contains spaces
+	//      (issue #201).
+	displayName := binaryBasename(binPath)
 	if displayName == "" {
-		// Fall back to comm for processes with no visible command line
 		if commOut, commErr := exec.Command("ps", "-p", pidStr, "-o", "comm=").Output(); commErr == nil {
-			displayName = strings.TrimSpace(string(commOut))
+			displayName = binaryBasename(string(commOut))
 		}
+	}
+	if displayName == "" {
+		displayName = extractExecutableName(rawCmdline)
 	}
 	if cmdline == "" {
 		cmdline = displayName

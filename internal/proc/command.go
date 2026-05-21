@@ -49,6 +49,25 @@ func isWordChar(c byte) bool {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
 }
 
+// binaryBasename returns the executable name from a string that is known to
+// be a single full binary path (e.g. from `lsof ftxt`, `/proc/<pid>/exe`, or
+// `ps -o comm=` on its own line). Unlike extractExecutableName it does NOT
+// tokenize on whitespace, so paths containing spaces — like macOS .app
+// bundles ("/Applications/Microsoft Teams.app/Contents/MacOS/Microsoft Teams")
+// — are preserved intact.
+func binaryBasename(rawPath string) string {
+	s := strings.TrimSpace(rawPath)
+	s = strings.Trim(s, `"'`)
+	if s == "" {
+		return ""
+	}
+	base := filepath.Base(s)
+	if base == "." || base == "/" {
+		return ""
+	}
+	return base
+}
+
 func extractExecutableName(cmdline string) string {
 	args := splitCmdline(cmdline)
 	for _, arg := range args {
