@@ -108,3 +108,42 @@ func TestExtractContainerID(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractIncusContainerName(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		cgroup string
+		want   string
+	}{
+		{
+			name:   "user-owned container",
+			cgroup: "0::/lxc.payload.user-1000_alpine-container/.lxc",
+			want:   "alpine-container",
+		},
+		{
+			name:   "root-owned container (no user prefix)",
+			cgroup: "0::/lxc.payload.my-container/.lxc",
+			want:   "my-container",
+		},
+		{
+			name:   "not an incus container",
+			cgroup: "0::/system.slice/docker-abc123.scope",
+			want:   "",
+		},
+		{
+			name:   "empty cgroup",
+			cgroup: "",
+			want:   "",
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := extractIncusContainerName(tt.cgroup); got != tt.want {
+				t.Errorf("extractIncusContainerName(%q) = %q, want %q", tt.cgroup, got, tt.want)
+			}
+		})
+	}
+}

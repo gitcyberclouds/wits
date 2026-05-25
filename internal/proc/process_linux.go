@@ -117,6 +117,12 @@ func ReadProcess(pid int) (model.Process, error) {
 			} else if strings.Contains(cgroupStr, "colima") {
 				container = "colima: default"
 			}
+		case strings.Contains(cgroupStr, "lxc.payload"):
+			if name := extractIncusContainerName(cgroupStr); name != "" {
+				container = "incus: " + name
+			} else {
+				container = "incus"
+			}
 		}
 	}
 
@@ -329,4 +335,19 @@ func extractContainerID(cgroup, dashPrefix, slashPrefix string) string {
 		}
 	}
 	return ""
+}
+
+func extractIncusContainerName(cgroup string) string {
+	if idx := strings.Index(cgroup, "lxc.payload."); idx == -1 {
+		return ""
+	} else {
+		rest := cgroup[idx+len("lxc.payload."):]
+		if u := strings.Index(rest, "_"); u != -1 {
+			rest = rest[u+1:]
+		}
+		if slash := strings.Index(rest, "/"); slash != -1 {
+			rest = rest[:slash]
+		}
+		return rest
+	}
 }
