@@ -118,10 +118,12 @@ func ReadProcess(pid int) (model.Process, error) {
 				container = "colima: default"
 			}
 		case strings.Contains(cgroupStr, "lxc.payload"):
-			if name := extractIncusContainerName(cgroupStr); name != "" {
-				container = "incus: " + name
+			name := extractLXCBasedContainerName(cgroupStr)
+			manager := detectLXCManager(pid)
+			if name != "" {
+				container = manager + ": " + name
 			} else {
-				container = "incus"
+				container = manager
 			}
 		}
 	}
@@ -337,17 +339,67 @@ func extractContainerID(cgroup, dashPrefix, slashPrefix string) string {
 	return ""
 }
 
-func extractIncusContainerName(cgroup string) string {
-	if idx := strings.Index(cgroup, "lxc.payload."); idx == -1 {
+func extractLXCBasedContainerName(cgroup string) string {
+	idx := strings.Index(cgroup, "lxc.payload.")
+	if idx == -1 {
 		return ""
-	} else {
-		rest := cgroup[idx+len("lxc.payload."):]
+	}
+	rest := cgroup[idx+len("lxc.payload."):]
+
+	// Only strip "user-<uid>_" prefix, not arbitrary underscores
+	if strings.HasPrefix(rest, "user-") {
 		if u := strings.Index(rest, "_"); u != -1 {
 			rest = rest[u+1:]
 		}
-		if slash := strings.Index(rest, "/"); slash != -1 {
-			rest = rest[:slash]
-		}
-		return rest
 	}
+
+	if slash := strings.Index(rest, "/"); slash != -1 {
+		rest = rest[:slash]
+	}
+	return rest
+}
+
+func detectLXCManager(pid int) string {
+	for pid > 1 {
+		ppid, err := getParentPID(pid)
+		if err != nil {
+			break
+		}
+		name, err := getProcessName(ppid)
+		if err != nil {
+			break
+		}
+		switch name {
+		case "incusd":
+			return "incus"
+		case "lxd":
+			return "lxd"
+		case "lxc-start":
+			return "lxc"
+		}
+		pid = ppid
+	}
+	return "lxc" // fallback
+}
+
+func getParentPID(pid int) (int, error) {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return 0, err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "PPid:") {
+			ppid, err := strconv.Atoi(strings.TrimSpace(line[5:]))
+			return ppid, err
+		}
+	}
+	return 0, fmt.Errorf("PPid not found")
+}
+
+func getProcessName(pid int) (string, error) {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
 }
