@@ -119,11 +119,10 @@ func ReadProcess(pid int) (model.Process, error) {
 			}
 		case strings.Contains(cgroupStr, "lxc.payload"):
 			name := extractLXCBasedContainerName(cgroupStr)
-			manager := detectLXCManager(pid)
 			if name != "" {
-				container = manager + ": " + name
+				container = "lxc-based: " + name
 			} else {
-				container = manager
+				container = "lxc-based"
 			}
 		}
 	}
@@ -357,49 +356,4 @@ func extractLXCBasedContainerName(cgroup string) string {
 		rest = rest[:slash]
 	}
 	return rest
-}
-
-func detectLXCManager(pid int) string {
-	for pid > 1 {
-		ppid, err := getParentPID(pid)
-		if err != nil {
-			break
-		}
-		name, err := getProcessName(ppid)
-		if err != nil {
-			break
-		}
-		switch name {
-		case "incusd":
-			return "incus"
-		case "lxd":
-			return "lxd"
-		case "lxc-start":
-			return "lxc"
-		}
-		pid = ppid
-	}
-	return "lxc" // fallback
-}
-
-func getParentPID(pid int) (int, error) {
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
-	if err != nil {
-		return 0, err
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.HasPrefix(line, "PPid:") {
-			ppid, err := strconv.Atoi(strings.TrimSpace(line[5:]))
-			return ppid, err
-		}
-	}
-	return 0, fmt.Errorf("PPid not found")
-}
-
-func getProcessName(pid int) (string, error) {
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid))
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
 }
