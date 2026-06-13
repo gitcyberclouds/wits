@@ -928,4 +928,7 @@ Special thanks to the people supporting **witr** ❤️
   <a href="https://github.com/timcolson" title="Tim Colson">
     <img src="https://images.weserv.nl/?url=github.com/timcolson.png&mask=circle&w=80&h=80" width="80">
   </a>
+  <a href="https://github.com/R-Bose" title="Rijurekh Bose">
+    <img src="https://images.weserv.nl/?url=github.com/R-Bose.png&mask=circle&w=80&h=80" width="80">
+  </a>
 </p>
