@@ -3,6 +3,7 @@ package pipeline
 import (
 	"sort"
 	"strconv"
+	"strings"
 
 	procpkg "github.com/pranshuparmar/witr/internal/proc"
 	"github.com/pranshuparmar/witr/internal/source"
@@ -23,6 +24,24 @@ func AnalyzePID(cfg AnalyzeConfig) (model.Result, error) {
 	}
 
 	src := source.Detect(ancestry)
+
+	// ReadProcess labels lxc.payload cgroups generically as "lxc-based:" since
+	// it can't see the ancestry. source.Detect knows the actual runtime via the
+	// ancestor binary (incusd/lxd/lxc-start) — rewrite the per-process label so
+	// the Container line matches the Source line.
+	if src.Type == model.SourceContainer {
+		switch src.Name {
+		case "incus", "lxd", "lxc":
+			for i := range ancestry {
+				switch {
+				case strings.HasPrefix(ancestry[i].Container, "lxc-based:"):
+					ancestry[i].Container = src.Name + ":" + strings.TrimPrefix(ancestry[i].Container, "lxc-based:")
+				case ancestry[i].Container == "lxc-based":
+					ancestry[i].Container = src.Name
+				}
+			}
+		}
+	}
 
 	var proc model.Process
 	resolvedTarget := "unknown"
