@@ -531,7 +531,7 @@ Running `witr` without any arguments or with the `-i` flag launches the **Intera
 ### Key Features:
 - **Processes Tab**: Live, sortable, filterable list of all running processes with a side panel showing the ancestry tree of the highlighted process.
 - **Ports Tab**: Open/listening ports with the owning processes attached in a side panel. Toggle between LISTEN-only and ALL with `a`.
-- **Containers Tab**: All running containers across Docker, Podman, nerdctl, K8s/crictl, and FreeBSD jails in one list - name, image, status, ports, command, plus a per-container detail view with mounts, networks, and compose project metadata.
+- **Containers Tab**: All running containers across Docker, Podman, nerdctl, K8s/crictl, Incus, LXC, LXD, and FreeBSD jails in one list - name, image, status, ports, command, plus a per-container detail view with mounts, networks, and compose project metadata.
 - **Locks Tab**: System-wide file locks (POSIX/FLOCK on Linux, lsof-derived on macOS/FreeBSD). Press `a` to switch into "all open files" mode, where locked entries are merged with every interesting open fd; type into `/` to search across the merged set.
 - **Process Details**: Deep-dive into a process to see its full ancestry tree, child processes, environment variables, working directory, sockets, file context, and more.
 - **Process Actions**: Send signals (Kill, Terminate, Pause, Resume) or Renice processes directly from the UI (Unix only).
@@ -563,7 +563,7 @@ Positional arguments (without flags) are treated as process or service names. Mu
 
 All target flags (`--pid`, `--port`, `--file`, `--container`) are repeatable and can be mixed with each other and with positional name arguments. When multiple targets are provided, results are shown sequentially with labeled dividers. All output modes (standard, short, tree, JSON, env, warnings, verbose) work with multiple inputs.
 
-The `--container` flag searches across Docker, Podman, nerdctl, K8s/crictl, and FreeBSD jails, and matches against container name, image, command, and compose project/service labels.
+The `--container` flag searches across Docker, Podman, nerdctl, K8s/crictl, Incus, LXC, LXD, and FreeBSD jails, and matches against container name, image, command, and compose project/service labels.
 
 The TUI is launched if no arguments or relevant flags (`--pid`, `--port`, `--file`, `--container`) are provided, or if the `--interactive` flag is explicitly used.
 
@@ -692,7 +692,7 @@ Explains the process holding a file open.
 witr --container redis
 ```
 
-Looks up a container by name, image, command, or compose project/service across every detected runtime (Docker, Podman, nerdctl, K8s/crictl, FreeBSD jails). Pass `--verbose` to include mounts, networks, and compose metadata in the output.
+Looks up a container by name, image, command, or compose project/service across every detected runtime (Docker, Podman, nerdctl, K8s/crictl, Incus, LXC, LXD, FreeBSD jails). Pass `--verbose` to include mounts, networks, and compose metadata in the output.
 
 ---
 
@@ -832,7 +832,7 @@ Non‑blocking observations such as:
 | By PID | ✅ | ✅ | ✅ | ✅ | |
 | By Port | ✅ | ✅ | ✅ | ✅ | |
 | By File | ✅ | ✅ | ❌ | ✅ | |
-| By Container | ✅ | ✅ | ✅ | ✅ | Requires the runtime CLI on PATH (docker/podman/nerdctl/crictl/jls). |
+| By Container | ✅ | ✅ | ✅ | ✅ | Requires the runtime CLI on PATH (docker/podman/nerdctl/crictl/incus/lxc/lxc-ls/jls). |
 | Multiple/mixed inputs | ✅ | ✅ | ✅ | ✅ | Repeatable flags, mixed types. |
 | Exact Match | ✅ | ✅ | ✅ | ✅ | |
 | Full command line | ✅ | ✅ | ✅ | ✅ | |
@@ -849,7 +849,7 @@ Non‑blocking observations such as:
 | Service Description | ✅ | ✅ | ✅ | ✅ | Linux: `Description`, macOS: `Comment`, Windows: `Display Name`, FreeBSD: `rc` header |
 | Configuration Source | ✅ | ✅ | ✅ | ✅ | Linux: Unit File, macOS: Plist, Windows: Registry Key, FreeBSD: Rc Script |
 | Supervisor | ✅ | ✅ | ✅ | ✅ | |
-| Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus compose mappings), Podman, nerdctl, K8s (Kubepods/crictl), Containerd. Colima on macOS/Linux. Jails on FreeBSD. |
+| Containers | ✅ | ✅ | ✅ | ✅ | Docker (plus compose mappings), Podman, nerdctl, K8s (Kubepods/crictl), Containerd. Colima on macOS/Linux. Incus/LXC/LXD on Linux. Jails on FreeBSD. |
 | SSH session detection | ✅ | ✅ | ✅ | ✅ | Detects remote IP and terminal. |
 | tmux/screen detection | ✅ | ✅ | ❌ | ✅ | Shows session name in source. |
 | Schedule detection | ✅ | ✅ | ❌ | ❌ | Linux: systemd timers, macOS: launchd intervals/calendar. |
