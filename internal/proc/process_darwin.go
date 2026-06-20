@@ -144,8 +144,11 @@ func ReadProcess(pid int) (model.Process, error) {
 func getCwdAndBinaryPath(pid int) (cwd string, binPath string) {
 	cwd = "unknown"
 
+	// lsof may exit non-zero when one of the requested FDs (e.g., txt for a
+	// deleted/inaccessible binary) is unavailable, but still emit valid cwd
+	// data on stdout. Salvage stdout when present instead of bailing out.
 	out, err := exec.Command("lsof", "-a", "-p", strconv.Itoa(pid), "-d", "cwd,txt", "-F", "fn").Output()
-	if err != nil {
+	if err != nil && len(out) == 0 {
 		return cwd, ""
 	}
 
@@ -162,7 +165,7 @@ func getCwdAndBinaryPath(pid int) (cwd string, binPath string) {
 		}
 		switch line[0] {
 		case 'f':
-			currentFD = line[1:]
+			currentFD = strings.TrimSpace(line[1:])
 		case 'n':
 			path := strings.TrimSpace(line[1:])
 			switch currentFD {
