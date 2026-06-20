@@ -117,6 +117,13 @@ func ReadProcess(pid int) (model.Process, error) {
 			} else if strings.Contains(cgroupStr, "colima") {
 				container = "colima: default"
 			}
+		case strings.Contains(cgroupStr, "lxc.payload"):
+			name := extractLXCBasedContainerName(cgroupStr)
+			if name != "" {
+				container = "lxc-based: " + name
+			} else {
+				container = "lxc-based"
+			}
 		}
 	}
 
@@ -329,4 +336,24 @@ func extractContainerID(cgroup, dashPrefix, slashPrefix string) string {
 		}
 	}
 	return ""
+}
+
+func extractLXCBasedContainerName(cgroup string) string {
+	idx := strings.Index(cgroup, "lxc.payload.")
+	if idx == -1 {
+		return ""
+	}
+	rest := cgroup[idx+len("lxc.payload."):]
+
+	// Only strip "user-<uid>_" prefix, not arbitrary underscores
+	if strings.HasPrefix(rest, "user-") {
+		if u := strings.Index(rest, "_"); u != -1 {
+			rest = rest[u+1:]
+		}
+	}
+
+	if slash := strings.Index(rest, "/"); slash != -1 {
+		rest = rest[:slash]
+	}
+	return rest
 }
