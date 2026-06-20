@@ -535,7 +535,7 @@ func (m *MainModel) updateEnvViewport() {
 			fmt.Fprintf(&b, "%s\n", env)
 		}
 	} else {
-		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
+		dimStyle := lipgloss.NewStyle().Foreground(colorMuted)
 		fmt.Fprintf(&b, "%s\n", dimStyle.Render("No environment variables found."))
 	}
 
@@ -625,13 +625,13 @@ func (m *MainModel) rerenderTree() {
 func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process) {
 	var b strings.Builder
 
-	magenta := lipgloss.NewStyle().Foreground(lipgloss.Color("#d787ff"))
-	green := lipgloss.NewStyle().Foreground(lipgloss.Color("#00d700"))
+	magenta := lipgloss.NewStyle().Foreground(colorTreeConn)
+	green := lipgloss.NewStyle().Foreground(colorTreeTarget)
 	highlight := lipgloss.NewStyle().
-		Background(lipgloss.Color("#5f00d7")).
-		Foreground(lipgloss.Color("#ffffaf"))
-	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
-	sectionLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true)
+		Background(colorSelectBg).
+		Foreground(colorSelectFg)
+	dim := lipgloss.NewStyle().Foreground(colorMuted)
+	sectionLabel := lipgloss.NewStyle().Foreground(colorSectionLabel).Bold(true)
 
 	fmt.Fprintf(&b, "%s\n", sectionLabel.Render("Ancestry Tree:"))
 

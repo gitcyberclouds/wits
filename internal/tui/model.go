@@ -16,58 +16,58 @@ import (
 var (
 	baseStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#585858")) // Dark Gray
+			BorderForeground(colorBorderDim)
 
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#FAFAFA")). // White
-			Background(lipgloss.Color("#7D56F4")). // Purple
+			Foreground(colorBrandFg).
+			Background(colorBrandBg).
 			Padding(0, 1)
 
 	tableHeaderStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#5f5fd7")). // Purple/Blue
+				Foreground(colorAccent).
 				Bold(true).
 				Border(lipgloss.NormalBorder(), false, false, true, false).
-				BorderForeground(lipgloss.Color("#585858")). // Dark Gray
+				BorderForeground(colorBorderDim).
 				Padding(0, 1)
 
 	promptStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#5f5fd7")). // Purple/Blue
+			Foreground(colorAccent).
 			Bold(true)
 
 	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#767676")). // Dimmed Gray
+			Foreground(colorMuted).
 			Border(lipgloss.NormalBorder(), true, false, false, false).
-			BorderForeground(lipgloss.Color("#585858")). // Dark Gray
+			BorderForeground(colorBorderDim).
 			Padding(0, 1).
 			Width(100)
 
 	activeTabStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ffffff")). // White
-			Background(lipgloss.Color("#22aa22")). // Green
+			Foreground(colorOnAccent).
+			Background(colorGreenBg).
 			Padding(0, 1).
 			Bold(true)
 
 	inactiveTabStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#ffffff")). // White
-				Background(lipgloss.Color("#767676")). // Dimmed Gray
+				Foreground(colorOnAccent).
+				Background(colorIdleTabBg).
 				Padding(0, 1)
 
 	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ff5f5f")). // Soft red
+			Foreground(colorError).
 			Bold(true)
 
 	actionMenuStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ffdf87")). // Amber
+			Foreground(colorAmber).
 			Bold(true)
 
 	confirmStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ffaf5f")). // Orange-amber
+			Foreground(colorConfirm).
 			Bold(true)
 
 	pidStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#22aa22")). // Green
-			Foreground(lipgloss.Color("#ffffff")). // White
+			Background(colorGreenBg).
+			Foreground(colorOnAccent).
 			Padding(0, 1).
 			Bold(true)
 
@@ -91,8 +91,8 @@ var (
 	cachedTableStyles = func() table.Styles {
 		s := table.DefaultStyles()
 		s.Selected = s.Selected.
-			Foreground(lipgloss.Color("#ffffaf")). // Light Yellow
-			Background(lipgloss.Color("#5f00d7")). // Purple
+			Foreground(colorSelectFg).
+			Background(colorSelectBg).
 			Bold(false)
 		return s
 	}()
@@ -216,7 +216,7 @@ func InitialModel(version string) MainModel {
 	)
 
 	s := cachedTableStyles
-	s.Header = tableHeaderStyle.BorderForeground(lipgloss.Color("#585858"))
+	s.Header = tableHeaderStyle.BorderForeground(colorBorderDim)
 	t.SetStyles(s)
 
 	portColumns := []table.Column{

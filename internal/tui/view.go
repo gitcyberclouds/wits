@@ -48,8 +48,8 @@ func (m MainModel) View() string {
 			}
 		}
 
-		activeBorderColor := lipgloss.Color("#5f5fd7") // Purple/Blue
-		dimBorderColor := lipgloss.Color("#585858")    // Dark Gray
+		activeBorderColor := colorAccent
+		dimBorderColor := colorBorderDim
 
 		treeBorderColor := dimBorderColor
 		treeHeaderColor := dimBorderColor
@@ -58,7 +58,7 @@ func (m MainModel) View() string {
 			treeBorderColor = activeBorderColor
 			treeHeaderColor = activeBorderColor
 		} else {
-			treeHeaderColor = lipgloss.Color("#bcbcbc") // Light Gray
+			treeHeaderColor = colorHeaderDim
 		}
 
 		treeContainerStyle := paneDividerStyle.
@@ -124,7 +124,7 @@ func (m MainModel) View() string {
 
 		if m.activeTab == tabPorts {
 			sideBorderColor := dimBorderColor
-			sideHeaderColor := lipgloss.Color("#bcbcbc") // Light Gray
+			sideHeaderColor := colorHeaderDim
 
 			if m.listFocus == focusSide {
 				sideBorderColor = activeBorderColor
@@ -266,7 +266,7 @@ func (m MainModel) View() string {
 		}
 
 		if m.selectedContainer != nil {
-			activeBorderColor := lipgloss.Color("#5f5fd7")
+			activeBorderColor := colorAccent
 			detailHeader := tableHeaderStyle.
 				BorderForeground(activeBorderColor).
 				Foreground(activeBorderColor)
@@ -334,9 +334,9 @@ func (m MainModel) View() string {
 		detailHeader := tableHeaderStyle
 		envHeader := tableHeaderStyle
 
-		activeBorderColor := lipgloss.Color("#5f5fd7") // Purple
-		dimColor := lipgloss.Color("#bcbcbc")          // Lighter Gray
-		dimBorderColor := lipgloss.Color("#585858")    // Dark Gray
+		activeBorderColor := colorAccent
+		dimColor := colorHeaderDim
+		dimBorderColor := colorBorderDim
 
 		if m.detailFocus == focusDetail {
 			detailHeader = detailHeader.BorderForeground(activeBorderColor).Foreground(activeBorderColor)
