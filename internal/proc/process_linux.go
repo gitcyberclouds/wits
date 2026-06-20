@@ -143,8 +143,11 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	// Service detection (try systemctl show for this PID)
 	service := ""
-	svcOut, err := exec.Command("systemctl", "status", fmt.Sprintf("%d", pid)).CombinedOutput()
-	if err == nil && strings.Contains(string(svcOut), "Loaded: loaded") {
+	// `systemctl status` exits non-zero for any non-active unit (failed,
+	// inactive, activating, ...) but still prints `Loaded: loaded ...` with
+	// the unit name. Gate on the output content rather than the exit code.
+	svcOut, _ := exec.Command("systemctl", "status", fmt.Sprintf("%d", pid)).CombinedOutput()
+	if strings.Contains(string(svcOut), "Loaded: loaded") {
 		// Try to extract service name from output
 		for line := range strings.Lines(string(svcOut)) {
 			if strings.HasPrefix(line, "Loaded:") && strings.Contains(line, ".service") {
