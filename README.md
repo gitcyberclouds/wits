@@ -833,7 +833,7 @@ Non‑blocking observations such as:
 | By Name | ✅ | ✅ | ✅ | ✅ | |
 | By PID | ✅ | ✅ | ✅ | ✅ | |
 | By Port | ✅ | ✅ | ✅ | ✅ | |
-| By File | ✅ | ✅ | ❌ | ✅ | |
+| By File | ✅ | ✅ | ✅ | ✅ | |
 | By Container | ✅ | ✅ | ✅ | ✅ | Requires the runtime CLI on PATH (docker/podman/nerdctl/crictl/incus/lxc/lxc-ls/jls). |
 | Multiple/mixed inputs | ✅ | ✅ | ✅ | ✅ | Repeatable flags, mixed types. |
 | Exact Match | ✅ | ✅ | ✅ | ✅ | |

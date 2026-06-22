@@ -156,3 +156,35 @@ func TestIntegration_ResolvePortNonexistent(t *testing.T) {
 	}
 	t.Errorf("ResolvePort(%d) returned nil error for an unbound port", port)
 }
+
+// TestIntegration_ResolveFileSelf creates a file, holds it open, and confirms
+// the platform's file resolver attributes it to the test process — exercising
+// /proc/fd (Linux), lsof (macOS), fstat (FreeBSD), and the Restart Manager
+// (Windows). macOS/FreeBSD lean on external tools that may be absent or quirky
+// in minimal CI images, so a miss there is tolerated rather than failed.
+func TestIntegration_ResolveFileSelf(t *testing.T) {
+	f, err := os.CreateTemp("", "witr-file-*.tmp")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer f.Close()
+	if _, err := f.WriteString("witr"); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	self := os.Getpid()
+	var pids []int
+	var lastErr error
+	for i := 0; i < 10; i++ {
+		pids, lastErr = ResolveFile(f.Name())
+		if lastErr == nil && slices.Contains(pids, self) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if runtime.GOOS == "darwin" || runtime.GOOS == "freebsd" {
+		t.Skipf("ResolveFile on %s did not attribute the file to self (got %v, err %v); tolerated", runtime.GOOS, pids, lastErr)
+	}
+	t.Errorf("ResolveFile(%q) did not find self PID %d; got %v (last err: %v)", f.Name(), self, pids, lastErr)
+}
