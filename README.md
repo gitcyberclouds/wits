@@ -840,7 +840,7 @@ Non‑blocking observations such as:
 | Full command line | ✅ | ✅ | ✅ | ✅ | |
 | Process start time | ✅ | ✅ | ✅ | ✅ | |
 | Working directory | ✅ | ✅ | ✅ | ✅ | |
-| Environment variables | ✅ | ⚠️ | ❌ | ✅ | macOS: Partial support due to SIP restrictions. |
+| Environment variables | ✅ | ⚠️ | ⚠️ | ✅ | macOS: SIP restrictions; Windows: protected processes inaccessible. |
 | **Network** |
 | Listening ports | ✅ | ✅ | ✅ | ✅ | |
 | Bind addresses | ✅ | ✅ | ✅ | ✅ | |

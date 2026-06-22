@@ -178,7 +178,7 @@ func getFullProcessInfo(handle syscall.Handle, pid int, info *Win32ProcessInfo) 
 	info.Cwd = readUnicodeString(handle, params.CurrentDirectoryPath)
 	info.CommandLine = readUnicodeString(handle, params.CommandLine)
 	info.Exe = readUnicodeString(handle, params.ImagePathName)
-	info.Env = []string{}
+	info.Env = readEnvironmentBlock(handle, params.Environment)
 
 	return nil
 }
@@ -197,6 +197,58 @@ func readProcessMemory(handle syscall.Handle, addr uintptr, dest unsafe.Pointer,
 		uintptr(unsafe.Pointer(&read)),
 	)
 	return ret != 0
+}
+
+// readEnvironmentBlock reads a process's environment from its PEB. The block is
+// a run of "KEY=VALUE\0" entries terminated by an empty entry (a \0\0). It is
+// read in chunks until that terminator appears or a read fails, and bounded so a
+// corrupt pointer can't drive an unbounded read of remote memory.
+func readEnvironmentBlock(handle syscall.Handle, addr uintptr) []string {
+	if addr == 0 {
+		return nil
+	}
+	const chunkWords = 2048    // 4 KiB per read
+	const maxWords = 64 * 1024 // cap at 128 KiB
+	var block []uint16
+	for len(block) < maxWords {
+		buf := make([]uint16, chunkWords)
+		if !readProcessMemory(handle, addr+uintptr(len(block)*2), unsafe.Pointer(&buf[0]), uintptr(len(buf)*2)) {
+			break
+		}
+		block = append(block, buf...)
+		if envBlockEnd(block) >= 0 {
+			break
+		}
+	}
+	return parseEnvBlock(block)
+}
+
+// envBlockEnd returns the index of the \0\0 terminator, or -1 if not yet read.
+func envBlockEnd(block []uint16) int {
+	for i := 0; i+1 < len(block); i++ {
+		if block[i] == 0 && block[i+1] == 0 {
+			return i
+		}
+	}
+	return -1
+}
+
+// parseEnvBlock splits the environment block into "KEY=VALUE" entries, stopping
+// at the empty entry that terminates it.
+func parseEnvBlock(block []uint16) []string {
+	var env []string
+	start := 0
+	for i := 0; i < len(block); i++ {
+		if block[i] != 0 {
+			continue
+		}
+		if i == start { // empty entry: end of block
+			break
+		}
+		env = append(env, syscall.UTF16ToString(block[start:i]))
+		start = i + 1
+	}
+	return env
 }
 
 func readUnicodeString(handle syscall.Handle, us unicodeString) string {
