@@ -6,8 +6,10 @@ on:
     tags:
       - 'v*'
 
+# Default to read-only; the release job escalates to contents: write so
+# GoReleaser can create the release and upload assets.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -19,8 +21,9 @@ env:
 
 jobs:
   release:
-
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6

@@ -7,11 +7,9 @@ on:
 
 
 
+# Default to read-only; the publishing job escalates to contents: write.
 permissions:
-  contents: write
-
-
-
+  contents: read
 
 concurrency:
   group: ${{github.workflow}}-${{ github.ref }}
@@ -24,6 +22,8 @@ env:
 jobs:
   update-docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
