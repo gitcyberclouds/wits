@@ -1,0 +1,49 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+# Linters are kept to a high-signal, low-false-positive core. The `unused`
+# linter is intentionally omitted: witr has per-platform files (_linux/_darwin/
+# _freebsd/_windows), and unused analysis runs under a single GOOS in CI, so it
+# reports cross-platform helpers (used only on other OSes) as dead. Dead code is
+# instead caught by the cross-platform build matrix and review.
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - misspell
+  settings:
+    errcheck:
+      # These return errors that are conventionally ignored: writes to an
+      # already-failing stdout/stderr, best-effort scanf parses guarded by
+      # downstream checks, and closing read-only files.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Sscanf
+        - (*os.File).Close
+        - (net.Listener).Close
+        # Windows syscall cleanup: Close/handle-release errors are conventionally
+        # ignored, and *LazyProc.Call returns the errno (checked via the r1 return
+        # value, not this error).
+        - syscall.CloseHandle
+        - (syscall.Token).Close
+        - (*syscall.LazyProc).Call
+        # Best-effort plist (XML) parsing on macOS: a decode failure means we skip
+        # that field rather than abort, so the error is intentionally ignored.
+        - (*encoding/xml.Decoder).DecodeElement
+  exclusions:
+    generated: lax
+    # QF* are opt-in "quickfix" style refactors (tagged switches, De Morgan's
+    # law), not correctness issues — drop those two nags while keeping every
+    # high-value SA analyzer in staticcheck's default set.
+    rules:
+      - linters: [staticcheck]
+        text: "QF1001"
+      - linters: [staticcheck]
+        text: "QF1003"
