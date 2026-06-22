@@ -217,6 +217,17 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "high-mem"
 	}
 
+	memPercent := 0.0
+	if total := totalMemoryBytes(); total > 0 {
+		memPercent = memBytes / float64(total) * 100.0
+	}
+
+	// Lifetime-average CPU%: total CPU time over wall-clock time since start.
+	cpuPercent := 0.0
+	if wall := time.Since(startedAt).Seconds(); wall > 0 {
+		cpuPercent = totalCPU / wall * 100.0
+	}
+
 	user := readUser(pid)
 
 	sockets, _ := readSocketsCached()
@@ -273,24 +284,46 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:          pid,
-		PPID:         ppid,
-		Command:      displayName,
-		Cmdline:      cmdline,
-		StartedAt:    startedAt,
-		User:         user,
-		WorkingDir:   cwd,
-		GitRepo:      gitRepo,
-		GitBranch:    gitBranch,
-		Container:    container,
-		Service:      service,
-		Sockets:      procSockets,
-		Health:       health,
-		Forked:       forked,
-		Env:          env,
-		ExeDeleted:   isBinaryDeleted(pid),
-		Capabilities: ReadCapabilities(pid),
+		PID:           pid,
+		PPID:          ppid,
+		Command:       displayName,
+		Cmdline:       cmdline,
+		StartedAt:     startedAt,
+		User:          user,
+		CPUPercent:    cpuPercent,
+		MemoryRSS:     uint64(memBytes),
+		MemoryPercent: memPercent,
+		WorkingDir:    cwd,
+		GitRepo:       gitRepo,
+		GitBranch:     gitBranch,
+		Container:     container,
+		Service:       service,
+		Sockets:       procSockets,
+		Health:        health,
+		Forked:        forked,
+		Env:           env,
+		ExeDeleted:    isBinaryDeleted(pid),
+		Capabilities:  ReadCapabilities(pid),
 	}, nil
+}
+
+// totalMemoryBytes returns total physical RAM in bytes from /proc/meminfo, or 0
+// if it can't be read.
+func totalMemoryBytes() uint64 {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "MemTotal:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				kb, _ := strconv.ParseUint(fields[1], 10, 64)
+				return kb * 1024
+			}
+		}
+	}
+	return 0
 }
 
 func isBinaryDeleted(pid int) bool {

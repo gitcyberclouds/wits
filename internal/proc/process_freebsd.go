@@ -82,6 +82,12 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "high-mem"
 	}
 
+	memBytes := uint64(rssKB * 1024)
+	memPercent := 0.0
+	if total := totalMemoryBytes(); total > 0 {
+		memPercent = float64(memBytes) / float64(total) * 100.0
+	}
+
 	// Display name resolution order:
 	//   1. filepath.Base(binPath) — binPath comes from `procstat -f` as a
 	//      single unsplit line, preserving any spaces in the path.
@@ -127,23 +133,37 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:        pid,
-		PPID:       ppid,
-		Command:    displayName,
-		Cmdline:    cmdline,
-		StartedAt:  startedAt,
-		User:       user,
-		WorkingDir: cwd,
-		GitRepo:    gitRepo,
-		GitBranch:  gitBranch,
-		Container:  container,
-		Service:    service,
-		Sockets:    procSockets,
-		Health:     health,
-		Forked:     forked,
-		Env:        env,
-		ExeDeleted: exeDeleted,
+		PID:           pid,
+		PPID:          ppid,
+		Command:       displayName,
+		Cmdline:       cmdline,
+		StartedAt:     startedAt,
+		User:          user,
+		CPUPercent:    cpuPct,
+		MemoryRSS:     memBytes,
+		MemoryPercent: memPercent,
+		WorkingDir:    cwd,
+		GitRepo:       gitRepo,
+		GitBranch:     gitBranch,
+		Container:     container,
+		Service:       service,
+		Sockets:       procSockets,
+		Health:        health,
+		Forked:        forked,
+		Env:           env,
+		ExeDeleted:    exeDeleted,
 	}, nil
+}
+
+// totalMemoryBytes returns total physical RAM in bytes via sysctl hw.physmem,
+// or 0 if it can't be read.
+func totalMemoryBytes() uint64 {
+	out, err := exec.Command("sysctl", "-n", "hw.physmem").Output()
+	if err != nil {
+		return 0
+	}
+	v, _ := strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64)
+	return v
 }
 
 // getCwdAndBinaryPath returns the working directory and executable path for a process.

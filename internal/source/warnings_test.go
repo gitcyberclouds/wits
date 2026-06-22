@@ -153,6 +153,19 @@ func TestWarningsLongRunning(t *testing.T) {
 	}
 }
 
+// A zero start time means we couldn't read it (e.g. a protected Windows
+// process), not that the process is ancient — it must not trigger the
+// long-running warning. Regression guard for issue #205.
+func TestWarningsZeroStartTimeNotLongRunning(t *testing.T) {
+	t.Parallel()
+
+	p := baseProc()
+	p.StartedAt = time.Time{}
+	if contains(wrap(p), "over 90 days") {
+		t.Errorf("zero start time should not trigger long-running warning, got: %v", wrap(p))
+	}
+}
+
 func TestWarningsSuspiciousWorkingDirs(t *testing.T) {
 	t.Parallel()
 

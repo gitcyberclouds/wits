@@ -55,6 +55,20 @@ func TestIntegration_ReadProcessSelf(t *testing.T) {
 	}
 }
 
+// TestIntegration_ReadProcessSelfMemory is the regression guard for issue #205:
+// the standard (non-verbose) per-process path must populate resident memory.
+// Our own process always has a non-zero working set, so MemoryRSS must be > 0
+// on every platform.
+func TestIntegration_ReadProcessSelfMemory(t *testing.T) {
+	p, err := ReadProcess(os.Getpid())
+	if err != nil {
+		t.Fatalf("ReadProcess(self): %v", err)
+	}
+	if p.MemoryRSS == 0 {
+		t.Errorf("ReadProcess(self).MemoryRSS = 0; want non-zero resident memory")
+	}
+}
+
 // TestIntegration_ReadProcessNonexistent verifies error handling for a PID
 // that cannot exist (PID 0 is reserved by the kernel and never represents a
 // userland process).

@@ -113,17 +113,21 @@ func GetProcessDetailedInfo(pid int) (Win32ProcessInfo, error) {
 	// Get Start Time
 	info.StartedAt = getProcessStartTime(handleLimited)
 
-	// Get Exe Path via QueryFullProcessImageName (Kernel32)
+	// Get PPID and a fallback image name from the snapshot.
+	ppid, snapExe, _ := getInfoFromSnapshot(pid)
+	info.PPID = ppid
+
+	// Prefer the full image path. Fall back to the snapshot's bare image name
+	// for minimal/system processes (System, Memory Compression, vmmemWSL) whose
+	// path can't be queried, so the name still resolves instead of being blank.
 	exePath := getProcessImageName(handleLimited)
+	if exePath == "" {
+		exePath = snapExe
+	}
 	info.Exe = exePath
-	// Default CommandLine to Exe name if we can't read memory
 	if exePath != "" {
 		info.CommandLine = filepath.Base(exePath)
 	}
-
-	// Get PPID via Snapshot (since we can't query it from process handle easily without full rights/classes)
-	ppid, _, _ := getInfoFromSnapshot(pid)
-	info.PPID = ppid
 
 	// Cwd and Env are unavailable without VM_READ
 	info.Cwd = ""
@@ -192,11 +196,15 @@ func readProcessMemory(handle syscall.Handle, addr uintptr, dest unsafe.Pointer,
 }
 
 func readUnicodeString(handle syscall.Handle, us unicodeString) string {
-	if us.Length == 0 {
+	// us.Length is a byte count. Read only whole uint16 code units, and never
+	// more bytes than the destination buffer holds: a malformed (odd or partial)
+	// Length from an incomplete PEB read must not overrun buf.
+	n := int(us.Length) / 2
+	if n == 0 || us.Buffer == 0 {
 		return ""
 	}
-	buf := make([]uint16, us.Length/2)
-	if !readProcessMemory(handle, us.Buffer, unsafe.Pointer(&buf[0]), uintptr(us.Length)) {
+	buf := make([]uint16, n)
+	if !readProcessMemory(handle, us.Buffer, unsafe.Pointer(&buf[0]), uintptr(n*2)) {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
@@ -244,4 +252,61 @@ func getInfoFromSnapshot(pid int) (int, string, error) {
 		}
 	}
 	return 0, "", fmt.Errorf("process %d not found in snapshot", pid)
+}
+
+// processCommandLineInformation is the NtQueryInformationProcess class (60,
+// Windows 8.1+) that returns a process's command line.
+const processCommandLineInformation = 60
+
+// windowsProcessCmdline returns a process's full command line via
+// NtQueryInformationProcess(ProcessCommandLineInformation). The kernel copies
+// the command line into our own buffer, so — unlike walking the PEB with
+// ReadProcessMemory — there is no remote process-memory access: inaccessible or
+// unusual processes return an error, and any anomaly degrades to an empty
+// string rather than faulting. Safe to call across the whole process list.
+func windowsProcessCmdline(pid int) string {
+	handle, err := syscall.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return ""
+	}
+	defer syscall.CloseHandle(handle)
+
+	const statusInfoLengthMismatch = 0xC0000004
+	bufLen := uint32(4096)
+	for attempt := 0; attempt < 2; attempt++ {
+		buf := make([]byte, bufLen)
+		var retLen uint32
+		status, _, _ := procNtQueryInfo.Call(
+			uintptr(handle),
+			uintptr(processCommandLineInformation),
+			uintptr(unsafe.Pointer(&buf[0])),
+			uintptr(bufLen),
+			uintptr(unsafe.Pointer(&retLen)),
+		)
+		// Buffer too small: grow to the reported size and retry once.
+		if uint32(status) == statusInfoLengthMismatch && retLen > bufLen && retLen <= 1<<20 {
+			bufLen = retLen
+			continue
+		}
+		if status != 0 {
+			return ""
+		}
+
+		// The buffer starts with a UNICODE_STRING whose Buffer points into the
+		// same buffer, just past the struct. Validate every offset before use.
+		us := (*unicodeString)(unsafe.Pointer(&buf[0]))
+		if us.Length == 0 || us.Buffer == 0 {
+			return ""
+		}
+		base := uintptr(unsafe.Pointer(&buf[0]))
+		if us.Buffer < base {
+			return ""
+		}
+		offset := us.Buffer - base
+		if offset+uintptr(us.Length) > uintptr(len(buf)) {
+			return ""
+		}
+		return syscall.UTF16ToString(unsafe.Slice((*uint16)(unsafe.Pointer(&buf[offset])), int(us.Length)/2))
+	}
+	return ""
 }

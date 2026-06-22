@@ -205,8 +205,10 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 		w = append(w, "No known supervisor or service manager detected")
 	}
 
-	// Warn if process is very old (>90 days)
-	if time.Since(last.StartedAt).Hours() > 90*24 {
+	// Warn if process is very old (>90 days). A zero start time means we
+	// couldn't read it (e.g. protected Windows processes), not that the process
+	// is ancient — skip the warning rather than emit a false positive.
+	if !last.StartedAt.IsZero() && time.Since(last.StartedAt).Hours() > 90*24 {
 		w = append(w, "Process has been running for over 90 days")
 	}
 
