@@ -25,9 +25,9 @@ func PrintTree(w io.Writer, chain []model.Process, children []model.Process, col
 			if i == len(chain)-1 {
 				cmdColor = ColorGreen
 			}
-			p.Printf("%s%s%s (%spid %d%s)\n", cmdColor, proc.Command, ColorReset, ColorDim, proc.PID, ColorReset)
+			p.Printf("%s%s%s (%spid %d%s)\n", cmdColor, ChainName(proc), ColorReset, ColorDim, proc.PID, ColorReset)
 		} else {
-			p.Printf("%s (pid %d)\n", proc.Command, proc.PID)
+			p.Printf("%s (pid %d)\n", ChainName(proc), proc.PID)
 		}
 	}
 
@@ -57,9 +57,9 @@ func PrintTree(w io.Writer, chain []model.Process, children []model.Process, col
 		}
 
 		if colorEnabled {
-			p.Printf("%s%s%s%s%s (%spid %d%s)\n", baseIndent, ColorMagenta, connector, ColorReset, child.Command, ColorDim, child.PID, ColorReset)
+			p.Printf("%s%s%s%s%s (%spid %d%s)\n", baseIndent, ColorMagenta, connector, ColorReset, ChainName(child), ColorDim, child.PID, ColorReset)
 		} else {
-			p.Printf("%s%s%s (pid %d)\n", baseIndent, connector, child.Command, child.PID)
+			p.Printf("%s%s%s (pid %d)\n", baseIndent, connector, ChainName(child), child.PID)
 		}
 	}
 }

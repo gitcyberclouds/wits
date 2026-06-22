@@ -181,11 +181,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 	if colorEnabled {
 		out.Printf("\n%sWhy It Exists%s :\n  ", ColorMagenta, ColorReset)
 		for i, p := range r.Ancestry {
-			name := p.Command
-			if name == "" && p.Cmdline != "" {
-				name = p.Cmdline
-			}
-			name = SanitizeTerminal(name)
+			name := SanitizeTerminal(ChainName(p))
 
 			nameColor := ansiString("")
 			if i == len(r.Ancestry)-1 {
@@ -200,11 +196,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 	} else {
 		out.Printf("\nWhy It Exists :\n  ")
 		for i, p := range r.Ancestry {
-			name := p.Command
-			if name == "" && p.Cmdline != "" {
-				name = p.Cmdline
-			}
-			name = SanitizeTerminal(name)
+			name := SanitizeTerminal(ChainName(p))
 			out.Printf("%s (pid %d)", name, p.PID)
 			if i < len(r.Ancestry)-1 {
 				out.Printf(" \u2192 ")

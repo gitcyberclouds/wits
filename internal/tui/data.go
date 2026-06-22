@@ -646,7 +646,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 			fmt.Fprintf(&b, "%s%s ", indent, magenta.Render("└─"))
 		}
 
-		label := fmt.Sprintf("%s (pid %d)", proc.Command, proc.PID)
+		label := fmt.Sprintf("%s (pid %d)", output.ChainName(proc), proc.PID)
 		if idx == m.treeCursor {
 			label = highlight.Render(label)
 		} else if i == len(ancestry)-1 {
@@ -673,7 +673,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 				connector = "└─"
 			}
 
-			label := fmt.Sprintf("%s (pid %d)", child.Command, child.PID)
+			label := fmt.Sprintf("%s (pid %d)", output.ChainName(child), child.PID)
 			if idx == m.treeCursor {
 				label = highlight.Render(label)
 			}
