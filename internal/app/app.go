@@ -99,12 +99,14 @@ func _genExamples() string {
 
 // Exit codes
 const (
-	ExitOK            = 0
-	ExitWarnings      = 1
-	ExitInternalError = 1
-	ExitNotFound      = 2
-	ExitPermission    = 3
-	ExitInvalidInput  = 4
+	ExitOK           = 0
+	ExitWarnings     = 1
+	ExitNotFound     = 2
+	ExitPermission   = 3
+	ExitInvalidInput = 4
+	// ExitInternalError is distinct from ExitWarnings so scripts can tell an
+	// unexpected witr failure apart from "process found, has warnings".
+	ExitInternalError = 5
 )
 
 // exitCodeError wraps an error with a specific exit code.

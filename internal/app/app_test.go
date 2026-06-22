@@ -45,3 +45,15 @@ func TestClassifyError(t *testing.T) {
 		})
 	}
 }
+
+// An internal error must be distinguishable from "process has warnings" so
+// scripts gating on exit 1 don't conflate the two.
+func TestExitCodesDistinct(t *testing.T) {
+	t.Parallel()
+	if ExitInternalError == ExitWarnings {
+		t.Errorf("ExitInternalError (%d) must differ from ExitWarnings (%d)", ExitInternalError, ExitWarnings)
+	}
+	if ExitInternalError != 5 {
+		t.Errorf("ExitInternalError = %d, want 5 (documented)", ExitInternalError)
+	}
+}

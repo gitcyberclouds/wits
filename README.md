@@ -745,6 +745,7 @@ witr returns meaningful exit codes for use in scripts, CI pipelines, and monitor
 | 2 | Not found: no matching process or service |
 | 3 | Permission denied: insufficient privileges |
 | 4 | Invalid input: bad arguments or ambiguous match |
+| 5 | Internal error: an unexpected failure occurred |
 
 #### Example Usage:
 
@@ -756,6 +757,7 @@ case $? in
   2) echo "Process not running" ;;
   3) echo "Need elevated privileges" ;;
   4) echo "Invalid input or ambiguous match" ;;
+  5) echo "Internal error" ;;
 esac
 ```
 
