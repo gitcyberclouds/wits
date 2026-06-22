@@ -44,7 +44,7 @@ func (m MainModel) refreshPorts() tea.Cmd {
 	return func() tea.Msg {
 		ports, err := proc.ListOpenPorts()
 		if err != nil {
-			return nil
+			return err
 		}
 		return ports
 	}

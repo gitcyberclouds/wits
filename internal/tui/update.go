@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/pranshuparmar/witr/internal/proc"
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
@@ -1119,6 +1120,16 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.pendingAction != actionNone {
 				switch msg.String() {
 				case "y", "Y":
+					// Re-validate the target: if the process exited and its PID
+					// was reused since the detail view opened, refuse to signal a
+					// different process. Identity is the PID plus its start time.
+					if m.selectedDetail != nil {
+						if cur, err := proc.ReadProcess(pid); err != nil || !cur.StartedAt.Equal(m.selectedDetail.Process.StartedAt) {
+							m.pendingAction = actionNone
+							m.statusMsg = fmt.Sprintf("PID %d changed since opened — refresh and retry", pid)
+							return m, nil
+						}
+					}
 					originalAction := m.pendingAction
 					var execErr error
 					switch originalAction {
