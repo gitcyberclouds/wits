@@ -23,7 +23,7 @@ func ListProcesses() ([]model.Process, error) {
 
 	out := make([]model.Process, 0, len(procs))
 	for _, p := range procs {
-		rss, cpu, started := windowsProcMetrics(p.PID)
+		rss, cpu, cpuTime, started := windowsProcMetrics(p.PID)
 		out = append(out, model.Process{
 			PID:           p.PID,
 			PPID:          p.PPID,
@@ -34,6 +34,7 @@ func ListProcesses() ([]model.Process, error) {
 			CPUPercent:    cpu,
 			MemoryRSS:     rss,
 			MemoryPercent: windowsMemoryPercent(rss),
+			Health:        windowsHealth(rss, cpuTime),
 		})
 	}
 	return out, nil

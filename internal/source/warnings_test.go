@@ -1,6 +1,7 @@
 package source
 
 import (
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -138,7 +139,16 @@ func TestWarningsUnknownSupervisor(t *testing.T) {
 
 	p := baseProc()
 	got := Warnings([]model.Process{p}, model.SourceUnknown)
-	if !contains(got, "No known supervisor") {
+	hasWarning := contains(got, "No known supervisor")
+	if runtime.GOOS == "windows" {
+		// Suppressed on Windows: ancestry truncates at orphaned processes, so
+		// "unknown source" is normal rather than a sign of no supervision.
+		if hasWarning {
+			t.Errorf("unknown-supervisor warning should be suppressed on Windows, got: %v", got)
+		}
+		return
+	}
+	if !hasWarning {
 		t.Errorf("expected unknown-supervisor warning, got: %v", got)
 	}
 }

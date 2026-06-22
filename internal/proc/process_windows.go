@@ -35,7 +35,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	// Resident memory (working set) and lifetime-average CPU%. CPU mirrors the
 	// figure shown in the verbose report (ResourceContext) so every output mode
 	// reports the same value.
-	rss, cpu, _ := windowsProcMetrics(pid)
+	rss, cpu, cpuTime, _ := windowsProcMetrics(pid)
 
 	return model.Process{
 		PID:           pid,
@@ -52,7 +52,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		GitRepo:       gitRepo,
 		GitBranch:     gitBranch,
 		Sockets:       procSockets,
-		Health:        "healthy",
+		Health:        windowsHealth(rss, cpuTime),
 		Forked:        "unknown",
 		Env:           info.Env,
 		Service:       serviceName,

@@ -1,6 +1,7 @@
 package source
 
 import (
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -201,7 +202,11 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 	} else {
 		st = Detect(p).Type
 	}
-	if st == model.SourceUnknown {
+	// On Windows the ancestry frequently truncates at an orphaned process
+	// (Windows leaves a stale PPID instead of reparenting to an init process),
+	// so an unknown source is normal there — not a reliable "unsupervised"
+	// signal — and this warning would fire on most user processes.
+	if st == model.SourceUnknown && runtime.GOOS != "windows" {
 		w = append(w, "No known supervisor or service manager detected")
 	}
 

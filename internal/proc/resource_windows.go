@@ -56,16 +56,16 @@ func windowsMemoryPercent(rss uint64) float64 {
 }
 
 // windowsProcMetrics opens a process once and returns its resident set size
-// (WorkingSetSize, in bytes), lifetime-average CPU%, and start time. All are
-// zero values when the handle can't be opened, which is expected for
-// protected/system processes without elevation — callers keep the identity
+// (WorkingSetSize, in bytes), lifetime-average CPU%, total CPU time, and start
+// time. All are zero values when the handle can't be opened, which is expected
+// for protected/system processes without elevation — callers keep the identity
 // fields and report zeros rather than failing. It reads only fixed-size kernel
 // structures (no remote process-memory access), so it's safe to call across the
 // full process list.
-func windowsProcMetrics(pid int) (rss uint64, cpu float64, started time.Time) {
+func windowsProcMetrics(pid int) (rss uint64, cpu float64, cpuTime time.Duration, started time.Time) {
 	handle, err := syscall.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
 	if err != nil {
-		return 0, 0, time.Time{}
+		return 0, 0, 0, time.Time{}
 	}
 	defer syscall.CloseHandle(handle)
 
@@ -88,14 +88,28 @@ func windowsProcMetrics(pid int) (rss uint64, cpu float64, started time.Time) {
 		uintptr(unsafe.Pointer(&user)),
 	); ret != 0 {
 		started = time.Unix(0, creation.Nanoseconds())
+		cpuTime = filetimeTicksToDuration(kernel) + filetimeTicksToDuration(user)
 		wall := time.Since(started)
-		cpuTime := filetimeTicksToDuration(kernel) + filetimeTicksToDuration(user)
 		if wall > 0 {
 			cpu = float64(cpuTime) / float64(wall) * 100.0
 		}
 	}
 
-	return rss, cpu, started
+	return rss, cpu, cpuTime, started
+}
+
+// windowsHealth derives a health status from a process's resident memory and
+// total CPU time. Windows has no zombie/stopped equivalent, so it reports the
+// resource conditions, matching the Unix >2h CPU and >1GiB RSS thresholds.
+func windowsHealth(rss uint64, cpuTime time.Duration) string {
+	switch {
+	case cpuTime > 2*time.Hour:
+		return "high-cpu"
+	case rss > 1<<30: // 1 GiB
+		return "high-mem"
+	default:
+		return "healthy"
+	}
 }
 
 // GetResourceContext returns CPU and memory usage for a process.
