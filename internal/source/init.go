@@ -58,11 +58,3 @@ func detectInit(ancestry []model.Process) *model.Source {
 
 	return nil
 }
-
-func isShell(name string) bool {
-	switch name {
-	case "sh", "bash", "zsh", "dash", "ash", "csh", "tcsh", "fish", "powershell.exe", "pwsh.exe", "cmd.exe":
-		return true
-	}
-	return false
-}

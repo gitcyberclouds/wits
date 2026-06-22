@@ -169,6 +169,16 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		out.Printf("Started     : %s (%s)\n", rel, dtStr)
 	}
 
+	// Restart count (sourced from systemd's NRestarts); shown only when the
+	// managing system has restarted the unit at least once.
+	if r.RestartCount > 0 {
+		if colorEnabled {
+			out.Printf("%sRestarts%s    : %d\n", ColorMagenta, ColorReset, r.RestartCount)
+		} else {
+			out.Printf("Restarts    : %d\n", r.RestartCount)
+		}
+	}
+
 	if schedule, ok := r.Source.Details["schedule"]; ok {
 		if colorEnabled {
 			out.Printf("%sSchedule%s    : %s\n", ColorMagenta, ColorReset, schedule)

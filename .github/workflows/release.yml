@@ -16,6 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Track the latest 1.25.x patch (with check-latest below) so release binaries
+  # pick up stdlib security fixes, e.g. GO-2026-4602 (fixed in go1.25.8).
   GO_VERSION: '1.25'
   PROJECT_NAME: witr
 
@@ -34,6 +36,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7

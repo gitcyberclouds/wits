@@ -8,19 +8,17 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-var shells = map[string]bool{
-	"bash":           true,
-	"zsh":            true,
-	"sh":             true,
-	"fish":           true,
-	"csh":            true,
-	"tcsh":           true,
-	"ksh":            true,
-	"dash":           true,
-	"cmd.exe":        true,
-	"powershell.exe": true,
-	"pwsh.exe":       true,
-	"explorer.exe":   true,
+// isShell reports whether name (a lowercased command basename) is an interactive
+// shell or desktop launcher — a signal that a process was started by a user or
+// script rather than a service manager. Shared by detectShell and detectInit so
+// both agree on the definition.
+func isShell(name string) bool {
+	switch name {
+	case "bash", "zsh", "sh", "fish", "csh", "tcsh", "ksh", "dash", "ash",
+		"cmd.exe", "powershell.exe", "pwsh.exe", "explorer.exe":
+		return true
+	}
+	return false
 }
 
 var userTools = map[string]bool{
@@ -63,8 +61,8 @@ func detectShell(ancestry []model.Process) *model.Source {
 
 		// Windows reports executables with inconsistent casing (e.g.
 		// "Explorer.EXE", "PowerShell.exe"), so match shell names
-		// case-insensitively. The shells map keys are lowercase.
-		if shells[strings.ToLower(base)] {
+		// case-insensitively.
+		if isShell(strings.ToLower(base)) {
 			src := &model.Source{
 				Type: model.SourceShell,
 				Name: base,

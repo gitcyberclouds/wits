@@ -600,7 +600,6 @@ Process     : node (pid 14233)
 User        : pm2
 Command     : node index.js
 Started     : 2 days ago (Mon 2025-02-02 11:42:10 +05:30)
-Restarts    : 1
 
 Why It Exists :
   systemd (pid 1) → pm2 (pid 5034) → node (pid 14233)
@@ -609,7 +608,7 @@ Source      : pm2
 
 Working Dir : /opt/apps/expense-manager
 Git Repo    : expense-manager (main)
-Listening   : 127.0.0.1:5001
+Sockets     : 127.0.0.1:5001 (TCP | LISTENING)
 ```
 
 ---

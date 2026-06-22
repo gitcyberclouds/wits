@@ -13,7 +13,7 @@ test-race:
 	go test -race ./...
 
 lint:
-	gofmt -l .
+	@test -z "$$(find . -name '*.go' -not -path './vendor/*' | xargs gofmt -l)" || { echo 'Unformatted Go files (run gofmt -w):'; find . -name '*.go' -not -path './vendor/*' | xargs gofmt -l; exit 1; }
 	go vet ./...
 
 docs: man markdown

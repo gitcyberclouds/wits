@@ -63,9 +63,7 @@ func ResolveName(name string, exact bool) ([]int, error) {
 				match = strings.Contains(commLower, lowerName)
 			}
 			if match {
-				if !strings.Contains(commLower, "grep") {
-					procPIDs = append(procPIDs, pid)
-				}
+				procPIDs = append(procPIDs, pid)
 				continue
 			}
 		}
@@ -80,7 +78,7 @@ func ResolveName(name string, exact bool) ([]int, error) {
 			} else {
 				match = strings.Contains(cmdLower, lowerName)
 			}
-			if match && !strings.Contains(cmdLower, "grep") {
+			if match {
 				procPIDs = append(procPIDs, pid)
 			}
 		}

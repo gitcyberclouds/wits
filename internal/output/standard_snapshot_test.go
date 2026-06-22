@@ -105,6 +105,29 @@ func TestRenderStandardSocketsOrder(t *testing.T) {
 	}
 }
 
+// TestRenderStandardRestarts verifies the Restarts row renders only when the
+// managing system reports at least one restart, matching the documented
+// example output.
+func TestRenderStandardRestarts(t *testing.T) {
+	t.Parallel()
+
+	// Zero restarts: the row must be omitted (no noise for the common case).
+	var zero bytes.Buffer
+	RenderStandard(&zero, fixedFixture(), false, false)
+	if strings.Contains(zero.String(), "Restarts") {
+		t.Errorf("Restarts row should be omitted when RestartCount is 0; output:\n%s", zero.String())
+	}
+
+	// Non-zero restarts: the row appears with the count.
+	res := fixedFixture()
+	res.RestartCount = 3
+	var got bytes.Buffer
+	RenderStandard(&got, res, false, false)
+	if !strings.Contains(got.String(), "Restarts    : 3") {
+		t.Errorf("expected \"Restarts    : 3\" in output; got:\n%s", got.String())
+	}
+}
+
 // TestRenderStandardOmitsEmptyOptionalSections protects against accidentally
 // printing labels with no value (e.g. "Container :"). The fixture leaves
 // Container, GitRepo, and warnings empty; none of those labels should appear.
