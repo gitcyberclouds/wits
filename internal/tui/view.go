@@ -52,13 +52,11 @@ func (m MainModel) View() string {
 		dimBorderColor := colorBorderDim
 
 		treeBorderColor := dimBorderColor
-		treeHeaderColor := dimBorderColor
+		treeHeaderColor := colorHeaderDim
 
 		if m.listFocus == focusSide {
 			treeBorderColor = activeBorderColor
 			treeHeaderColor = activeBorderColor
-		} else {
-			treeHeaderColor = colorHeaderDim
 		}
 
 		treeContainerStyle := paneDividerStyle.

@@ -14,6 +14,11 @@ import (
 )
 
 func ReadProcess(pid int) (model.Process, error) {
+	// Reject PID 0 (and negatives): on FreeBSD `ps -p 0` returns the kernel
+	// swapper, which is not a real userland target. Matches the other platforms.
+	if pid <= 0 {
+		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
+	}
 	pidStr := strconv.Itoa(pid)
 
 	// Format: pid(0) ppid(1) uid(2) jid(3) state(4) pcpu(5) rss(6) lstart(7-11) args(12+)
@@ -62,7 +67,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	env := getEnvironment(pid)
 
 	health := "healthy"
-	forked := "unknown"
+	var forked string
 
 	// FreeBSD states can be multi-character like "Is", "Ss", "R", "Z", "T"
 	if len(state) > 0 {

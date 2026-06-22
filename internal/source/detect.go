@@ -195,7 +195,7 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 		}
 	}
 
-	st := model.SourceUnknown
+	var st model.SourceType
 	if len(srcType) > 0 {
 		st = srcType[0]
 	} else {

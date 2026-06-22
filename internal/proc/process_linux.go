@@ -19,6 +19,9 @@ func isValidSymlinkTarget(target string) bool {
 }
 
 func ReadProcess(pid int) (model.Process, error) {
+	if pid <= 0 {
+		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
+	}
 	// Verify process still exists before reading
 	if _, err := os.Stat(fmt.Sprintf("/proc/%d", pid)); os.IsNotExist(err) {
 		return model.Process{}, fmt.Errorf("process %d does not exist", pid)

@@ -1,6 +1,7 @@
 package proc
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -62,10 +63,17 @@ func binaryBasename(rawPath string) string {
 		return ""
 	}
 	base := filepath.Base(s)
-	if base == "." || base == "/" {
+	if base == "." || isPathSeparator(base) {
 		return ""
 	}
 	return base
+}
+
+// isPathSeparator reports whether s is a single bare path separator. filepath.Base
+// returns the platform separator for a root path ("/" on Unix, "\\" on Windows),
+// which is never a real binary name.
+func isPathSeparator(s string) bool {
+	return len(s) == 1 && os.IsPathSeparator(s[0])
 }
 
 func extractExecutableName(cmdline string) string {
@@ -83,7 +91,7 @@ func extractExecutableName(cmdline string) string {
 			continue
 		}
 		base := filepath.Base(clean)
-		if base == "." || base == "" || base == "/" {
+		if base == "." || base == "" || isPathSeparator(base) {
 			continue
 		}
 		return base

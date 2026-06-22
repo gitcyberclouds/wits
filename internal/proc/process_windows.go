@@ -3,6 +3,7 @@
 package proc
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,6 +11,12 @@ import (
 )
 
 func ReadProcess(pid int) (model.Process, error) {
+	// PID 0 is the System Idle Process on Windows (and negative PIDs are never
+	// valid), so reject them rather than returning the idle pseudo-process —
+	// this matches the other platforms, where /proc/0 or `ps -p 0` fails.
+	if pid <= 0 {
+		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
+	}
 	info, err := GetProcessDetailedInfo(pid)
 	if err != nil {
 		return model.Process{}, err

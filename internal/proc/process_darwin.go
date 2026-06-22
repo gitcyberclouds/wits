@@ -14,6 +14,9 @@ import (
 )
 
 func ReadProcess(pid int) (model.Process, error) {
+	if pid <= 0 {
+		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
+	}
 	pidStr := strconv.Itoa(pid)
 
 	// Format: pid(0) ppid(1) uid(2) lstart(3-7) state(8) pcpu(9) rss(10) args(11+)
@@ -60,7 +63,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	cwd, binPath := getCwdAndBinaryPath(pid)
 
 	health := "healthy"
-	forked := "unknown"
+	var forked string
 
 	switch state {
 	case "Z":

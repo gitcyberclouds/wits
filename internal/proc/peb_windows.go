@@ -184,7 +184,11 @@ func getFullProcessInfo(handle syscall.Handle, pid int, info *Win32ProcessInfo) 
 }
 
 func readProcessMemory(handle syscall.Handle, addr uintptr, dest unsafe.Pointer, size uintptr) bool {
-	var read uint32
+	// lpNumberOfBytesRead is a SIZE_T* (pointer-sized: 8 bytes on x64). It MUST
+	// be uintptr, not uint32 — a uint32 here lets the kernel write 8 bytes into
+	// a 4-byte slot, corrupting adjacent memory and causing nondeterministic
+	// crashes far from this call site.
+	var read uintptr
 	ret, _, _ := procReadProcessMem.Call(
 		uintptr(handle),
 		addr,
