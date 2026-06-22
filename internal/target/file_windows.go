@@ -5,5 +5,5 @@ import (
 )
 
 func ResolveFile(path string) ([]int, error) {
-	return nil, fmt.Errorf("finding process by file is not supported on Windows")
+	return nil, fmt.Errorf("finding process by file is %w", ErrUnsupported)
 }

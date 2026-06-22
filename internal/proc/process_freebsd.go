@@ -79,11 +79,11 @@ func ReadProcess(pid int) (model.Process, error) {
 		}
 	}
 
-	if cpuPct > 90 {
+	if health == "healthy" && cpuPct > 90 {
 		health = "high-cpu"
 	}
 	rssMB := rssKB / 1024
-	if rssMB > 1024 {
+	if health == "healthy" && rssMB > 1024 {
 		health = "high-mem"
 	}
 

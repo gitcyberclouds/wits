@@ -61,6 +61,7 @@ func ResolvePort(port int) ([]int, error) {
 func resolvePortNetstat(port int) ([]int, error) {
 	pidSet := make(map[int]bool)
 	fallbackSet := make(map[int]bool)
+	sawListenNoOwner := false
 	portStr := fmt.Sprintf(".%d", port)
 
 	// Check TCP: netstat -anv -p tcp
@@ -74,11 +75,15 @@ func resolvePortNetstat(port int) ([]int, error) {
 			if !strings.HasSuffix(fields[3], portStr) && !(len(fields) > 4 && strings.HasSuffix(fields[4], portStr)) {
 				continue
 			}
+			isListen := strings.Contains(line, "LISTEN")
 			pid, err := strconv.Atoi(fields[8])
 			if err != nil || pid <= 0 {
+				if isListen {
+					sawListenNoOwner = true
+				}
 				continue
 			}
-			if strings.Contains(line, "LISTEN") {
+			if isListen {
 				pidSet[pid] = true
 			} else {
 				fallbackSet[pid] = true
@@ -109,6 +114,9 @@ func resolvePortNetstat(port int) ([]int, error) {
 	sort.Ints(result)
 	if len(result) > 0 {
 		return result, nil
+	}
+	if sawListenNoOwner {
+		return nil, ErrSocketOwnerUnknown
 	}
 
 	return nil, fmt.Errorf("no process listening on port %d", port)

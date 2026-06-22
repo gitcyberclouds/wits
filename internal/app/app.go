@@ -519,7 +519,7 @@ func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer,
 	// Platform-unsupported target (e.g. -f on Windows). Don't tack on the
 	// generic "try a different name/port/PID" suffix — the operation isn't a
 	// failed lookup, it's unavailable on this OS.
-	if strings.Contains(errStr, "not supported on") {
+	if errors.Is(err, target.ErrUnsupported) || strings.Contains(errStr, "not supported on") {
 		if multiMode {
 			if flags.json {
 				*jsonResults = append(*jsonResults, jsonErrorEntry(t, errStr))
@@ -532,7 +532,7 @@ func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer,
 		return ExitInvalidInput
 	}
 
-	if strings.Contains(errStr, "socket found but owning process not detected") {
+	if errors.Is(err, target.ErrSocketOwnerUnknown) || strings.Contains(errStr, "socket found but owning process not detected") {
 		if t.Type == model.TargetPort {
 			if portNum, convErr := strconv.Atoi(t.Value); convErr == nil {
 				if match := procpkg.ResolveContainerByPort(portNum); match != nil {

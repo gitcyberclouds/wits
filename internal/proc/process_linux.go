@@ -210,13 +210,13 @@ func ReadProcess(pid int) (model.Process, error) {
 	rssPages, _ := strconv.ParseFloat(fields[21], 64)
 	clkTck := float64(ticksPerSecond())
 	totalCPU := (utime + stime) / clkTck
-	if totalCPU > 60*60*2 { // >2h CPU time
+	if health == "healthy" && totalCPU > 60*60*2 { // >2h CPU time
 		health = "high-cpu"
 	}
 	pageSize := float64(os.Getpagesize())
 	memBytes := rssPages * pageSize
 	memMB := memBytes / (1024 * 1024)
-	if memMB > 1024 {
+	if health == "healthy" && memMB > 1024 {
 		health = "high-mem"
 	}
 
