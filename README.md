@@ -536,6 +536,7 @@ Running `witr` without any arguments or with the `-i` flag launches the **Intera
 - **Process Details**: Deep-dive into a process to see its full ancestry tree, child processes, environment variables, working directory, sockets, file context, and more.
 - **Process Actions**: Send signals (Kill, Terminate, Pause, Resume) or Renice processes directly from the UI (Unix only).
 - **Mouse Support**: Navigate, sort columns, and click rows using your mouse.
+- **Auto-Refresh**: The process, port, container, and lock lists refresh automatically every 3 seconds.
 
 ---
 
