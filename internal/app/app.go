@@ -204,7 +204,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	outw := cmd.OutOrStdout()
 	outp := output.NewPrinter(outw)
 	multiMode := len(targets) > 1
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	// For JSON multi-output, collect all JSON strings and wrap in array
 	var jsonResults []string
@@ -365,7 +365,7 @@ func jsonErrorEntry(t model.Target, errMsg string) string {
 // processTarget handles resolving and rendering a single target.
 // Returns the exit code for this target.
 func processTarget(cmd *cobra.Command, outw io.Writer, outp output.Printer, t model.Target, flags appFlags, multiMode bool, jsonResults *[]string) int {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	if flags.env {
 		return processEnvTarget(outw, outp, t, flags, multiMode, jsonResults)
@@ -452,7 +452,7 @@ func processTarget(cmd *cobra.Command, outw io.Writer, outp output.Printer, t mo
 
 // processEnvTarget handles the --env flag for a single target.
 func processEnvTarget(outw io.Writer, outp output.Printer, t model.Target, flags appFlags, multiMode bool, jsonResults *[]string) int {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	pids, err := target.Resolve(t, flags.exact)
 	if err != nil {
@@ -512,7 +512,7 @@ func processEnvTarget(outw io.Writer, outp output.Printer, t model.Target, flags
 // handleResolveError handles target resolution errors, including Docker fallback.
 func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer, t model.Target, err error, flags appFlags, multiMode bool, jsonResults *[]string) int {
 	errStr := err.Error()
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	// Platform-unsupported target (e.g. -f on Windows). Don't tack on the
 	// generic "try a different name/port/PID" suffix — the operation isn't a
@@ -586,7 +586,7 @@ func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer,
 
 // renderResult renders a single result in the appropriate output mode.
 func renderResult(outw io.Writer, res model.Result, flags appFlags, multiMode bool, jsonResults *[]string) {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	if flags.json {
 		var jsonStr string
@@ -711,7 +711,7 @@ func classifyError(err error) int {
 // the container's main process is host-visible, otherwise renders the
 // runtime-side metadata via the container fallback view.
 func processContainerTarget(cmd *cobra.Command, outw io.Writer, outp output.Printer, t model.Target, flags appFlags, multiMode bool, jsonResults *[]string) int {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	matches := procpkg.ResolveContainer(t.Value, flags.exact)
 	if len(matches) == 0 {
