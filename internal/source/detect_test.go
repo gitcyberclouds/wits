@@ -9,6 +9,41 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
+func TestDetectShellWindowsCaseInsensitive(t *testing.T) {
+	// Windows reports the shell with mixed casing (e.g. "Explorer.EXE"). Shell
+	// detection must be case-insensitive, otherwise desktop-launched apps fall
+	// through to SourceUnknown and pick up a spurious no-supervisor warning.
+	for _, shell := range []string{"Explorer.EXE", "cmd.EXE", "PowerShell.exe"} {
+		ancestry := []model.Process{
+			{PID: 100, Command: shell},
+			{PID: 200, PPID: 100, Command: "Claude.exe"},
+		}
+		if got := Detect(ancestry).Type; got != model.SourceShell {
+			t.Errorf("Detect with %q ancestor = %v; want SourceShell", shell, got)
+		}
+		if slices.Contains(Warnings(ancestry), "No known supervisor or service manager detected") {
+			t.Errorf("%q ancestor should not raise the no-supervisor warning", shell)
+		}
+	}
+}
+
+func TestDetectWindowsSystemKernel(t *testing.T) {
+	// A process rooted at the Windows System process (PID 4) is a kernel/system
+	// process, not an unsupervised one. It must resolve to an init source and
+	// must not raise the no-supervisor warning (the Memory Compression false
+	// positive).
+	ancestry := []model.Process{
+		{PID: 4, Command: "System"},
+		{PID: 4108, PPID: 4, Command: "Memory Compression"},
+	}
+	if got := Detect(ancestry).Type; got != model.SourceInit {
+		t.Errorf("Detect with System (pid 4) root = %v; want SourceInit", got)
+	}
+	if slices.Contains(Warnings(ancestry), "No known supervisor or service manager detected") {
+		t.Errorf("System-rooted process should not raise the no-supervisor warning")
+	}
+}
+
 func TestWarningsDetectsLDPreload(t *testing.T) {
 	p := []model.Process{
 		{PID: 999999, Command: "pm2", Cmdline: "pm2"},

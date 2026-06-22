@@ -61,7 +61,10 @@ func detectShell(ancestry []model.Process) *model.Source {
 		cmd := ancestry[i].Command
 		base := filepath.Base(cmd)
 
-		if shells[base] {
+		// Windows reports executables with inconsistent casing (e.g.
+		// "Explorer.EXE", "PowerShell.exe"), so match shell names
+		// case-insensitively. The shells map keys are lowercase.
+		if shells[strings.ToLower(base)] {
 			src := &model.Source{
 				Type: model.SourceShell,
 				Name: base,
