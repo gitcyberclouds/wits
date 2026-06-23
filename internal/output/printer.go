@@ -39,13 +39,13 @@ func sanitizePrintArgs(args []any) []any {
 		case ansiString: // our own ansiString type is allowed to render as-is
 			out[i] = string(v)
 		case string:
-			out[i] = SanitizeTerminal(v)
+			out[i] = SanitizeTerminalLine(v)
 		case []byte:
-			out[i] = SanitizeTerminal(string(v))
+			out[i] = SanitizeTerminalLine(string(v))
 		case error:
-			out[i] = SanitizeTerminal(v.Error())
+			out[i] = SanitizeTerminalLine(v.Error())
 		case fmt.Stringer:
-			out[i] = SanitizeTerminal(v.String())
+			out[i] = SanitizeTerminalLine(v.String())
 		default:
 			out[i] = a
 		}

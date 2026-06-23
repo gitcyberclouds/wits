@@ -60,3 +60,21 @@ func TestSanitizeTerminalEscapesControlBytes(t *testing.T) {
 		t.Fatalf("SanitizeTerminal(%q) = %q, want %q", in, got, want)
 	}
 }
+
+// TestSanitizeTerminalLineEscapesLineBreakers verifies the single-line variant
+// neutralizes the two characters SanitizeTerminal preserves (newline and tab),
+// so an attacker-controlled field can't forge extra lines or shift columns,
+// while still escaping ESC like the base sanitizer.
+func TestSanitizeTerminalLineEscapesLineBreakers(t *testing.T) {
+	cases := map[string]string{
+		"cmd\nWarnings : none": `cmd\nWarnings : none`,
+		"a\tb":                 `a\tb`,
+		"x\x1b[2Jy":            `x\x1b[2Jy`,
+		"plain":                "plain",
+	}
+	for in, want := range cases {
+		if got := SanitizeTerminalLine(in); got != want {
+			t.Errorf("SanitizeTerminalLine(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

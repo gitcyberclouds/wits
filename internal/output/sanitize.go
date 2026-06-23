@@ -68,6 +68,18 @@ func SanitizeTerminal(s string) string {
 	return b.String()
 }
 
+// SanitizeTerminalLine is SanitizeTerminal for values rendered as a single line
+// or table cell (process names, command lines, env entries, paths).
+// SanitizeTerminal intentionally preserves \n and \t for multi-line layout; in a
+// single-line field those let an embedded value forge extra output lines or
+// shift columns, so they are escaped here too.
+func SanitizeTerminalLine(s string) string {
+	if strings.ContainsAny(s, "\n\t") {
+		s = strings.NewReplacer("\n", `\n`, "\t", `\t`).Replace(s)
+	}
+	return SanitizeTerminal(s)
+}
+
 func appendEscapedByte(b *strings.Builder, bt byte) {
 	b.WriteString(`\x`)
 	b.WriteByte(hexDigits[bt>>4])

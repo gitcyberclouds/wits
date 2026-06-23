@@ -35,3 +35,21 @@ func TestPrinterSanitizesArgTypes(t *testing.T) {
 		t.Errorf("expected 4 escaped control chars (one per arg type), got %d: %q", got, out)
 	}
 }
+
+// TestPrinterEscapesNewlineInArg ensures a string argument can't smuggle a line
+// break into the output: the only newline emitted must be the one from the
+// constant format string, so an attacker-controlled field cannot forge a row.
+func TestPrinterEscapesNewlineInArg(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewPrinter(&buf)
+
+	p.Printf("Command     : %s\n", "real\nWarnings    : none")
+
+	out := buf.String()
+	if strings.Count(out, "\n") != 1 {
+		t.Errorf("arg newline was not escaped, output spans extra lines: %q", out)
+	}
+	if !strings.Contains(out, `real\nWarnings`) {
+		t.Errorf("expected the embedded newline to render as a literal \\n: %q", out)
+	}
+}

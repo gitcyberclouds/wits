@@ -70,7 +70,7 @@ func readProcessListEntry(pid, ticks int, boot time.Time, totalMem, pageSize flo
 	startTicks, _ := strconv.ParseInt(fields[19], 10, 64)
 	rssPages, _ := strconv.ParseFloat(fields[21], 64)
 
-	startedAt := boot.Add(time.Duration(startTicks) * time.Second / time.Duration(ticks))
+	startedAt := startTimeFromTicks(boot, startTicks, ticks)
 	memBytes := rssPages * pageSize
 
 	// Lifetime-average CPU%: total CPU time over wall-clock since start (what ps reports).
@@ -149,7 +149,9 @@ func parseStatSnapshot(pid int, stat []byte) (model.Process, error) {
 	raw := string(stat)
 	open := strings.Index(raw, "(")
 	close := strings.LastIndex(raw, ")")
-	if open == -1 || close == -1 || close <= open {
+	// close+2 >= len(raw) guards the raw[close+2:] slice below: a stat ending at
+	// the comm's ')' would otherwise panic. Matches ReadProcess's bounds check.
+	if open == -1 || close == -1 || close <= open || close+2 >= len(raw) {
 		return model.Process{}, fmt.Errorf("invalid stat format")
 	}
 

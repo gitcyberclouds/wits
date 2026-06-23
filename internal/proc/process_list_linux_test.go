@@ -19,6 +19,9 @@ func TestParseStatSnapshot(t *testing.T) {
 		{"comm with spaces and parens", 100, "100 (my (weird) proc) S 7 1 1 0", 7, "my (weird) proc", false},
 		{"no parens is an error", 1, "garbage without parens", 0, "", true},
 		{"truncated after comm is an error", 5, "5 (x) S", 0, "", true},
+		// A stat ending exactly at the comm's ')' must error, not panic on the
+		// raw[close+2:] slice.
+		{"ends at comm close paren is an error", 5, "5 (x)", 0, "", true},
 	}
 	for _, tt := range tests {
 		tt := tt

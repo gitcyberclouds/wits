@@ -496,14 +496,14 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 				}
 				if len(proc.FileDescs) > 0 && len(proc.FileDescs) <= MaxDisplayItems {
 					for _, fd := range proc.FileDescs {
-						safeFd := SanitizeTerminal(fd)
+						safeFd := SanitizeTerminalLine(fd)
 						safeFd = strings.Replace(safeFd, "->", string(ColorMagenta)+"->"+string(ColorReset), 1)
 						out.Printf("  %s\n", ansiString(safeFd))
 					}
 				} else if len(proc.FileDescs) > MaxDisplayItems {
 					out.Printf("  Showing first %d of %d descriptors:\n", MaxDisplayItems, len(proc.FileDescs))
 					for i := 0; i < MaxDisplayItems; i++ {
-						safeFd := SanitizeTerminal(proc.FileDescs[i])
+						safeFd := SanitizeTerminalLine(proc.FileDescs[i])
 						safeFd = strings.Replace(safeFd, "->", string(ColorMagenta)+"->"+string(ColorReset), 1)
 						out.Printf("  %s\n", ansiString(safeFd))
 					}

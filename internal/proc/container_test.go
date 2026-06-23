@@ -67,6 +67,30 @@ func TestShortID(t *testing.T) {
 	}
 }
 
+func TestIsValidContainerID(t *testing.T) {
+	tests := []struct {
+		in   string
+		want bool
+	}{
+		{"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2", true}, // 64-hex
+		{"a1b2c3d4e5f6", true},   // short id
+		{"my_app.1-name", true},  // separators mid-token
+		{"", false},              // empty
+		{"-rf", false},           // leading dash → would parse as a flag
+		{"--format", false},      // leading dash
+		{".hidden", false},       // leading separator
+		{"id with space", false}, // whitespace
+		{"id;rm -rf", false},     // shell metacharacter
+		{"id\n--format", false},  // embedded newline
+		{"a/b", false},           // slash
+	}
+	for _, tt := range tests {
+		if got := isValidContainerID(tt.in); got != tt.want {
+			t.Errorf("isValidContainerID(%q) = %v, want %v", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestExtractFlagValue(t *testing.T) {
 	tests := []struct {
 		name    string
