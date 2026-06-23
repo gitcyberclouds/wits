@@ -62,9 +62,13 @@ func TestDetectGitInfo(t *testing.T) {
 func TestGitDirFromFile(t *testing.T) {
 	dir := t.TempDir()
 
-	mustWrite(t, filepath.Join(dir, "abs.git"), "gitdir: /abs/path/.git/worktrees/x\n")
-	if got := gitDirFromFile(filepath.Join(dir, "abs.git"), dir); got != "/abs/path/.git/worktrees/x" {
-		t.Errorf("absolute: got %q", got)
+	// Absolute pointer: returned unchanged. Derive the target from the temp dir
+	// so it is absolute on every OS — a bare "/abs/..." is not absolute on
+	// Windows, where git writes drive-letter paths like C:/repo/.git/worktrees/x.
+	absTarget := filepath.Join(dir, "real", ".git", "worktrees", "x")
+	mustWrite(t, filepath.Join(dir, "abs.git"), "gitdir: "+absTarget+"\n")
+	if got := gitDirFromFile(filepath.Join(dir, "abs.git"), dir); got != absTarget {
+		t.Errorf("absolute: got %q, want %q", got, absTarget)
 	}
 
 	mustWrite(t, filepath.Join(dir, "rel.git"), "gitdir: ../parent/.git/worktrees/x\n")
