@@ -1,4 +1,4 @@
-name: E2E Tests
+name: Smoke Tests
 
 on:
   pull_request:

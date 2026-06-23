@@ -75,6 +75,24 @@ jobs:
       - name: Run govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+  vendor:
+    name: "Code Quality: Vendor"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          check-latest: true
+
+      - name: Verify vendor is in sync
+        run: |
+          go mod vendor
+          git diff --exit-code -- vendor go.mod go.sum
+
   test:
     name: "Tests: Unit (${{ matrix.os }})"
     strategy:
@@ -108,3 +126,28 @@ jobs:
           else
             go test ./...
           fi
+
+  coverage:
+    name: "Code Quality: Coverage"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          check-latest: true
+
+      # Reports total coverage of the linux build; informational, no threshold gate.
+      - name: Measure coverage
+        run: |
+          go test -covermode=atomic -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+          {
+            echo "### Test coverage (linux build)"
+            echo '```'
+            go tool cover -func=coverage.out | tail -1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
