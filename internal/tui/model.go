@@ -185,6 +185,16 @@ type MainModel struct {
 	lastClickX    int
 	lastClickY    int
 
+	// Adaptive auto-refresh: refreshEvery is the current cadence (it adapts to
+	// how long refreshes take); lastRefresh gates the next one; refreshStartedAt
+	// marks an in-flight refresh so its duration can be measured and two don't
+	// overlap.
+	refreshEvery     time.Duration
+	lastRefresh      time.Time
+	refreshStartedAt time.Time
+	slowStreak       int
+	fastStreak       int
+
 	// Ancestry navigation in the side panel
 	treePIDs      []int
 	treeCursor    int
@@ -349,6 +359,7 @@ func InitialModel(version string) MainModel {
 		sortLockCol:       "pid",
 		sortLockDesc:      false,
 		version:           version,
+		refreshEvery:      refreshInterval,
 	}
 }
 

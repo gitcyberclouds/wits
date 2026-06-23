@@ -26,3 +26,17 @@ const (
 	detailPaneRatio = 0.7 // detail view vs. environment view
 	portPaneRatio   = 0.5 // port list vs. port detail
 )
+
+// Adaptive auto-refresh. The background-refresh cadence starts at
+// refreshInterval and adapts to the measured refresh cost: after backoffStreak
+// consecutive refreshes over slowFraction of the interval it grows by
+// refreshStep (up to maxRefreshInterval); after backoffStreak under
+// fastFraction it shrinks by refreshStep (back down to refreshInterval). The
+// band between is stable, so it can't oscillate. All internal — no config.
+const (
+	maxRefreshInterval = 30 * time.Second // ceiling
+	refreshStep        = 3 * time.Second  // grow/shrink increment
+	backoffStreak      = 2                // consecutive samples before adjusting
+	slowFraction       = 0.6              // refresh over this fraction of interval => slow
+	fastFraction       = 0.3              // refresh under this fraction => fast
+)

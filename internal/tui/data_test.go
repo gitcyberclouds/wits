@@ -3,6 +3,7 @@ package tui
 import (
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -170,6 +171,38 @@ func TestProcessSorter(t *testing.T) {
 	}
 	if got := pidsAfter("mem", false); !equalInts(got, []int{30, 20, 10}) {
 		t.Errorf("mem asc = %v, want [30 20 10]", got)
+	}
+}
+
+func TestAdjustRefreshInterval(t *testing.T) {
+	s := time.Second
+	type step struct {
+		took     time.Duration
+		interval time.Duration
+		slow     int
+		fast     int
+	}
+	// Start at the base 3s; walk a slow spell up, then a fast spell back down.
+	steps := []step{
+		{2 * s, 3 * s, 1, 0}, // 67% of 3s -> slow, streak 1 (no change yet)
+		{2 * s, 6 * s, 0, 0}, // slow again -> grow to 6s, reset
+		{2 * s, 6 * s, 0, 0}, // 33% of 6s -> stable band, reset
+		{1 * s, 6 * s, 0, 1}, // 17% of 6s -> fast, streak 1
+		{1 * s, 3 * s, 0, 0}, // fast again -> shrink to 3s (floor), reset
+		{1 * s, 3 * s, 0, 0}, // 33% of 3s -> stable, already at floor
+	}
+	interval, slow, fast := 3*s, 0, 0
+	for i, st := range steps {
+		interval, slow, fast = adjustRefreshInterval(interval, st.took, slow, fast)
+		if interval != st.interval || slow != st.slow || fast != st.fast {
+			t.Errorf("step %d (took %v): got (%v, %d, %d), want (%v, %d, %d)",
+				i, st.took, interval, slow, fast, st.interval, st.slow, st.fast)
+		}
+	}
+
+	// Ceiling: a second slow sample at the cap stays at the cap.
+	if got, _, _ := adjustRefreshInterval(maxRefreshInterval, 25*s, 1, 0); got != maxRefreshInterval {
+		t.Errorf("ceiling: got %v, want %v", got, maxRefreshInterval)
 	}
 }
 

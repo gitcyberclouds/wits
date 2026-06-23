@@ -61,7 +61,9 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m MainModel) handleTick(msg tickMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	if m.state == stateList && !m.quitting && !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() && !m.lockInput.Focused() {
+	if m.state == stateList && !m.quitting && !m.input.Focused() && !m.portInput.Focused() && !m.containerInput.Focused() && !m.lockInput.Focused() && m.refreshDue() {
+		m.lastRefresh = time.Now()
+		m.refreshStartedAt = m.lastRefresh
 		cmd = m.refreshProcesses()
 		switch m.activeTab {
 		case tabPorts:
@@ -73,6 +75,56 @@ func (m MainModel) handleTick(msg tickMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, tea.Batch(cmd, waitTick())
+}
+
+// refreshDue reports whether enough time has elapsed since the last background
+// refresh, given the adaptive cadence. The timer still ticks at the base rate;
+// this just decides whether a given tick does the (expensive) re-enumeration.
+// refreshDue reports whether the next background refresh should run: the
+// adaptive interval has elapsed and no refresh is already in flight, so a slow
+// refresh can't overlap the next tick. A pathologically old in-flight marker is
+// ignored so a lost result can't wedge refreshing permanently.
+func (m MainModel) refreshDue() bool {
+	if !m.refreshStartedAt.IsZero() && time.Since(m.refreshStartedAt) < maxRefreshInterval {
+		return false
+	}
+	every := m.refreshEvery
+	if every < refreshInterval {
+		every = refreshInterval
+	}
+	return time.Since(m.lastRefresh) >= every
+}
+
+// adjustRefreshInterval applies one refresh-duration sample to the adaptive
+// cadence. After backoffStreak consecutive refreshes over slowFraction of the
+// interval it grows by refreshStep (capped at maxRefreshInterval); after
+// backoffStreak under fastFraction it shrinks by refreshStep (floored at
+// refreshInterval); the band between is stable. Returns the new interval and
+// the updated slow/fast streak counters.
+func adjustRefreshInterval(interval, took time.Duration, slow, fast int) (time.Duration, int, int) {
+	switch {
+	case took > time.Duration(float64(interval)*slowFraction):
+		slow, fast = slow+1, 0
+		if slow >= backoffStreak {
+			interval += refreshStep
+			if interval > maxRefreshInterval {
+				interval = maxRefreshInterval
+			}
+			slow = 0
+		}
+	case took < time.Duration(float64(interval)*fastFraction):
+		fast, slow = fast+1, 0
+		if fast >= backoffStreak {
+			interval -= refreshStep
+			if interval < refreshInterval {
+				interval = refreshInterval
+			}
+			fast = 0
+		}
+	default:
+		slow, fast = 0, 0
+	}
+	return interval, slow, fast
 }
 
 func (m MainModel) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
@@ -413,6 +465,13 @@ func (m MainModel) handleResize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m MainModel) handleProcessList(msg []model.Process) (tea.Model, tea.Cmd) {
+	// Feed this background refresh's measured duration into the adaptive cadence.
+	if !m.refreshStartedAt.IsZero() {
+		took := time.Since(m.refreshStartedAt)
+		m.refreshStartedAt = time.Time{}
+		m.refreshEvery, m.slowStreak, m.fastStreak = adjustRefreshInterval(m.refreshEvery, took, m.slowStreak, m.fastStreak)
+	}
+
 	var currentPID int
 	selectedRow := m.table.SelectedRow()
 	if len(selectedRow) > 0 {
