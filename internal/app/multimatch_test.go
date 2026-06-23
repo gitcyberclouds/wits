@@ -20,6 +20,9 @@ func TestPrintMultiMatch(t *testing.T) {
 		if !strings.Contains(out, "Multiple matching processes") || !strings.Contains(out, "witr --pid 1234") {
 			t.Errorf("color=%v: printMultiMatch output wrong:\n%s", color, out)
 		}
+		if strings.Contains(out, `\n`) {
+			t.Errorf("color=%v: layout newline escaped to a literal \\n:\n%s", color, out)
+		}
 	}
 }
 
@@ -34,6 +37,9 @@ func TestPrintContainerMultiMatch(t *testing.T) {
 		out := buf.String()
 		if !strings.Contains(out, "Multiple matching containers") || !strings.Contains(out, "web") || !strings.Contains(out, "nginx:latest") {
 			t.Errorf("color=%v: printContainerMultiMatch output wrong:\n%s", color, out)
+		}
+		if strings.Contains(out, `\n`) {
+			t.Errorf("color=%v: layout newline escaped to a literal \\n:\n%s", color, out)
 		}
 	}
 }

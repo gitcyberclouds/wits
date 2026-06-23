@@ -39,6 +39,20 @@ func fixedFixture() model.Result {
 	}
 }
 
+// Guards the regression where the tool's own layout newlines (e.g. the blank
+// line before "Source") were passed as Printer args and escaped to a literal
+// "\n". The fixture has no newline in any value, so any literal "\n" in the
+// output is a layout newline that leaked.
+func TestRenderStandardDoesNotEscapeLayoutNewlines(t *testing.T) {
+	for _, color := range []bool{false, true} {
+		var buf bytes.Buffer
+		RenderStandard(&buf, fixedFixture(), color, false)
+		if strings.Contains(buf.String(), `\n`) {
+			t.Errorf("color=%v: layout newline escaped to a literal \\n:\n%s", color, buf.String())
+		}
+	}
+}
+
 // TestRenderStandardContract pins down the structural contract of the
 // standard output: which sections appear, their order, and the format of
 // rows users (and scripts piping our output) depend on. We assert on

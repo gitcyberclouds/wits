@@ -202,7 +202,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 				out.Printf(" %s\u2192%s ", ColorMagenta, ColorReset)
 			}
 		}
-		out.Print("\n\n")
+		out.Print(ansiString("\n\n"))
 	} else {
 		out.Printf("\nWhy It Exists :\n  ")
 		for i, p := range r.Ancestry {
@@ -212,7 +212,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 				out.Printf(" \u2192 ")
 			}
 		}
-		out.Print("\n\n")
+		out.Print(ansiString("\n\n"))
 	}
 
 	// Source
@@ -338,7 +338,7 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 				out.Printf("  • %s\n", SanitizeTerminal(w))
 			}
 		} else {
-			out.Println("\nWarnings    :")
+			out.Println(ansiString("\nWarnings    :"))
 			for _, w := range r.Warnings {
 				out.Printf("  • %s\n", SanitizeTerminal(w))
 			}

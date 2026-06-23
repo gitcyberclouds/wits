@@ -670,7 +670,7 @@ func runInteractive() error {
 }
 
 func printMultiMatch(outp output.Printer, pids []int, colorEnabled bool, hint string) {
-	outp.Print("Multiple matching processes found:\n\n")
+	outp.Printf("Multiple matching processes found:\n\n")
 	for i, pid := range pids {
 		proc, err := procpkg.ReadProcess(pid)
 		var command, cmdline string
@@ -690,12 +690,12 @@ func printMultiMatch(outp output.Printer, pids []int, colorEnabled bool, hint st
 			outp.Printf("[%d] %s (pid %d)\n    %s\n", i+1, command, pid, cmdline)
 		}
 	}
-	outp.Println("\nRe-run with:")
+	outp.Printf("\nRe-run with:\n")
 	outp.Printf("  %s\n", hint)
 }
 
 func printContainerMultiMatch(outp output.Printer, matches []*model.ContainerMatch, colorEnabled bool) {
-	outp.Print("Multiple matching containers found:\n\n")
+	outp.Printf("Multiple matching containers found:\n\n")
 	for i, m := range matches {
 		name := output.SanitizeTerminal(m.Name)
 		image := output.SanitizeTerminal(m.Image)
@@ -718,7 +718,7 @@ func printContainerMultiMatch(outp output.Printer, matches []*model.ContainerMat
 		}
 		outp.Printf("    %s\n", detail)
 	}
-	outp.Println("\nRe-run with the exact container name to disambiguate:")
+	outp.Printf("\nRe-run with the exact container name to disambiguate:\n")
 	outp.Println("  witr -c <container-name> --exact")
 }
 
