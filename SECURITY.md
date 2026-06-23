@@ -8,9 +8,10 @@ We currently support the following versions of **witr** with security updates:
 | ------- | --------- |
 | macOS   | :white_check_mark: |
 | Linux   | :white_check_mark: |
-| Windows | :x: |
+| Windows | :white_check_mark: |
+| FreeBSD | :white_check_mark: |
 
-See our [Feature Compatibility Matrix](README.md#91-feature-compatibility-matrix) for more details.
+See our [Feature Compatibility Matrix](README.md#81-feature-compatibility-matrix) for more details.
 
 ## Reporting a Vulnerability
 

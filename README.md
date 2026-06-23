@@ -5,8 +5,6 @@
 ### Why is this running?
 *with* [**Interactive TUI Mode**](#3-interactive-mode-tui) ✨
 
-<a href="https://trendshift.io/repositories/18714" target="_blank"><img src="https://trendshift.io/api/badge/repositories/18714" alt="pranshuparmar%2Fwitr | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
 [![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![Go Report Card](https://goreportcard.com/badge/github.com/pranshuparmar/witr?style=flat-square)](https://goreportcard.com/report/github.com/pranshuparmar/witr) [![Release](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/release.yml?style=flat-square)](https://github.com/pranshuparmar/witr/actions/workflows/release.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](#8-platform-support) <br>
 [![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20npm%20|%20ports%20|%20...%20-blue?style=flat-square)](https://repology.org/project/witr/versions)
 
@@ -285,7 +283,7 @@ aqua i pranshuparmar/witr
 </details>
 
 <details>
-<summary><strong>Brioche (Linux)</strong> <a href="https://github.com/brioche-dev/brioche-packages/tree/main/packages/witr"><img src="https://img.shields.io/static/v1?label=brioche&message=v0.3.1&color=blue&style=flat-square" alt="Brioche"></a></summary>
+<summary><strong>Brioche (Linux)</strong> <a href="https://github.com/brioche-dev/brioche-packages/tree/main/packages/witr"><img src="https://img.shields.io/static/v1?label=brioche&message=v0.3.2&color=blue&style=flat-square" alt="Brioche"></a></summary>
 <br>
 
 You can install **witr** using [brioche](https://brioche.dev/):
@@ -536,7 +534,8 @@ Running `witr` without any arguments or with the `-i` flag launches the **Intera
 - **Process Details**: Deep-dive into a process to see its full ancestry tree, child processes, environment variables, working directory, sockets, file context, and more.
 - **Process Actions**: Send signals (Kill, Terminate, Pause, Resume) or Renice processes directly from the UI (Unix only).
 - **Mouse Support**: Navigate, sort columns, and click rows using your mouse.
-- **Auto-Refresh**: The process, port, container, and lock lists refresh automatically every 3 seconds.
+- **Adaptive Theme**: Colors adapt automatically to light and dark terminal backgrounds.
+- **Auto-Refresh**: The process, port, container, and lock lists refresh automatically on an adaptive cadence (starts at 3 seconds, backing off under load).
 
 ---
 
