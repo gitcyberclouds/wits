@@ -281,14 +281,14 @@ func (m *MainModel) filterProcesses() {
 
 			row := table.Row{
 				fmt.Sprintf("%8d", p.PID),
-				p.User,
-				truncateMiddle(p.Command, nameWidth),
+				output.SanitizeTerminalLine(p.User),
+				truncateMiddle(output.SanitizeTerminalLine(p.Command), nameWidth),
 				fmt.Sprintf("%6s", fmt.Sprintf("%.1f%%", p.CPUPercent)),
 				fmt.Sprintf("%16s", fmt.Sprintf("%s (%.1f%%)", formatBytes(p.MemoryRSS), p.MemoryPercent)),
 				startedStr,
 			}
 			if m.showCmdCol {
-				row = append(row, truncateMiddle(p.Cmdline, cmdlineWidth))
+				row = append(row, truncateMiddle(output.SanitizeTerminalLine(p.Cmdline), cmdlineWidth))
 			}
 			rows = append(rows, row)
 		}
@@ -462,7 +462,7 @@ func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 			if !seen[p.PID] {
 				seen[p.PID] = true
 				if proc, ok := procMap[p.PID]; ok {
-					cmd := proc.Cmdline
+					cmd := output.SanitizeTerminalLine(proc.Cmdline)
 					cols := m.portDetailTable.Columns()
 					if len(cols) > 3 {
 						width := cols[3].Width
@@ -472,8 +472,8 @@ func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 					}
 					rows = append(rows, table.Row{
 						fmt.Sprintf("%8d", proc.PID),
-						proc.User,
-						proc.Command,
+						output.SanitizeTerminalLine(proc.User),
+						output.SanitizeTerminalLine(proc.Command),
 						cmd,
 					})
 				} else {
@@ -534,7 +534,7 @@ func (m *MainModel) updateEnvViewport() {
 
 	if len(res.Process.Env) > 0 {
 		for _, env := range res.Process.Env {
-			fmt.Fprintf(&b, "%s\n", env)
+			fmt.Fprintf(&b, "%s\n", output.SanitizeTerminalLine(env))
 		}
 	} else {
 		dimStyle := lipgloss.NewStyle().Foreground(colorMuted)
@@ -648,7 +648,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 			fmt.Fprintf(&b, "%s%s ", indent, magenta.Render("└─"))
 		}
 
-		label := fmt.Sprintf("%s (pid %d)", output.ChainName(proc), proc.PID)
+		label := fmt.Sprintf("%s (pid %d)", output.SanitizeTerminalLine(output.ChainName(proc)), proc.PID)
 		if idx == m.treeCursor {
 			label = highlight.Render(label)
 		} else if i == len(ancestry)-1 {
@@ -675,7 +675,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 				connector = "└─"
 			}
 
-			label := fmt.Sprintf("%s (pid %d)", output.ChainName(child), child.PID)
+			label := fmt.Sprintf("%s (pid %d)", output.SanitizeTerminalLine(output.ChainName(child)), child.PID)
 			if idx == m.treeCursor {
 				label = highlight.Render(label)
 			}
@@ -685,7 +685,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 	}
 
 	if res.Process.Cmdline != "" {
-		fmt.Fprintf(&b, "\n%s\n%s\n", sectionLabel.Render("Command:"), res.Process.Cmdline)
+		fmt.Fprintf(&b, "\n%s\n%s\n", sectionLabel.Render("Command:"), output.SanitizeTerminalLine(res.Process.Cmdline))
 	}
 
 	content := b.String()
@@ -836,13 +836,13 @@ func (m *MainModel) updateContainerTable() {
 			}
 		}
 		rows = append(rows, table.Row{
-			output.ShortContainerID(c.ID),
-			truncate(c.Name, w(1)),
-			c.Runtime,
-			truncateMiddle(c.Image, w(3)),
-			truncate(c.Status, w(4)),
-			truncate(c.Ports, w(5)),
-			truncateMiddle(c.Command, w(6)),
+			output.SanitizeTerminalLine(output.ShortContainerID(c.ID)),
+			truncate(output.SanitizeTerminalLine(c.Name), w(1)),
+			output.SanitizeTerminalLine(c.Runtime),
+			truncateMiddle(output.SanitizeTerminalLine(c.Image), w(3)),
+			truncate(output.SanitizeTerminalLine(c.Status), w(4)),
+			truncate(output.SanitizeTerminalLine(c.Ports), w(5)),
+			truncateMiddle(output.SanitizeTerminalLine(c.Command), w(6)),
 		})
 		filtered = append(filtered, c)
 	}
@@ -926,10 +926,10 @@ func (m *MainModel) updateLockTable() {
 		}
 		rows = append(rows, table.Row{
 			fmt.Sprintf("%8d", l.PID),
-			truncate(l.Process, w(1)),
-			truncate(l.Type, w(2)),
-			truncate(l.Mode, w(3)),
-			truncateMiddle(l.Path, w(4)),
+			truncate(output.SanitizeTerminalLine(l.Process), w(1)),
+			truncate(output.SanitizeTerminalLine(l.Type), w(2)),
+			truncate(output.SanitizeTerminalLine(l.Mode), w(3)),
+			truncateMiddle(output.SanitizeTerminalLine(l.Path), w(4)),
 		})
 		filtered = append(filtered, l)
 	}

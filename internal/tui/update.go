@@ -1219,6 +1219,19 @@ func (m MainModel) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.handleListNavKey(msg)
 }
 
+// pidIdentityChanged reports whether the live process for pid no longer matches
+// the one captured in selectedDetail — i.e. it exited and the PID was recycled.
+// It is the shared guard the destructive actions use so a signal or renice can't
+// land on an unrelated process. Returns false when there is no snapshot to
+// compare against.
+func (m MainModel) pidIdentityChanged(pid int) bool {
+	if m.selectedDetail == nil {
+		return false
+	}
+	cur, err := proc.ReadProcess(pid)
+	return err != nil || !cur.StartedAt.Equal(m.selectedDetail.Process.StartedAt)
+}
+
 func (m MainModel) handleDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	pid := 0
 	if m.selectedDetail != nil {
@@ -1233,12 +1246,18 @@ func (m MainModel) handleDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.reniceInput.SetValue("")
 			m.reniceInput.Blur()
 		case "enter":
-			if val, err := validateNiceValue(m.reniceInput.Value()); err != nil {
+			val, verr := validateNiceValue(m.reniceInput.Value())
+			switch {
+			case verr != nil:
 				m.statusMsg = "Invalid nice value — enter a number between −20 and 19"
-			} else if err := setNice(pid, val); err != nil {
-				m.statusMsg = fmt.Sprintf("Renice failed: %v", err)
-			} else {
-				m.statusMsg = fmt.Sprintf("PID %d reniced to %d", pid, val)
+			case m.pidIdentityChanged(pid):
+				m.statusMsg = fmt.Sprintf("PID %d changed since opened — refresh and retry", pid)
+			default:
+				if err := setNice(pid, val); err != nil {
+					m.statusMsg = fmt.Sprintf("Renice failed: %v", err)
+				} else {
+					m.statusMsg = fmt.Sprintf("PID %d reniced to %d", pid, val)
+				}
 			}
 			m.pendingAction = actionNone
 			m.reniceInput.SetValue("")
@@ -1258,12 +1277,10 @@ func (m MainModel) handleDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Re-validate the target: if the process exited and its PID
 			// was reused since the detail view opened, refuse to signal a
 			// different process. Identity is the PID plus its start time.
-			if m.selectedDetail != nil {
-				if cur, err := proc.ReadProcess(pid); err != nil || !cur.StartedAt.Equal(m.selectedDetail.Process.StartedAt) {
-					m.pendingAction = actionNone
-					m.statusMsg = fmt.Sprintf("PID %d changed since opened — refresh and retry", pid)
-					return m, nil
-				}
+			if m.pidIdentityChanged(pid) {
+				m.pendingAction = actionNone
+				m.statusMsg = fmt.Sprintf("PID %d changed since opened — refresh and retry", pid)
+				return m, nil
 			}
 			originalAction := m.pendingAction
 			var execErr error
