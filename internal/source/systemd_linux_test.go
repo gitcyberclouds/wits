@@ -3,27 +3,68 @@
 package source
 
 import (
+	"math"
 	"os"
 	"testing"
 	"time"
 )
 
-func TestExtractTimerSpec(t *testing.T) {
+func TestCalendarSpec(t *testing.T) {
+	// D-Bus delivers TimersCalendar as [][]interface{}{{base, spec, next}}.
+	v := [][]interface{}{{"OnCalendar", "*-*-* 06,18:00:00", uint64(123)}}
+	if got := calendarSpec(v); got != "*-*-* 06,18:00:00" {
+		t.Errorf("calendarSpec = %q, want the calendar expression", got)
+	}
+	if got := calendarSpec(nil); got != "" {
+		t.Errorf("calendarSpec(nil) = %q, want empty", got)
+	}
+}
+
+func TestMonotonicSpec(t *testing.T) {
+	day := uint64((24 * time.Hour) / time.Microsecond)
 	tests := []struct {
-		raw  string
+		base string
 		want string
 	}{
-		{"", ""},
-		{"{ OnCalendar=*-*-* 06,18:00:00 ; next_elapse=Mon }", "*-*-* 06,18:00:00"},
-		{"{ OnUnitActiveUSec=1d ; next_elapse=x }", "every 1d"},
-		{"{ OnBootUSec=15min ; next_elapse=x }", "every boot + 15min"},
-		{"{ OnUnitInactiveUSec=5min ; x }", "every 5min after idle"},
-		{"{ Unknown=foo }", ""},
+		{"OnUnitActiveUSec", "every 1d"},
+		{"OnBootUSec", "every boot + 1d"},
+		{"OnUnitInactiveUSec", "every 1d after idle"},
 	}
 	for _, tt := range tests {
-		if got := extractTimerSpec(tt.raw); got != tt.want {
-			t.Errorf("extractTimerSpec(%q) = %q, want %q", tt.raw, got, tt.want)
+		v := [][]interface{}{{tt.base, day, uint64(0)}}
+		if got := monotonicSpec(v); got != tt.want {
+			t.Errorf("monotonicSpec(%s) = %q, want %q", tt.base, got, tt.want)
 		}
+	}
+	if got := monotonicSpec(nil); got != "" {
+		t.Errorf("monotonicSpec(nil) = %q, want empty", got)
+	}
+}
+
+func TestHumanDuration(t *testing.T) {
+	cases := map[time.Duration]string{
+		25 * time.Hour:   "1d",
+		90 * time.Minute: "1h",
+		90 * time.Second: "1min",
+		5 * time.Second:  "5s",
+	}
+	for d, want := range cases {
+		if got := humanDuration(d); got != want {
+			t.Errorf("humanDuration(%v) = %q, want %q", d, got, want)
+		}
+	}
+}
+
+func TestUsecToTime(t *testing.T) {
+	if !usecToTime(0).IsZero() {
+		t.Error("usecToTime(0) should be the zero time")
+	}
+	if !usecToTime(math.MaxUint64).IsZero() {
+		t.Error("usecToTime(MaxUint64) should be the zero time (systemd 'n/a' sentinel)")
+	}
+	got := usecToTime(uint64(time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC).UnixMicro()))
+	if got.IsZero() || got.UTC().Year() != 2024 {
+		t.Errorf("usecToTime(real value) = %v, want a 2024 time", got)
 	}
 }
 

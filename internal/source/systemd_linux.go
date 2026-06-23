@@ -3,14 +3,21 @@
 package source
 
 import (
+	"context"
 	"fmt"
+	"math"
 	"os"
-	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
+	sd "github.com/coreos/go-systemd/v22/dbus"
 	"github.com/pranshuparmar/witr/pkg/model"
 )
+
+// dbusTimeout bounds each systemd D-Bus interaction so a hung bus can't stall
+// witr. It is generous relative to a healthy bus (single-digit milliseconds).
+const dbusTimeout = 2 * time.Second
 
 // IsSystemdRunning checks whether systemd is actually the running init system.
 // This is the canonical check used by sd_booted() in libsystemd.
@@ -33,192 +40,170 @@ func detectSystemd(ancestry []model.Process) *model.Source {
 			break
 		}
 	}
-
 	if !hasPID1 {
 		return nil
 	}
 
-	targetProc := ancestry[len(ancestry)-1]
-	props := resolveSystemdProperties(targetProc.PID)
-
-	// Keep only supplemental details (top-level fields already hold name/desc/unitfile)
-	details := map[string]string{}
-	if v := props["NRestarts"]; v != "" {
-		details["NRestarts"] = v
-	}
+	// The unit name comes for free from the process cgroup; description, unit
+	// file, restart count and timer schedule are best-effort enrichment over
+	// systemd's D-Bus API.
+	unitName := getUnitNameFromCgroup(ancestry[len(ancestry)-1].PID)
 
 	src := &model.Source{
-		Type:        model.SourceSystemd,
-		Name:        props["UnitName"],
-		Description: props["Description"],
-		UnitFile:    props["UnitFile"],
-		Details:     details,
+		Type:    model.SourceSystemd,
+		Name:    unitName,
+		Details: map[string]string{},
 	}
-
-	// Check if the service is triggered by a systemd timer
-	if unitName := props["UnitName"]; strings.HasSuffix(unitName, ".service") {
-		timerUnit := strings.TrimSuffix(unitName, ".service") + ".timer"
-		if schedule := resolveTimerSchedule(timerUnit); schedule != "" {
-			src.Details["schedule"] = schedule
-		}
-	}
-
+	enrichFromSystemd(src, unitName)
 	return src
 }
 
-// resolveSystemdProperties fetches Description, FragmentPath/SourcePath, and NRestarts
-// in a single systemctl call to avoid spawning multiple processes.
-func resolveSystemdProperties(pid int) map[string]string {
-	result := map[string]string{}
-
-	if _, err := exec.LookPath("systemctl"); err != nil {
-		return result
+// enrichFromSystemd fills Description, UnitFile, NRestarts and (for timer-
+// triggered services) the schedule via systemd's D-Bus API. Every step is
+// best-effort: a missing bus, a permission error, or an unloaded unit just
+// leaves the corresponding field empty rather than failing detection. This
+// replaces forking `systemctl show` (2-3 processes per report) with a single
+// short-lived D-Bus connection.
+func enrichFromSystemd(src *model.Source, unitName string) {
+	if unitName == "" {
+		return
 	}
 
-	unitName := getUnitNameFromCgroup(pid)
-	if unitName != "" {
-		result["UnitName"] = unitName
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), dbusTimeout)
+	defer cancel()
 
-	// Try cgroup-resolved unit name first, fall back to PID-based lookup
-	targets := []string{}
-	if unitName != "" {
-		targets = append(targets, unitName)
-	}
-	targets = append(targets, fmt.Sprintf("%d", pid))
-
-	props := []string{"Description", "FragmentPath", "SourcePath", "NRestarts"}
-
-	for _, target := range targets {
-		values := querySystemdProperties(props, target)
-
-		if result["Description"] == "" && values["Description"] != "" {
-			result["Description"] = values["Description"]
-		}
-		if result["UnitFile"] == "" {
-			if values["FragmentPath"] != "" {
-				result["UnitFile"] = values["FragmentPath"]
-			} else if values["SourcePath"] != "" {
-				result["UnitFile"] = values["SourcePath"]
-			}
-		}
-		if result["NRestarts"] == "" && values["NRestarts"] != "" {
-			result["NRestarts"] = values["NRestarts"]
-		}
-
-		// Stop once we have all the info we need
-		if result["Description"] != "" && result["UnitFile"] != "" && result["NRestarts"] != "" {
-			break
-		}
-	}
-
-	return result
-}
-
-// querySystemdProperties fetches multiple properties in a single systemctl invocation.
-func querySystemdProperties(props []string, target string) map[string]string {
-	args := []string{"show"}
-	for _, p := range props {
-		args = append(args, "-p", p)
-	}
-	args = append(args, "--", target)
-
-	cmd := exec.Command("systemctl", args...)
-	out, err := cmd.Output()
+	conn, err := sd.NewSystemConnectionContext(ctx)
 	if err != nil {
-		return nil
+		return // no usable bus — keep the cgroup-derived unit name only
+	}
+	defer conn.Close()
+
+	if unit, err := conn.GetUnitPropertiesContext(ctx, unitName); err == nil {
+		src.Description = stringProp(unit, "Description")
+		if fp := stringProp(unit, "FragmentPath"); fp != "" {
+			src.UnitFile = fp
+		} else if sp := stringProp(unit, "SourcePath"); sp != "" {
+			src.UnitFile = sp
+		}
 	}
 
-	result := make(map[string]string, len(props))
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		k, v, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
+	if strings.HasSuffix(unitName, ".service") {
+		if svc, err := conn.GetUnitTypePropertiesContext(ctx, unitName, "Service"); err == nil {
+			src.Details["NRestarts"] = strconv.FormatUint(uint64(uint32Prop(svc, "NRestarts")), 10)
 		}
-		v = strings.TrimSpace(v)
-		if v == "" || strings.Contains(v, "not set") {
-			continue
+		timerUnit := strings.TrimSuffix(unitName, ".service") + ".timer"
+		if sched := timerSchedule(ctx, conn, timerUnit); sched != "" {
+			src.Details["schedule"] = sched
 		}
-		result[k] = v
 	}
-	return result
 }
 
-// resolveTimerSchedule checks if a .timer unit exists and extracts schedule info.
-func resolveTimerSchedule(timerUnit string) string {
-	props := querySystemdProperties(
-		[]string{"TimersCalendar", "TimersMonotonic", "LastTriggerUSec", "NextElapseUSecRealtime"},
-		timerUnit,
-	)
-	if props == nil {
+// timerSchedule renders a "<spec>, last: …, next: …" line for a .timer unit,
+// or "" when the timer isn't loaded.
+func timerSchedule(ctx context.Context, conn *sd.Conn, timerUnit string) string {
+	tp, err := conn.GetUnitTypePropertiesContext(ctx, timerUnit, "Timer")
+	if err != nil {
 		return ""
 	}
 
-	// Extract schedule spec from calendar or monotonic timer
-	schedule := extractTimerSpec(props["TimersCalendar"])
-	if schedule == "" {
-		schedule = extractTimerSpec(props["TimersMonotonic"])
+	spec := calendarSpec(tp["TimersCalendar"])
+	if spec == "" {
+		spec = monotonicSpec(tp["TimersMonotonic"])
 	}
-	if schedule == "" {
+	if spec == "" {
 		return ""
 	}
 
-	var parts []string
-	parts = append(parts, schedule)
-
-	if last := props["LastTriggerUSec"]; last != "" && last != "n/a" {
-		if t, err := time.Parse("Mon 2006-01-02 15:04:05 MST", last); err == nil {
-			parts = append(parts, "last: "+formatRelativeTime(t))
-		}
+	parts := []string{spec}
+	if last := usecToTime(uint64Prop(tp, "LastTriggerUSec")); !last.IsZero() {
+		parts = append(parts, "last: "+formatRelativeTime(last))
 	}
-	if next := props["NextElapseUSecRealtime"]; next != "" && next != "n/a" {
-		if t, err := time.Parse("Mon 2006-01-02 15:04:05 MST", next); err == nil {
-			parts = append(parts, "next: "+formatRelativeTime(t))
-		}
+	if next := usecToTime(uint64Prop(tp, "NextElapseUSecRealtime")); !next.IsZero() {
+		parts = append(parts, "next: "+formatRelativeTime(next))
 	}
-
 	return strings.Join(parts, ", ")
 }
 
-// extractTimerSpec parses the value from systemd's TimersCalendar or TimersMonotonic format.
-// Format examples:
-//
-//	"{ OnCalendar=*-*-* 06,18:00:00 ; next_elapse=... }"
-//	"{ OnUnitActiveUSec=1d ; next_elapse=... }"
-//	"{ OnBootUSec=15min ; next_elapse=... }"
-func extractTimerSpec(raw string) string {
-	if raw == "" {
-		return ""
-	}
-
-	// Look for the first key=value pair inside braces
-	for _, prefix := range []string{"OnCalendar=", "OnUnitActiveUSec=", "OnBootUSec=", "OnUnitInactiveUSec="} {
-		idx := strings.Index(raw, prefix)
-		if idx == -1 {
-			continue
-		}
-		after := raw[idx+len(prefix):]
-		// Trim at the next semicolon or closing brace
-		if semi := strings.IndexAny(after, ";}"); semi != -1 {
-			after = after[:semi]
-		}
-		after = strings.TrimSpace(after)
-		if after == "" {
-			continue
-		}
-		// Prefix monotonic timers with the trigger type for clarity
-		switch {
-		case strings.HasPrefix(prefix, "OnBoot"):
-			return "every boot + " + after
-		case strings.HasPrefix(prefix, "OnUnitActive"):
-			return "every " + after
-		case strings.HasPrefix(prefix, "OnUnitInactive"):
-			return "every " + after + " after idle"
-		default:
-			return after
+// calendarSpec extracts the calendar expression from a TimersCalendar value,
+// which D-Bus delivers as an array of (base, spec, next): e.g. "*-*-* 06,18:00:00".
+func calendarSpec(v interface{}) string {
+	for _, e := range timerEntries(v) {
+		if len(e) >= 2 {
+			if spec, ok := e[1].(string); ok && spec != "" {
+				return spec
+			}
 		}
 	}
 	return ""
+}
+
+// monotonicSpec renders a TimersMonotonic value (base, usec, next) as a human
+// phrase like "every 1d" or "every boot + 15min".
+func monotonicSpec(v interface{}) string {
+	for _, e := range timerEntries(v) {
+		if len(e) < 2 {
+			continue
+		}
+		base, _ := e[0].(string)
+		usec, _ := e[1].(uint64)
+		if usec == 0 {
+			continue
+		}
+		human := humanDuration(time.Duration(usec) * time.Microsecond)
+		switch {
+		case strings.HasPrefix(base, "OnBoot"):
+			return "every boot + " + human
+		case strings.HasPrefix(base, "OnUnitInactive"):
+			return "every " + human + " after idle"
+		default: // OnUnitActive, OnActive, OnStartup
+			return "every " + human
+		}
+	}
+	return ""
+}
+
+// timerEntries normalizes a TimersCalendar/TimersMonotonic D-Bus value into a
+// slice of struct fields, tolerating any decoding shape it can't read.
+func timerEntries(v interface{}) [][]interface{} {
+	entries, _ := v.([][]interface{})
+	return entries
+}
+
+func humanDuration(d time.Duration) string {
+	switch {
+	case d >= 24*time.Hour:
+		return fmt.Sprintf("%dd", int(d.Hours())/24)
+	case d >= time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	case d >= time.Minute:
+		return fmt.Sprintf("%dmin", int(d.Minutes()))
+	default:
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+}
+
+// usecToTime converts a systemd microseconds-since-epoch value to a time,
+// treating 0 and the uint64 "infinity" sentinel as "no value".
+func usecToTime(usec uint64) time.Time {
+	if usec == 0 || usec == math.MaxUint64 {
+		return time.Time{}
+	}
+	return time.UnixMicro(int64(usec))
+}
+
+func stringProp(m map[string]interface{}, key string) string {
+	s, _ := m[key].(string)
+	return s
+}
+
+func uint32Prop(m map[string]interface{}, key string) uint32 {
+	n, _ := m[key].(uint32)
+	return n
+}
+
+func uint64Prop(m map[string]interface{}, key string) uint64 {
+	n, _ := m[key].(uint64)
+	return n
 }
 
 // formatRelativeTime returns a human-friendly relative time string.

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/godbus/dbus/v5"
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
@@ -21,11 +22,12 @@ func GetResourceContext(pid int) *model.ResourceContext {
 	ctx.ThermalState = getThermalState()
 	ctx.AppNapped = getAppNapped(pid)
 
+	// Compute CPU% once and derive both the usage figure and the energy-impact
+	// label from it, instead of recomputing CPU via a second (slower) `top`.
 	if cpu, err := GetCPUPercent(pid, true); err == nil {
 		ctx.CPUUsage = cpu
+		ctx.EnergyImpact = energyImpactLabel(cpu)
 	}
-
-	ctx.EnergyImpact = GetEnergyImpact(pid)
 	return ctx
 }
 
@@ -60,23 +62,32 @@ func getThermalState() string {
 
 // checkPreventsSleep checks if a process has sleep prevention assertions
 func checkPreventsSleep(pid int) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	out, err := exec.CommandContext(ctx, "systemd-inhibit", "--list").Output()
+	conn, err := dbus.SystemBus()
 	if err != nil {
 		return false
 	}
-	pidStr := strconv.Itoa(pid)
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		if !containsWholeWord(line, pidStr) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// org.freedesktop.login1.Manager.ListInhibitors returns a(ssssuu):
+	// (what, who, why, mode, uid, pid). Reading it over D-Bus avoids forking
+	// `systemd-inhibit --list` on every resource lookup. SystemBus() returns a
+	// shared connection, so we don't close it here.
+	var inhibitors []struct {
+		What, Who, Why, Mode string
+		UID, PID             uint32
+	}
+	obj := conn.Object("org.freedesktop.login1", dbus.ObjectPath("/org/freedesktop/login1"))
+	if err := obj.CallWithContext(ctx, "org.freedesktop.login1.Manager.ListInhibitors", 0).Store(&inhibitors); err != nil {
+		return false
+	}
+	for _, in := range inhibitors {
+		if int(in.PID) != pid {
 			continue
 		}
-		lower := strings.ToLower(line)
-		if strings.Contains(lower, "sleep") ||
-			strings.Contains(lower, "idle") ||
-			strings.Contains(lower, "shutdown") {
+		what := strings.ToLower(in.What)
+		if strings.Contains(what, "sleep") || strings.Contains(what, "idle") || strings.Contains(what, "shutdown") {
 			return true
 		}
 	}
@@ -112,7 +123,11 @@ func GetEnergyImpact(pid int, usePs ...bool) string {
 	if err != nil {
 		return ""
 	}
+	return energyImpactLabel(cpu)
+}
 
+// energyImpactLabel maps a CPU-usage percentage to a coarse energy-impact band.
+func energyImpactLabel(cpu float64) string {
 	switch {
 	case cpu > 50:
 		return "Very High"

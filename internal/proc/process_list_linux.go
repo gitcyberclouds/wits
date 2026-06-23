@@ -5,7 +5,6 @@ package proc
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -13,86 +12,100 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// ListProcesses returns a list of all running processes with basic details (PID, Command, State).
-// This is used by the TUI to display the process list.
+// ListProcesses returns all running processes with the columns the TUI renders
+// (PID, PPID, command, user, start time, CPU%, RSS, mem%, command line). It
+// reads /proc directly instead of forking `ps -axo`, computing the same
+// lifetime-average CPU% that ps reports — no subprocess per refresh.
 func ListProcesses() ([]model.Process, error) {
-	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, args
-	// comm is excluded because it can contain spaces, which breaks strings.Fields parsing.
-	out, err := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,args").Output()
+	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		// Fallback to fast snapshot if ps fails
-		return ListProcessSnapshot()
+		return nil, fmt.Errorf("read /proc: %w", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	// Per-list invariants, computed once rather than per process.
+	ticks := ticksPerSecond()
+	boot := bootTime()
+	totalMem := float64(totalMemoryBytes())
+	pageSize := float64(os.Getpagesize())
 
-	// Skip header
-	if len(lines) > 0 {
-		lines = lines[1:]
-	}
-
-	processes := make([]model.Process, 0, len(lines))
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
+	processes := make([]model.Process, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
 			continue
 		}
-		fields := strings.Fields(line)
-
-		// Expected minimum fields: pid(1) + ppid(1) + user(1) + lstart(5) + cpu(1) + rss(1) + mem(1) = 11
-		if len(fields) < 11 {
-			continue
-		}
-
-		pid, err := strconv.Atoi(fields[0])
+		pid, err := strconv.Atoi(entry.Name())
 		if err != nil {
 			continue
 		}
-		ppid, err := strconv.Atoi(fields[1])
-		if err != nil {
-			continue
+		if p, ok := readProcessListEntry(pid, ticks, boot, totalMem, pageSize); ok {
+			processes = append(processes, p)
 		}
-		user := fields[2]
-
-		// lstart format: "Mon Jan 1 12:00:00 2024" (5 fields)
-		timeStr := strings.Join(fields[3:8], " ")
-		started, _ := time.Parse("Mon Jan 2 15:04:05 2006", timeStr)
-
-		cpu, _ := strconv.ParseFloat(fields[8], 64)
-		rss, _ := strconv.ParseUint(fields[9], 10, 64)
-		rss *= 1024
-
-		mem, _ := strconv.ParseFloat(fields[10], 64)
-
-		cmdline := ""
-		if len(fields) > 11 {
-			cmdline = strings.Join(fields[11:], " ")
-		}
-
-		displayName := extractExecutableName(cmdline)
-		if displayName == "" && len(fields) > 11 {
-			displayName = fields[11]
-		}
-		if displayName == "" {
-			continue
-		}
-		if cmdline == "" {
-			cmdline = displayName
-		}
-
-		processes = append(processes, model.Process{
-			PID:           pid,
-			PPID:          ppid,
-			Command:       displayName,
-			User:          user,
-			StartedAt:     started,
-			CPUPercent:    cpu,
-			MemoryRSS:     rss,
-			MemoryPercent: mem,
-			Cmdline:       cmdline,
-		})
 	}
-
 	return processes, nil
+}
+
+// readProcessListEntry reads the TUI list columns for one PID from /proc,
+// mirroring the fields the old `ps -axo` invocation produced. Returns ok=false
+// when the process vanished mid-read or its stat is malformed.
+func readProcessListEntry(pid, ticks int, boot time.Time, totalMem, pageSize float64) (model.Process, bool) {
+	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return model.Process{}, false
+	}
+	raw := string(stat)
+	open := strings.Index(raw, "(")
+	closeParen := strings.LastIndex(raw, ")")
+	if open == -1 || closeParen == -1 || closeParen+2 >= len(raw) {
+		return model.Process{}, false
+	}
+	comm := raw[open+1 : closeParen]
+	fields := strings.Fields(raw[closeParen+2:])
+	if len(fields) < 22 {
+		return model.Process{}, false
+	}
+
+	ppid, _ := strconv.Atoi(fields[1])
+	utime, _ := strconv.ParseFloat(fields[11], 64)
+	stime, _ := strconv.ParseFloat(fields[12], 64)
+	startTicks, _ := strconv.ParseInt(fields[19], 10, 64)
+	rssPages, _ := strconv.ParseFloat(fields[21], 64)
+
+	startedAt := boot.Add(time.Duration(startTicks) * time.Second / time.Duration(ticks))
+	memBytes := rssPages * pageSize
+
+	// Lifetime-average CPU%: total CPU time over wall-clock since start (what ps reports).
+	cpuPercent := 0.0
+	if wall := time.Since(startedAt).Seconds(); wall > 0 {
+		cpuPercent = (utime + stime) / float64(ticks) / wall * 100.0
+	}
+	memPercent := 0.0
+	if totalMem > 0 {
+		memPercent = memBytes / totalMem * 100.0
+	}
+
+	cmdline := ""
+	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
+		cmdline = strings.TrimSpace(strings.ReplaceAll(string(b), "\x00", " "))
+	}
+	displayName := deriveDisplayCommand(comm, cmdline)
+	if displayName == "" {
+		displayName = comm
+	}
+	if cmdline == "" {
+		cmdline = displayName
+	}
+
+	return model.Process{
+		PID:           pid,
+		PPID:          ppid,
+		Command:       displayName,
+		Cmdline:       cmdline,
+		User:          readUser(pid),
+		StartedAt:     startedAt,
+		CPUPercent:    cpuPercent,
+		MemoryRSS:     uint64(memBytes),
+		MemoryPercent: memPercent,
+	}, true
 }
 
 // ListProcessSnapshot collects a lightweight view of running processes

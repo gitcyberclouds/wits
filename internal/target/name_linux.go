@@ -84,7 +84,15 @@ func ResolveName(name string, exact bool) ([]int, error) {
 		}
 	}
 
-	servicePID, _ := resolveSystemdServiceMainPID(name)
+	// Only consult systemd when the /proc scan found nothing. A running
+	// service's main process is virtually always caught by the comm/cmdline
+	// match above, so this skips a systemctl fork on the common path and only
+	// pays it when resolving a service whose process name differs (or a service
+	// that isn't currently running).
+	var servicePID int
+	if len(procPIDs) == 0 {
+		servicePID, _ = resolveSystemdServiceMainPID(name)
+	}
 
 	seen := map[int]bool{}
 	var procUnique []int
