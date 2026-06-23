@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
@@ -160,15 +161,23 @@ func ReadProcess(pid int) (model.Process, error) {
 	}, nil
 }
 
+var (
+	totalMemOnce  sync.Once
+	totalMemBytes uint64
+)
+
 // totalMemoryBytes returns total physical RAM in bytes via sysctl hw.physmem,
-// or 0 if it can't be read.
+// or 0 if it can't be read. The value is constant for the machine, so it is
+// resolved once rather than spawning sysctl on every ancestry hop.
 func totalMemoryBytes() uint64 {
-	out, err := exec.Command("sysctl", "-n", "hw.physmem").Output()
-	if err != nil {
-		return 0
-	}
-	v, _ := strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64)
-	return v
+	totalMemOnce.Do(func() {
+		out, err := exec.Command("sysctl", "-n", "hw.physmem").Output()
+		if err != nil {
+			return
+		}
+		totalMemBytes, _ = strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64)
+	})
+	return totalMemBytes
 }
 
 // getCwdAndBinaryPath returns the working directory and executable path for a process.
