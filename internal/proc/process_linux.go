@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
@@ -291,23 +292,32 @@ func ReadProcess(pid int) (model.Process, error) {
 	}, nil
 }
 
+var (
+	totalMemOnce  sync.Once
+	totalMemBytes uint64
+)
+
 // totalMemoryBytes returns total physical RAM in bytes from /proc/meminfo, or 0
-// if it can't be read.
+// if it can't be read. The value is constant for the machine, so it is resolved
+// once rather than re-read on every ancestry hop.
 func totalMemoryBytes() uint64 {
-	data, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 0
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.HasPrefix(line, "MemTotal:") {
-			fields := strings.Fields(line)
-			if len(fields) >= 2 {
-				kb, _ := strconv.ParseUint(fields[1], 10, 64)
-				return kb * 1024
+	totalMemOnce.Do(func() {
+		data, err := os.ReadFile("/proc/meminfo")
+		if err != nil {
+			return
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "MemTotal:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					kb, _ := strconv.ParseUint(fields[1], 10, 64)
+					totalMemBytes = kb * 1024
+					return
+				}
 			}
 		}
-	}
-	return 0
+	})
+	return totalMemBytes
 }
 
 func isBinaryDeleted(pid int) bool {

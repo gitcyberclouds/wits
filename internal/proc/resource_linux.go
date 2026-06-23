@@ -118,14 +118,6 @@ func getAppNapped(pid int) bool {
 	return state == "T" || state == "t"
 }
 
-func GetEnergyImpact(pid int, usePs ...bool) string {
-	cpu, err := GetCPUPercent(pid, usePs...)
-	if err != nil {
-		return ""
-	}
-	return energyImpactLabel(cpu)
-}
-
 // energyImpactLabel maps a CPU-usage percentage to a coarse energy-impact band.
 func energyImpactLabel(cpu float64) string {
 	switch {

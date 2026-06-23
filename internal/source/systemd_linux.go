@@ -172,11 +172,23 @@ func timerEntries(v interface{}) [][]interface{} {
 func humanDuration(d time.Duration) string {
 	switch {
 	case d >= 24*time.Hour:
-		return fmt.Sprintf("%dd", int(d.Hours())/24)
+		days := int(d / (24 * time.Hour))
+		if hrs := int(d % (24 * time.Hour) / time.Hour); hrs > 0 {
+			return fmt.Sprintf("%dd %dh", days, hrs)
+		}
+		return fmt.Sprintf("%dd", days)
 	case d >= time.Hour:
-		return fmt.Sprintf("%dh", int(d.Hours()))
+		hrs := int(d / time.Hour)
+		if mins := int(d % time.Hour / time.Minute); mins > 0 {
+			return fmt.Sprintf("%dh %dmin", hrs, mins)
+		}
+		return fmt.Sprintf("%dh", hrs)
 	case d >= time.Minute:
-		return fmt.Sprintf("%dmin", int(d.Minutes()))
+		mins := int(d / time.Minute)
+		if secs := int(d % time.Minute / time.Second); secs > 0 {
+			return fmt.Sprintf("%dmin %ds", mins, secs)
+		}
+		return fmt.Sprintf("%dmin", mins)
 	default:
 		return fmt.Sprintf("%ds", int(d.Seconds()))
 	}

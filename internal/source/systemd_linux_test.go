@@ -43,9 +43,10 @@ func TestMonotonicSpec(t *testing.T) {
 
 func TestHumanDuration(t *testing.T) {
 	cases := map[time.Duration]string{
-		25 * time.Hour:   "1d",
-		90 * time.Minute: "1h",
-		90 * time.Second: "1min",
+		25 * time.Hour:   "1d 1h",
+		24 * time.Hour:   "1d",
+		90 * time.Minute: "1h 30min",
+		90 * time.Second: "1min 30s",
 		5 * time.Second:  "5s",
 	}
 	for d, want := range cases {

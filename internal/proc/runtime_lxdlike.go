@@ -50,6 +50,9 @@ func lxdLikeList(bin, runtime string) []*model.ContainerMatch {
 }
 
 func lxdLikeHostPID(bin, id string) int {
+	if !isValidContainerID(id) {
+		return 0
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeQueryTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, bin, "list", id, "--format", "json").Output()
@@ -72,7 +75,7 @@ func lxdLikeHostPID(bin, id string) int {
 }
 
 func lxdLikeEnrich(bin string, match *model.ContainerMatch) {
-	if match == nil || match.Name == "" {
+	if match == nil || match.Name == "" || !isValidContainerID(match.Name) {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), runtimeQueryTimeout)

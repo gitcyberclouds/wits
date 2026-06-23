@@ -803,7 +803,7 @@ func (m MainModel) handleProcessAreaMouse(msg tea.MouseMsg, contentX int, isClic
 
 func (m MainModel) handlePortAreaMouse(msg tea.MouseMsg, contentX int, isClick, isWheel, isDoubleClick bool) (tea.Model, tea.Cmd) {
 	availableWidth := m.width - 6
-	portPaneWidth := availableWidth / 2
+	portPaneWidth := int(float64(availableWidth) * portPaneRatio)
 
 	if contentX < portPaneWidth {
 		if isClick {
