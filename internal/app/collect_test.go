@@ -20,6 +20,7 @@ func TestCollectTargetsInOrder(t *testing.T) {
 		name       string
 		rawArgs    []string
 		positional []string
+		valueFlags []string // non-target flags that consume the next token
 		want       []model.Target
 	}{
 		{
@@ -86,13 +87,50 @@ func TestCollectTargetsInOrder(t *testing.T) {
 			positional: []string{"a", "b"},
 			want:       []model.Target{tgt(model.TargetName, "a"), tgt(model.TargetName, "b")},
 		},
+		{
+			// Regression for the latent argv bug: a space-form string-valued
+			// flag must consume its value, or that value steals a positional
+			// slot and corrupts the interleaved target order. Fails without the
+			// flag-arity fix (would yield alpha, beta, pid:5).
+			name:       "value-flag value not mistaken for a target",
+			rawArgs:    []string{"alpha", "--config", "nginx", "--pid", "5", "beta"},
+			positional: []string{"alpha", "beta"},
+			valueFlags: []string{"--config"},
+			want: []model.Target{
+				tgt(model.TargetName, "alpha"),
+				tgt(model.TargetPID, "5"),
+				tgt(model.TargetName, "beta"),
+			},
+		},
+		{
+			name:       "value-flag in equals form needs no lookahead",
+			rawArgs:    []string{"--config=app.yml", "nginx"},
+			positional: []string{"nginx"},
+			valueFlags: []string{"--config"},
+			want:       []model.Target{tgt(model.TargetName, "nginx")},
+		},
+		{
+			name:       "short value-flag, space form",
+			rawArgs:    []string{"-C", "app.yml", "redis"},
+			positional: []string{"redis"},
+			valueFlags: []string{"-C"},
+			want:       []model.Target{tgt(model.TargetName, "redis")},
+		},
 	}
 
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := collectTargetsInOrder(tc.rawArgs, tc.positional)
+			takesValue := func(a string) bool {
+				for _, f := range tc.valueFlags {
+					if a == f {
+						return true
+					}
+				}
+				return false
+			}
+			got := collectTargetsInOrder(tc.rawArgs, tc.positional, takesValue)
 			if len(got) == 0 && len(tc.want) == 0 {
 				return
 			}

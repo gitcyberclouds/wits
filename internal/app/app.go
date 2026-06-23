@@ -197,7 +197,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	}
 
 	// Collect all targets preserving command-line order
-	targets := collectTargetsInOrder(os.Args[1:], args)
+	targets := collectTargetsInOrder(os.Args[1:], args, flagTakesValue(cmd))
 
 	if len(targets) == 0 {
 		return withExitCode(ExitInvalidInput, fmt.Errorf("must specify --pid, --port, --file, --container, or a process name"))
@@ -250,9 +250,33 @@ func boolFlag(cmd *cobra.Command, name string) bool {
 	return v
 }
 
+// flagTakesValue reports whether a raw argv token names a non-boolean flag
+// whose value is the following token (e.g. "--config foo"). It lets the
+// order-preserving parser take flag-arity from cobra's flag set instead of
+// assuming every non-target flag is boolean — so a future string-valued flag
+// won't have its value mistaken for a target.
+func flagTakesValue(cmd *cobra.Command) func(string) bool {
+	return func(arg string) bool {
+		if strings.Contains(arg, "=") {
+			return false // value is attached: --flag=value
+		}
+		if name, ok := strings.CutPrefix(arg, "--"); ok {
+			if f := cmd.Flags().Lookup(name); f != nil {
+				return f.NoOptDefVal == ""
+			}
+		} else if sh, ok := strings.CutPrefix(arg, "-"); ok && len(sh) == 1 {
+			if f := cmd.Flags().ShorthandLookup(sh); f != nil {
+				return f.NoOptDefVal == ""
+			}
+		}
+		return false
+	}
+}
+
 // collectTargetsInOrder walks the raw command-line arguments to build a target
-// list that preserves the order the user typed them in.
-func collectTargetsInOrder(rawArgs []string, positionalArgs []string) []model.Target {
+// list that preserves the order the user typed them in. takesValue reports
+// whether a non-target flag consumes the following token as its value.
+func collectTargetsInOrder(rawArgs []string, positionalArgs []string, takesValue func(string) bool) []model.Target {
 	var targets []model.Target
 	positionalIdx := 0
 
@@ -303,8 +327,13 @@ func collectTargetsInOrder(rawArgs []string, positionalArgs []string) []model.Ta
 			continue
 		}
 
-		// Skip known boolean flags and their short forms
+		// Non-target flag. If it's a value-taking flag in space form
+		// (--flag value, not --flag=value), skip its value too so the value
+		// isn't mistaken for a positional target.
 		if strings.HasPrefix(arg, "-") {
+			if takesValue(arg) && i+1 < len(rawArgs) {
+				i++ // consume the flag's value
+			}
 			i++
 			continue
 		}
