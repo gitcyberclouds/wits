@@ -116,6 +116,24 @@ func TestCollectTargetsInOrder(t *testing.T) {
 			valueFlags: []string{"-C"},
 			want:       []model.Target{tgt(model.TargetName, "redis")},
 		},
+		{
+			name:    "target flag without a value yields no target",
+			rawArgs: []string{"--pid"},
+			want:    nil,
+		},
+		{
+			name:    "empty value via equals yields no target",
+			rawArgs: []string{"--port="},
+			want:    nil,
+		},
+		{
+			// "--" is not treated as an end-of-options marker: it is skipped, and a
+			// following positional name is still collected.
+			name:       "double dash before a name is skipped",
+			rawArgs:    []string{"--", "nginx"},
+			positional: []string{"nginx"},
+			want:       []model.Target{tgt(model.TargetName, "nginx")},
+		},
 	}
 
 	for _, tc := range tests {
