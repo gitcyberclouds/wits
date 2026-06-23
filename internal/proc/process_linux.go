@@ -5,7 +5,6 @@ package proc
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -144,26 +143,11 @@ func ReadProcess(pid int) (model.Process, error) {
 		}
 	}
 
-	// Service detection (try systemctl show for this PID)
-	service := ""
-	// `systemctl status` exits non-zero for any non-active unit (failed,
-	// inactive, activating, ...) but still prints `Loaded: loaded ...` with
-	// the unit name. Gate on the output content rather than the exit code.
-	svcOut, _ := exec.Command("systemctl", "status", fmt.Sprintf("%d", pid)).CombinedOutput()
-	if strings.Contains(string(svcOut), "Loaded: loaded") {
-		// Try to extract service name from output
-		for line := range strings.Lines(string(svcOut)) {
-			if strings.HasPrefix(line, "Loaded:") && strings.Contains(line, ".service") {
-				parts := strings.Fields(line)
-				for _, part := range parts {
-					if strings.HasSuffix(part, ".service") {
-						service = part
-						break
-					}
-				}
-			}
-		}
-	}
+	// The per-process service name is intentionally left blank. A previous
+	// `systemctl status <pid>` probe ran once per ancestor yet never populated
+	// it — its parser never matched systemctl's indented output — so it was pure
+	// per-hop overhead. The systemd unit a process belongs to is still
+	// identified by source detection and shown as the Source.
 
 	gitRepo, gitBranch := detectGitInfo(cwd)
 
@@ -300,7 +284,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		GitRepo:       gitRepo,
 		GitBranch:     gitBranch,
 		Container:     container,
-		Service:       service,
+		Service:       "",
 		Sockets:       procSockets,
 		Health:        health,
 		Forked:        forked,
