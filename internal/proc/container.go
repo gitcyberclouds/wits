@@ -134,6 +134,31 @@ func resolveContainerName(id, runtime string) string {
 	return ""
 }
 
+// ContainerHealthcheckStatus reports whether the container runtime has a
+// healthcheck configured: "present", "absent", or "" when undeterminable
+// (runtime unavailable, inspect error, or unsupported runtime).
+func ContainerHealthcheckStatus(id, runtime string) string {
+	if id == "" || (runtime != "docker" && runtime != "podman") {
+		return ""
+	}
+	if _, err := exec.LookPath(runtime); err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeQueryTimeout)
+	defer cancel()
+	out, err := runtimeCommand(ctx, runtime, "inspect", id, "--format", "{{if .Config.Healthcheck}}present{{else}}absent{{end}}").Output()
+	if err != nil {
+		return ""
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "present":
+		return "present"
+	case "absent":
+		return "absent"
+	}
+	return ""
+}
+
 // findLongHexID searches for a 64-character hexadecimal string in the input.
 func findLongHexID(s string) string {
 	for i := 0; i <= len(s)-64; i++ {

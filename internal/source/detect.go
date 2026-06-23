@@ -215,9 +215,10 @@ func Warnings(p []model.Process, restartCount int, srcType ...model.SourceType) 
 		w = append(w, "Process is running from a suspicious working directory: "+last.WorkingDir)
 	}
 
-	// Warn if container and no healthcheck (skip for snap/flatpak which don't use healthchecks)
-	if last.Container != "" && !strings.HasPrefix(last.Container, "snap:") && !strings.HasPrefix(last.Container, "flatpak:") {
-		w = append(w, "No healthcheck detected for container (best effort)")
+	// Warn only when the runtime confirms no healthcheck is configured. Unknown
+	// ("") — snap/flatpak, unprobed runtimes, non-Linux — does not warn.
+	if last.ContainerHealthcheck == "absent" {
+		w = append(w, "Container has no healthcheck configured")
 	}
 
 	// Warn if service name and process name are genuinely unrelated

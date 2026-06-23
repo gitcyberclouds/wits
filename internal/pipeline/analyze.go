@@ -50,6 +50,16 @@ func AnalyzePID(cfg AnalyzeConfig) (model.Result, error) {
 		resolvedTarget = proc.Command
 	}
 
+	// Resolve the target container's healthcheck so the warning only fires when
+	// the runtime confirms none is configured.
+	if proc.ContainerID != "" {
+		hc := procpkg.ContainerHealthcheckStatus(proc.ContainerID, proc.ContainerRuntime)
+		proc.ContainerHealthcheck = hc
+		if len(ancestry) > 0 {
+			ancestry[len(ancestry)-1].ContainerHealthcheck = hc
+		}
+	}
+
 	// Collect child PIDs once and reuse for both extended info and tree output
 	var childPIDs []int
 	var childProcesses []model.Process

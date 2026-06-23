@@ -52,13 +52,14 @@ func ReadProcess(pid int) (model.Process, error) {
 
 	// Container detection
 	container := ""
+	var containerID, containerRuntime string
 	cgroupFile := fmt.Sprintf("/proc/%d/cgroup", pid)
 	if cgroupData, err := os.ReadFile(cgroupFile); err == nil {
 		cgroupStr := string(cgroupData)
-		var containerID string
 		switch {
 		case strings.Contains(cgroupStr, "docker"):
 			container = "docker"
+			containerRuntime = "docker"
 			containerID = extractContainerID(cgroupStr, "docker-", "docker/")
 			if containerID != "" {
 				if name := resolveContainerName(containerID, "docker"); name != "" {
@@ -70,6 +71,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 		case strings.Contains(cgroupStr, "podman"), strings.Contains(cgroupStr, "libpod"):
 			container = "podman"
+			containerRuntime = "podman"
 			containerID = extractContainerID(cgroupStr, "libpod-", "libpod/")
 			if containerID != "" {
 				if name := resolveContainerName(containerID, "podman"); name != "" {
@@ -81,6 +83,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 		case strings.Contains(cgroupStr, "kubepods"):
 			container = "kubernetes"
+			containerRuntime = "crictl"
 			if id := findLongHexID(cgroupStr); id != "" {
 				containerID = id
 				if name := resolveContainerName(containerID, "crictl"); name != "" {
@@ -92,6 +95,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 		case strings.Contains(cgroupStr, "containerd"):
 			container = "containerd"
+			containerRuntime = "nerdctl"
 			if id := findLongHexID(cgroupStr); id != "" {
 				containerID = id
 				if name := resolveContainerName(containerID, "nerdctl"); name != "" {
@@ -179,7 +183,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "stopped"
 	}
 
-	// High CPU/memory (simple: >80% of total)
+	// Flag high CPU (>2h total) and high memory (>1GB RSS).
 	utime, _ := strconv.ParseFloat(fields[11], 64)
 	stime, _ := strconv.ParseFloat(fields[12], 64)
 	rssPages, _ := strconv.ParseFloat(fields[21], 64)
@@ -262,26 +266,28 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:           pid,
-		PPID:          ppid,
-		Command:       displayName,
-		Cmdline:       cmdline,
-		StartedAt:     startedAt,
-		User:          user,
-		CPUPercent:    cpuPercent,
-		MemoryRSS:     uint64(memBytes),
-		MemoryPercent: memPercent,
-		WorkingDir:    cwd,
-		GitRepo:       gitRepo,
-		GitBranch:     gitBranch,
-		Container:     container,
-		Service:       service,
-		Sockets:       procSockets,
-		Health:        health,
-		Forked:        forked,
-		Env:           env,
-		ExeDeleted:    isBinaryDeleted(pid),
-		Capabilities:  ReadCapabilities(pid),
+		PID:              pid,
+		PPID:             ppid,
+		Command:          displayName,
+		Cmdline:          cmdline,
+		StartedAt:        startedAt,
+		User:             user,
+		CPUPercent:       cpuPercent,
+		MemoryRSS:        uint64(memBytes),
+		MemoryPercent:    memPercent,
+		WorkingDir:       cwd,
+		GitRepo:          gitRepo,
+		GitBranch:        gitBranch,
+		Container:        container,
+		ContainerID:      containerID,
+		ContainerRuntime: containerRuntime,
+		Service:          service,
+		Sockets:          procSockets,
+		Health:           health,
+		Forked:           forked,
+		Env:              env,
+		ExeDeleted:       isBinaryDeleted(pid),
+		Capabilities:     ReadCapabilities(pid),
 	}, nil
 }
 

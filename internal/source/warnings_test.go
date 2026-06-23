@@ -190,13 +190,29 @@ func TestWarningsSuspiciousWorkingDirs(t *testing.T) {
 	}
 }
 
-func TestWarningsContainerWithoutHealthcheck(t *testing.T) {
+func TestWarningsContainerHealthcheck(t *testing.T) {
 	t.Parallel()
 
-	p := baseProc()
-	p.Container = "docker (abc123)"
-	if !contains(wrap(p), "No healthcheck") {
-		t.Errorf("expected healthcheck warning for container, got: %v", wrap(p))
+	tests := []struct {
+		name        string
+		healthcheck string
+		wantWarning bool
+	}{
+		{"absent warns", "absent", true},
+		{"present does not warn", "present", false},
+		{"unknown does not warn", "", false},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := baseProc()
+			p.Container = "docker (abc123)"
+			p.ContainerHealthcheck = tc.healthcheck
+			if got := contains(wrap(p), "healthcheck"); got != tc.wantWarning {
+				t.Errorf("ContainerHealthcheck=%q: warning=%v, want %v (%v)", tc.healthcheck, got, tc.wantWarning, wrap(p))
+			}
+		})
 	}
 }
 
@@ -211,7 +227,7 @@ func TestWarningsSnapAndFlatpakSkipHealthcheck(t *testing.T) {
 			t.Parallel()
 			p := baseProc()
 			p.Container = container
-			if contains(wrap(p), "No healthcheck") {
+			if contains(wrap(p), "healthcheck") {
 				t.Errorf("healthcheck warning should not fire for %q, got: %v", container, wrap(p))
 			}
 		})
