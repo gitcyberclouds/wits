@@ -12,11 +12,6 @@ import (
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// isValidSymlinkTarget validates that a symlink target is safe and reasonable
-func isValidSymlinkTarget(target string) bool {
-	return target != ""
-}
-
 func ReadProcess(pid int) (model.Process, error) {
 	if pid <= 0 {
 		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
@@ -51,11 +46,8 @@ func ReadProcess(pid int) (model.Process, error) {
 	var cwd, cwdErr = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
 	if cwdErr != nil {
 		cwd = "unknown"
-	} else {
-		// Validate symlink target is reasonable
-		if !isValidSymlinkTarget(cwd) {
-			cwd = "invalid"
-		}
+	} else if cwd == "" {
+		cwd = "invalid"
 	}
 
 	// Container detection

@@ -2,7 +2,6 @@ package source
 
 import (
 	"runtime"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -26,11 +25,10 @@ func baseProc() model.Process {
 // wrap forces Warnings to use a known source type so we don't depend on
 // the platform-specific Detect() and its real-system probing.
 func wrap(p model.Process) []string {
-	// Add a "parent" so restart-count logic isn't tripped trivially.
 	parent := baseProc()
 	parent.PID = 1
 	parent.Command = "systemd"
-	return Warnings([]model.Process{parent, p}, model.SourceSystemd)
+	return Warnings([]model.Process{parent, p}, 0, model.SourceSystemd)
 }
 
 func contains(haystack []string, needle string) bool {
@@ -138,7 +136,7 @@ func TestWarningsUnknownSupervisor(t *testing.T) {
 	t.Parallel()
 
 	p := baseProc()
-	got := Warnings([]model.Process{p}, model.SourceUnknown)
+	got := Warnings([]model.Process{p}, 0, model.SourceUnknown)
 	hasWarning := contains(got, "No known supervisor")
 	if runtime.GOOS == "windows" {
 		// Suppressed on Windows: ancestry truncates at orphaned processes, so
@@ -254,18 +252,15 @@ func TestWarningsServiceNameMismatch(t *testing.T) {
 func TestWarningsRestartCount(t *testing.T) {
 	t.Parallel()
 
-	// Build a chain with the same command repeated > 5 times to trigger the
-	// restart-count rule.
-	chain := []model.Process{
-		{PID: 1, Command: "systemd"},
-	}
-	for i := 0; i < 7; i++ {
-		chain = append(chain, model.Process{PID: 100 + i, Command: "nginx", User: "www-data", StartedAt: time.Now()})
-	}
+	chain := []model.Process{{PID: 1, Command: "systemd"}, baseProc()}
 
-	got := Warnings(chain, model.SourceSystemd)
-	if !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "restarted more than 5 times") }) {
-		t.Errorf("expected restart-count warning, got: %v", got)
+	// The warning is driven by the real restart count (e.g. systemd NRestarts),
+	// not by the shape of the ancestry.
+	if got := Warnings(chain, 7, model.SourceSystemd); !contains(got, "restarted 7 times") {
+		t.Errorf("expected restart warning for 7 restarts, got: %v", got)
+	}
+	if got := Warnings(chain, 5, model.SourceSystemd); contains(got, "restarted") {
+		t.Errorf("no restart warning expected for 5 restarts, got: %v", got)
 	}
 }
 
@@ -283,7 +278,7 @@ func TestWarningsBenignProcProducesNoSpurious(t *testing.T) {
 func TestWarningsEmptyInputReturnsNil(t *testing.T) {
 	t.Parallel()
 
-	if got := Warnings(nil); got != nil {
+	if got := Warnings(nil, 0); got != nil {
 		t.Errorf("Warnings(nil) = %v, want nil", got)
 	}
 }

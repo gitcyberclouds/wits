@@ -106,7 +106,7 @@ func AnalyzePID(cfg AnalyzeConfig) (model.Result, error) {
 		RestartCount:    restartCount,
 		Ancestry:        ancestry,
 		Source:          src,
-		Warnings:        source.Warnings(ancestry, src.Type),
+		Warnings:        source.Warnings(ancestry, restartCount, src.Type),
 		ResourceContext: resCtx,
 		FileContext:     fileCtx,
 		Children:        childProcesses,

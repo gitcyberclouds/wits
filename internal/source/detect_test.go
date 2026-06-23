@@ -21,7 +21,7 @@ func TestDetectShellWindowsCaseInsensitive(t *testing.T) {
 		if got := Detect(ancestry).Type; got != model.SourceShell {
 			t.Errorf("Detect with %q ancestor = %v; want SourceShell", shell, got)
 		}
-		if slices.Contains(Warnings(ancestry), "No known supervisor or service manager detected") {
+		if slices.Contains(Warnings(ancestry, 0), "No known supervisor or service manager detected") {
 			t.Errorf("%q ancestor should not raise the no-supervisor warning", shell)
 		}
 	}
@@ -39,7 +39,7 @@ func TestDetectWindowsSystemKernel(t *testing.T) {
 	if got := Detect(ancestry).Type; got != model.SourceInit {
 		t.Errorf("Detect with System (pid 4) root = %v; want SourceInit", got)
 	}
-	if slices.Contains(Warnings(ancestry), "No known supervisor or service manager detected") {
+	if slices.Contains(Warnings(ancestry, 0), "No known supervisor or service manager detected") {
 		t.Errorf("System-rooted process should not raise the no-supervisor warning")
 	}
 }
@@ -57,7 +57,7 @@ func TestWarningsDetectsLDPreload(t *testing.T) {
 		},
 	}
 
-	warnings := Warnings(p)
+	warnings := Warnings(p, 0)
 	if !slices.Contains(warnings, "Process sets LD_PRELOAD (potential library injection)") {
 		t.Fatalf("expected LD_PRELOAD warning, got: %v", warnings)
 	}
@@ -79,7 +79,7 @@ func TestWarningsDetectsDYLDVars(t *testing.T) {
 		},
 	}
 
-	warnings := Warnings(p)
+	warnings := Warnings(p, 0)
 	want := "Process sets DYLD_* variables (potential library injection): DYLD_INSERT_LIBRARIES, DYLD_LIBRARY_PATH"
 	if !slices.Contains(warnings, want) {
 		t.Fatalf("expected DYLD warning %q, got: %v", want, warnings)
@@ -102,7 +102,7 @@ func TestWarningsIgnoresEmptyPreloadVars(t *testing.T) {
 		},
 	}
 
-	warnings := Warnings(p)
+	warnings := Warnings(p, 0)
 	if slices.Contains(warnings, "Process sets LD_PRELOAD (potential library injection)") {
 		t.Fatalf("did not expect LD_PRELOAD warning, got: %v", warnings)
 	}
@@ -208,7 +208,7 @@ func FuzzWarningsNoPanic(f *testing.F) {
 			},
 		}
 
-		_ = Warnings(p)
+		_ = Warnings(p, 0)
 	})
 }
 
@@ -222,7 +222,7 @@ func TestWarningsDetectsDeletedExecutable(t *testing.T) {
 		},
 	}
 
-	warnings := Warnings(p)
+	warnings := Warnings(p, 0)
 	want := "Process is running from a deleted binary (potential library injection or pending update)"
 	if !slices.Contains(warnings, want) {
 		t.Fatalf("expected deleted binary warning, got: %v", warnings)

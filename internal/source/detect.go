@@ -1,6 +1,7 @@
 package source
 
 import (
+	"fmt"
 	"runtime"
 	"sort"
 	"strings"
@@ -144,7 +145,7 @@ func envSuspiciousWarnings(env []string) []string {
 	return warnings
 }
 
-func Warnings(p []model.Process, srcType ...model.SourceType) []string {
+func Warnings(p []model.Process, restartCount int, srcType ...model.SourceType) []string {
 	if len(p) == 0 {
 		return nil
 	}
@@ -153,17 +154,10 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 
 	last := p[len(p)-1]
 
-	// Restart count detection (count consecutive same-command entries)
-	restartCount := 0
-	lastCmd := ""
-	for _, proc := range p {
-		if proc.Command == lastCmd {
-			restartCount++
-		}
-		lastCmd = proc.Command
-	}
+	// Warn on a service that has restarted many times. restartCount is the real
+	// count from the service manager (e.g. systemd NRestarts), or 0 when unknown.
 	if restartCount > 5 {
-		w = append(w, "Process or ancestor restarted more than 5 times")
+		w = append(w, fmt.Sprintf("Service has restarted %d times", restartCount))
 	}
 
 	// Health warnings
