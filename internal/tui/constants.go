@@ -1,0 +1,28 @@
+package tui
+
+import "time"
+
+// Timing constants for the interactive TUI.
+const (
+	// refreshInterval is the auto-refresh cadence for the process/port/
+	// container/lock tabs. 3s mirrors top's default.
+	refreshInterval = 3 * time.Second
+
+	// selectionDebounce delays the detail/tree fetch after the selection
+	// moves, so holding a cursor key down doesn't spawn a fetch per row.
+	selectionDebounce = 500 * time.Millisecond
+
+	// doubleClickThreshold is the maximum gap between two clicks for them to
+	// count as a double-click.
+	doubleClickThreshold = 500 * time.Millisecond
+)
+
+// Pane split ratios — the fraction of the available width given to the primary
+// pane. These are shared by the resize math, the mouse hit-testing, and the
+// view renderer; keeping them in one place stops those three from drifting
+// apart (which would make clicks land on the wrong pane).
+const (
+	listPaneRatio   = 0.7 // process list vs. ancestry tree
+	detailPaneRatio = 0.7 // detail view vs. environment view
+	portPaneRatio   = 0.5 // port list vs. port detail
+)

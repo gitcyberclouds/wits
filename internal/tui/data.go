@@ -206,24 +206,27 @@ func (m *MainModel) sortProcesses() {
 
 func (m *MainModel) sortPorts() {
 	sort.Slice(m.ports, func(i, j int) bool {
-		var less bool
-		switch m.sortPortCol {
-		case "port":
-			less = m.ports[i].Port < m.ports[j].Port
-		case "proto":
-			less = strings.ToLower(m.ports[i].Protocol) < strings.ToLower(m.ports[j].Protocol)
-		case "addr":
-			less = strings.ToLower(m.ports[i].Address) < strings.ToLower(m.ports[j].Address)
-		case "state":
-			less = strings.ToLower(m.ports[i].State) < strings.ToLower(m.ports[j].State)
-		default:
-			less = m.ports[i].Port < m.ports[j].Port
-		}
+		less := lessPorts(m.ports[i], m.ports[j], m.sortPortCol)
 		if m.sortPortDesc {
 			return !less
 		}
 		return less
 	})
+}
+
+// lessPorts orders two ports by the given column (ascending). Unknown columns
+// fall back to port number.
+func lessPorts(a, b model.OpenPort, col string) bool {
+	switch col {
+	case "proto":
+		return strings.ToLower(a.Protocol) < strings.ToLower(b.Protocol)
+	case "addr":
+		return strings.ToLower(a.Address) < strings.ToLower(b.Address)
+	case "state":
+		return strings.ToLower(a.State) < strings.ToLower(b.State)
+	default: // "port" and anything unspecified
+		return a.Port < b.Port
+	}
 }
 
 func formatBytes(bytes uint64) string {
@@ -242,6 +245,15 @@ func formatBytes(bytes uint64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// processMatches reports whether p matches the already-lowercased filter on any
+// of its command, PID, user, or full command line.
+func processMatches(p model.Process, filter string) bool {
+	return strings.Contains(strings.ToLower(p.Command), filter) ||
+		strings.Contains(strconv.Itoa(p.PID), filter) ||
+		strings.Contains(strings.ToLower(p.User), filter) ||
+		strings.Contains(strings.ToLower(p.Cmdline), filter)
+}
+
 func (m *MainModel) filterProcesses() {
 	filter := strings.ToLower(m.input.Value())
 	var rows []table.Row
@@ -258,17 +270,7 @@ func (m *MainModel) filterProcesses() {
 
 	m.filtered = nil
 	for _, p := range m.processes {
-		cmd := strings.ToLower(p.Command)
-
-		match := false
-		if filter == "" {
-			match = true
-		} else {
-			match = strings.Contains(cmd, filter) ||
-				strings.Contains(strconv.Itoa(p.PID), filter) ||
-				strings.Contains(strings.ToLower(p.User), filter) ||
-				strings.Contains(strings.ToLower(p.Cmdline), filter)
-		}
+		match := filter == "" || processMatches(p, filter)
 
 		if match {
 			m.filtered = append(m.filtered, p)
@@ -498,7 +500,7 @@ func (m *MainModel) updateDetailViewport() {
 		// Process detail shares space with the env pane on the right.
 		if m.width > 6 {
 			availableWidth := m.width - 6
-			detailViewWidth := int(float64(availableWidth) * 0.7)
+			detailViewWidth := int(float64(availableWidth) * detailPaneRatio)
 			m.viewport.Width = detailViewWidth - 4
 			if m.viewport.Width < 1 {
 				m.viewport.Width = 1
