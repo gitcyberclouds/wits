@@ -2,6 +2,8 @@ module github.com/pranshuparmar/witr
 
 go 1.25
 
+toolchain go1.25.10
+
 require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10

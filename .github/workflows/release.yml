@@ -17,7 +17,7 @@ concurrency:
 
 env:
   # Track the latest 1.25.x patch (with check-latest below) so release binaries
-  # pick up stdlib security fixes, e.g. GO-2026-4602 (fixed in go1.25.8).
+  # pick up stdlib security fixes.
   GO_VERSION: '1.25'
   PROJECT_NAME: witr
 
