@@ -3,13 +3,19 @@ package target
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 func ResolveFile(path string) ([]int, error) {
-	// Use lsof -F p <file> to get PIDs
-	cmd := exec.Command("lsof", "-F", "p", path)
+	// Absolute path so a leading-dash path can't be parsed as an lsof option.
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		absPath = path
+	}
+
+	cmd := exec.Command("lsof", "-F", "p", absPath)
 	out, err := cmd.Output()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok && exitError.ExitCode() == 1 {

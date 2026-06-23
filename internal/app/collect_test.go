@@ -127,12 +127,18 @@ func TestCollectTargetsInOrder(t *testing.T) {
 			want:    nil,
 		},
 		{
-			// "--" is not treated as an end-of-options marker: it is skipped, and a
-			// following positional name is still collected.
-			name:       "double dash before a name is skipped",
+			// "--" ends option parsing: following tokens are positional names even
+			// when they look like flags.
+			name:       "double dash ends option parsing",
 			rawArgs:    []string{"--", "nginx"},
 			positional: []string{"nginx"},
 			want:       []model.Target{tgt(model.TargetName, "nginx")},
+		},
+		{
+			name:       "double dash forces flaglike tokens to names",
+			rawArgs:    []string{"--", "--pid", "5"},
+			positional: []string{"--pid", "5"},
+			want:       []model.Target{tgt(model.TargetName, "--pid"), tgt(model.TargetName, "5")},
 		},
 	}
 

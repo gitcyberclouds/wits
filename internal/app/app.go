@@ -294,6 +294,12 @@ func collectTargetsInOrder(rawArgs []string, positionalArgs []string, takesValue
 	for i < len(rawArgs) {
 		arg := rawArgs[i]
 
+		// "--" ends option parsing (POSIX): everything after it is positional,
+		// matching how cobra fills positionalArgs.
+		if arg == "--" {
+			break
+		}
+
 		// Check for --flag=value form
 		if strings.HasPrefix(arg, "--") {
 			if eqIdx := strings.Index(arg, "="); eqIdx >= 0 {
