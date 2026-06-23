@@ -232,6 +232,12 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 		for _, suffix := range []string{".service", ".socket", ".timer", ".scope", ".slice", ".plist"} {
 			svcCore = strings.TrimSuffix(svcCore, suffix)
 		}
+		// Compare against a systemd template's base name, not its instance
+		// (getty@tty1 -> getty), so a template whose binary is named after the
+		// template (agetty) doesn't read as a mismatch.
+		if at := strings.IndexByte(svcCore, '@'); at >= 0 {
+			svcCore = svcCore[:at]
+		}
 		svcCore = strings.ToLower(svcCore)
 		cmdBase := strings.ToLower(last.Command)
 		if !strings.Contains(svcCore, cmdBase) && !strings.Contains(cmdBase, svcCore) {

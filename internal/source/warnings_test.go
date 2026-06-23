@@ -231,6 +231,7 @@ func TestWarningsServiceNameMismatch(t *testing.T) {
 	}{
 		{"match", "nginx", "nginx.service", false},
 		{"systemd suffix tolerated", "postgres", "postgresql.service", false}, // svcCore contains cmd substring
+		{"systemd template instance tolerated", "agetty", "getty@tty1.service", false},
 		{"mismatch", "nginx", "redis.service", true},
 		{"empty service skipped", "nginx", "", false},
 	}

@@ -143,11 +143,10 @@ func ReadProcess(pid int) (model.Process, error) {
 		}
 	}
 
-	// The per-process service name is intentionally left blank. A previous
-	// `systemctl status <pid>` probe ran once per ancestor yet never populated
-	// it — its parser never matched systemctl's indented output — so it was pure
-	// per-hop overhead. The systemd unit a process belongs to is still
-	// identified by source detection and shown as the Source.
+	// Resolve the owning systemd .service from the process cgroup — a cheap file
+	// read with no subprocess. (This replaced a per-ancestor `systemctl status`
+	// probe whose parser never matched, so the field used to be empty.)
+	service := serviceFromCgroup(pid)
 
 	gitRepo, gitBranch := detectGitInfo(cwd)
 
@@ -284,7 +283,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		GitRepo:       gitRepo,
 		GitBranch:     gitBranch,
 		Container:     container,
-		Service:       "",
+		Service:       service,
 		Sockets:       procSockets,
 		Health:        health,
 		Forked:        forked,
