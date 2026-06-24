@@ -382,23 +382,23 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 		if proc.Memory.VMS > 0 {
 			if colorEnabled {
 				out.Printf("\n%sMemory%s:\n", ColorGreen, ColorReset)
-				out.Printf("  Virtual  : %.1f MB\n", proc.Memory.VMSMB)
-				out.Printf("  Resident : %.1f MB\n", proc.Memory.RSSMB)
+				out.Printf("  Virtual  : %s\n", formatBytes(proc.Memory.VMS))
+				out.Printf("  Resident : %s\n", formatBytes(proc.Memory.RSS))
 				if r.ResourceContext != nil && r.ResourceContext.MemoryUsage > 0 {
-					out.Printf("  Private  : %.1f MB\n", float64(r.ResourceContext.MemoryUsage)/(1024*1024))
+					out.Printf("  Private  : %s\n", formatBytes(r.ResourceContext.MemoryUsage))
 				}
 				if proc.Memory.Shared > 0 {
-					out.Printf("  Shared   : %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
+					out.Printf("  Shared   : %s\n", formatBytes(proc.Memory.Shared))
 				}
 			} else {
 				out.Printf("\nMemory:\n")
-				out.Printf("  Virtual  : %.1f MB\n", proc.Memory.VMSMB)
-				out.Printf("  Resident : %.1f MB\n", proc.Memory.RSSMB)
+				out.Printf("  Virtual  : %s\n", formatBytes(proc.Memory.VMS))
+				out.Printf("  Resident : %s\n", formatBytes(proc.Memory.RSS))
 				if r.ResourceContext != nil && r.ResourceContext.MemoryUsage > 0 {
-					out.Printf("  Private  : %.1f MB\n", float64(r.ResourceContext.MemoryUsage)/(1024*1024))
+					out.Printf("  Private  : %s\n", formatBytes(r.ResourceContext.MemoryUsage))
 				}
 				if proc.Memory.Shared > 0 {
-					out.Printf("  Shared   : %.1f MB\n", float64(proc.Memory.Shared)/(1024*1024))
+					out.Printf("  Shared   : %s\n", formatBytes(proc.Memory.Shared))
 				}
 			}
 		}
@@ -408,18 +408,18 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			if colorEnabled {
 				out.Printf("\n%sI/O Statistics%s:\n", ColorGreen, ColorReset)
 				if proc.IO.ReadBytes > 0 {
-					out.Printf("  Read  : %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
+					out.Printf("  Read  : %s (%d ops)\n", formatBytes(proc.IO.ReadBytes), proc.IO.ReadOps)
 				}
 				if proc.IO.WriteBytes > 0 {
-					out.Printf("  Write : %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
+					out.Printf("  Write : %s (%d ops)\n", formatBytes(proc.IO.WriteBytes), proc.IO.WriteOps)
 				}
 			} else {
 				out.Printf("\nI/O Statistics:\n")
 				if proc.IO.ReadBytes > 0 {
-					out.Printf("  Read  : %.1f MB (%d ops)\n", float64(proc.IO.ReadBytes)/(1024*1024), proc.IO.ReadOps)
+					out.Printf("  Read  : %s (%d ops)\n", formatBytes(proc.IO.ReadBytes), proc.IO.ReadOps)
 				}
 				if proc.IO.WriteBytes > 0 {
-					out.Printf("  Write : %.1f MB (%d ops)\n", float64(proc.IO.WriteBytes)/(1024*1024), proc.IO.WriteOps)
+					out.Printf("  Write : %s (%d ops)\n", formatBytes(proc.IO.WriteBytes), proc.IO.WriteOps)
 				}
 			}
 		}
@@ -568,6 +568,21 @@ func RenderStandard(w io.Writer, r model.Result, colorEnabled bool, verbose bool
 			PrintChildren(w, r.Process, r.Children, colorEnabled)
 		}
 	}
+}
+
+// formatBytes renders a byte count with a binary unit (KB/MB/GB/...), keeping
+// large values readable. Values below 1 KB are shown in bytes.
+func formatBytes(n uint64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := uint64(unit), 0
+	for m := n / unit; m >= unit; m /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
 // formatSocket renders one row of the Sockets section as
