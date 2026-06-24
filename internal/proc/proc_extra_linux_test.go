@@ -22,7 +22,7 @@ func TestPIDBelongsToContainer(t *testing.T) {
 	}
 }
 
-func TestGetLockedFilesProcFindsHeldLock(t *testing.T) {
+func TestGetLockedFilesFindsHeldLock(t *testing.T) {
 	f, err := os.CreateTemp(t.TempDir(), "witr-flock")
 	if err != nil {
 		t.Fatal(err)
@@ -34,10 +34,21 @@ func TestGetLockedFilesProcFindsHeldLock(t *testing.T) {
 		t.Skipf("cannot place POSIX lock: %v", err)
 	}
 
-	// getLockedFilesProc is the /proc/locks fallback path inside GetFileContext;
-	// called directly it must list our held lock's device:inode for this PID.
-	if got := getLockedFilesProc(os.Getpid()); len(got) == 0 {
-		t.Error("getLockedFilesProc(self) returned nothing while holding a lock")
+	// getLockedFiles reads /proc/locks and resolves the held lock to the open
+	// file's path via this process's own fds.
+	got := getLockedFiles(os.Getpid())
+	if len(got) == 0 {
+		t.Fatal("getLockedFiles(self) returned nothing while holding a lock")
+	}
+	found := false
+	for _, p := range got {
+		if p == f.Name() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("getLockedFiles(self) = %v, want it to include %q", got, f.Name())
 	}
 }
 
