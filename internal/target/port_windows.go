@@ -21,6 +21,7 @@ func ResolvePort(port int) ([]int, error) {
 	var pids, fallbackPIDs []int
 	seen := make(map[int]bool)
 	fallbackSeen := make(map[int]bool)
+	sawListenNoOwner := false
 
 	for _, line := range lines {
 		if !strings.Contains(line, portStr) {
@@ -47,10 +48,14 @@ func ResolvePort(port int) ([]int, error) {
 				continue
 			}
 			pid, _ := strconv.Atoi(fields[4])
+			isListen := matchesLocal && fields[3] == "LISTENING"
 			if pid == 0 {
+				if isListen {
+					sawListenNoOwner = true
+				}
 				continue
 			}
-			if matchesLocal && fields[3] == "LISTENING" {
+			if isListen {
 				if !seen[pid] {
 					pids = append(pids, pid)
 					seen[pid] = true
@@ -72,11 +77,14 @@ func ResolvePort(port int) ([]int, error) {
 		}
 	}
 
-	if len(pids) == 0 {
-		if len(fallbackPIDs) == 0 {
-			return nil, fmt.Errorf("no process found listening on port %d", port)
-		}
+	if len(pids) > 0 {
+		return pids, nil
+	}
+	if len(fallbackPIDs) > 0 {
 		return fallbackPIDs, nil
 	}
-	return pids, nil
+	if sawListenNoOwner {
+		return nil, ErrSocketOwnerUnknown
+	}
+	return nil, fmt.Errorf("no process found listening on port %d", port)
 }

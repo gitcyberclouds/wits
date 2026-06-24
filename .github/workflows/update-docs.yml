@@ -7,11 +7,9 @@ on:
 
 
 
+# Default to read-only; the publishing job escalates to contents: write.
 permissions:
-  contents: write
-
-
-
+  contents: read
 
 concurrency:
   group: ${{github.workflow}}-${{ github.ref }}
@@ -24,9 +22,11 @@ env:
 jobs:
   update-docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -34,6 +34,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
 
       - name: Create man.1 documentation
         run: |

@@ -8,12 +8,18 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
 func ReadProcess(pid int) (model.Process, error) {
+	// Reject PID 0 (and negatives): on FreeBSD `ps -p 0` returns the kernel
+	// swapper, which is not a real userland target. Matches the other platforms.
+	if pid <= 0 {
+		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
+	}
 	pidStr := strconv.Itoa(pid)
 
 	// Format: pid(0) ppid(1) uid(2) jid(3) state(4) pcpu(5) rss(6) lstart(7-11) args(12+)
@@ -62,7 +68,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	env := getEnvironment(pid)
 
 	health := "healthy"
-	forked := "unknown"
+	var forked string
 
 	// FreeBSD states can be multi-character like "Is", "Ss", "R", "Z", "T"
 	if len(state) > 0 {
@@ -74,20 +80,36 @@ func ReadProcess(pid int) (model.Process, error) {
 		}
 	}
 
-	if cpuPct > 90 {
+	if health == "healthy" && cpuPct > 90 {
 		health = "high-cpu"
 	}
 	rssMB := rssKB / 1024
-	if rssMB > 1024 {
+	if health == "healthy" && rssMB > 1024 {
 		health = "high-mem"
 	}
 
-	displayName := extractExecutableName(rawCmdline)
+	memBytes := uint64(rssKB * 1024)
+	memPercent := 0.0
+	if total := totalMemoryBytes(); total > 0 {
+		memPercent = float64(memBytes) / float64(total) * 100.0
+	}
+
+	// Display name resolution order:
+	//   1. filepath.Base(binPath) — binPath comes from `procstat -f` as a
+	//      single unsplit line, preserving any spaces in the path.
+	//   2. `ps -p <pid> -o comm=` on its own line — also preserves spaces.
+	//   3. extractExecutableName(rawCmdline) — last resort. `ps -o args=`
+	//      joins argv with single spaces and does not quote paths, so this
+	//      can truncate names when the executable path contains spaces
+	//      (issue #201).
+	displayName := binaryBasename(binPath)
 	if displayName == "" {
-		// Fall back to comm for processes with no visible command line
 		if commOut, commErr := exec.Command("ps", "-p", pidStr, "-o", "comm=").Output(); commErr == nil {
-			displayName = strings.TrimSpace(string(commOut))
+			displayName = binaryBasename(string(commOut))
 		}
+	}
+	if displayName == "" {
+		displayName = extractExecutableName(rawCmdline)
 	}
 	if cmdline == "" {
 		cmdline = displayName
@@ -117,23 +139,45 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:        pid,
-		PPID:       ppid,
-		Command:    displayName,
-		Cmdline:    cmdline,
-		StartedAt:  startedAt,
-		User:       user,
-		WorkingDir: cwd,
-		GitRepo:    gitRepo,
-		GitBranch:  gitBranch,
-		Container:  container,
-		Service:    service,
-		Sockets:    procSockets,
-		Health:     health,
-		Forked:     forked,
-		Env:        env,
-		ExeDeleted: exeDeleted,
+		PID:           pid,
+		PPID:          ppid,
+		Command:       displayName,
+		Cmdline:       cmdline,
+		StartedAt:     startedAt,
+		User:          user,
+		CPUPercent:    cpuPct,
+		MemoryRSS:     memBytes,
+		MemoryPercent: memPercent,
+		WorkingDir:    cwd,
+		GitRepo:       gitRepo,
+		GitBranch:     gitBranch,
+		Container:     container,
+		Service:       service,
+		Sockets:       procSockets,
+		Health:        health,
+		Forked:        forked,
+		Env:           env,
+		ExeDeleted:    exeDeleted,
 	}, nil
+}
+
+var (
+	totalMemOnce  sync.Once
+	totalMemBytes uint64
+)
+
+// totalMemoryBytes returns total physical RAM in bytes via sysctl hw.physmem,
+// or 0 if it can't be read. The value is constant for the machine, so it is
+// resolved once rather than spawning sysctl on every ancestry hop.
+func totalMemoryBytes() uint64 {
+	totalMemOnce.Do(func() {
+		out, err := exec.Command("sysctl", "-n", "hw.physmem").Output()
+		if err != nil {
+			return
+		}
+		totalMemBytes, _ = strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64)
+	})
+	return totalMemBytes
 }
 
 // getCwdAndBinaryPath returns the working directory and executable path for a process.

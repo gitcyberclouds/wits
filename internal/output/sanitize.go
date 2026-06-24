@@ -68,8 +68,20 @@ func SanitizeTerminal(s string) string {
 	return b.String()
 }
 
+// SanitizeTerminalLine is SanitizeTerminal for values rendered as a single line
+// or table cell (process names, command lines, env entries, paths).
+// SanitizeTerminal intentionally preserves \n and \t for multi-line layout; in a
+// single-line field those let an embedded value forge extra output lines or
+// shift columns, so they are escaped here too.
+func SanitizeTerminalLine(s string) string {
+	if strings.ContainsAny(s, "\n\t") {
+		s = strings.NewReplacer("\n", `\n`, "\t", `\t`).Replace(s)
+	}
+	return SanitizeTerminal(s)
+}
+
 func appendEscapedByte(b *strings.Builder, bt byte) {
-	b.WriteString(`\\x`)
+	b.WriteString(`\x`)
 	b.WriteByte(hexDigits[bt>>4])
 	b.WriteByte(hexDigits[bt&0x0f])
 }
@@ -87,7 +99,7 @@ func appendEscapedRune(b *strings.Builder, r rune) {
 
 	// <= 0xFFFF: "\uHHHH" (BMP escape)
 	if r <= 0xFFFF {
-		b.WriteString(`\\u`)
+		b.WriteString(`\u`)
 		b.WriteByte(hexDigits[(r>>12)&0x0f])
 		b.WriteByte(hexDigits[(r>>8)&0x0f])
 		b.WriteByte(hexDigits[(r>>4)&0x0f])
@@ -96,7 +108,7 @@ func appendEscapedRune(b *strings.Builder, r rune) {
 	}
 
 	// otherwise: "\UHHHHHHHH" (full 32-bit escape)
-	b.WriteString(`\\U`)
+	b.WriteString(`\U`)
 	b.WriteByte(hexDigits[(r>>28)&0x0f])
 	b.WriteByte(hexDigits[(r>>24)&0x0f])
 	b.WriteByte(hexDigits[(r>>20)&0x0f])

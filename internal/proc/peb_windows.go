@@ -113,17 +113,21 @@ func GetProcessDetailedInfo(pid int) (Win32ProcessInfo, error) {
 	// Get Start Time
 	info.StartedAt = getProcessStartTime(handleLimited)
 
-	// Get Exe Path via QueryFullProcessImageName (Kernel32)
+	// Get PPID and a fallback image name from the snapshot.
+	ppid, snapExe, _ := getInfoFromSnapshot(pid)
+	info.PPID = ppid
+
+	// Prefer the full image path. Fall back to the snapshot's bare image name
+	// for minimal/system processes (System, Memory Compression, vmmemWSL) whose
+	// path can't be queried, so the name still resolves instead of being blank.
 	exePath := getProcessImageName(handleLimited)
+	if exePath == "" {
+		exePath = snapExe
+	}
 	info.Exe = exePath
-	// Default CommandLine to Exe name if we can't read memory
 	if exePath != "" {
 		info.CommandLine = filepath.Base(exePath)
 	}
-
-	// Get PPID via Snapshot (since we can't query it from process handle easily without full rights/classes)
-	ppid, _, _ := getInfoFromSnapshot(pid)
-	info.PPID = ppid
 
 	// Cwd and Env are unavailable without VM_READ
 	info.Cwd = ""
@@ -174,13 +178,17 @@ func getFullProcessInfo(handle syscall.Handle, pid int, info *Win32ProcessInfo) 
 	info.Cwd = readUnicodeString(handle, params.CurrentDirectoryPath)
 	info.CommandLine = readUnicodeString(handle, params.CommandLine)
 	info.Exe = readUnicodeString(handle, params.ImagePathName)
-	info.Env = []string{}
+	info.Env = readEnvironmentBlock(handle, params.Environment)
 
 	return nil
 }
 
 func readProcessMemory(handle syscall.Handle, addr uintptr, dest unsafe.Pointer, size uintptr) bool {
-	var read uint32
+	// lpNumberOfBytesRead is a SIZE_T* (pointer-sized: 8 bytes on x64). It MUST
+	// be uintptr, not uint32 — a uint32 here lets the kernel write 8 bytes into
+	// a 4-byte slot, corrupting adjacent memory and causing nondeterministic
+	// crashes far from this call site.
+	var read uintptr
 	ret, _, _ := procReadProcessMem.Call(
 		uintptr(handle),
 		addr,
@@ -191,12 +199,68 @@ func readProcessMemory(handle syscall.Handle, addr uintptr, dest unsafe.Pointer,
 	return ret != 0
 }
 
+// readEnvironmentBlock reads a process's environment from its PEB. The block is
+// a run of "KEY=VALUE\0" entries terminated by an empty entry (a \0\0). It is
+// read in chunks until that terminator appears or a read fails, and bounded so a
+// corrupt pointer can't drive an unbounded read of remote memory.
+func readEnvironmentBlock(handle syscall.Handle, addr uintptr) []string {
+	if addr == 0 {
+		return nil
+	}
+	const chunkWords = 2048    // 4 KiB per read
+	const maxWords = 64 * 1024 // cap at 128 KiB
+	var block []uint16
+	for len(block) < maxWords {
+		buf := make([]uint16, chunkWords)
+		if !readProcessMemory(handle, addr+uintptr(len(block)*2), unsafe.Pointer(&buf[0]), uintptr(len(buf)*2)) {
+			break
+		}
+		block = append(block, buf...)
+		if envBlockEnd(block) >= 0 {
+			break
+		}
+	}
+	return parseEnvBlock(block)
+}
+
+// envBlockEnd returns the index of the \0\0 terminator, or -1 if not yet read.
+func envBlockEnd(block []uint16) int {
+	for i := 0; i+1 < len(block); i++ {
+		if block[i] == 0 && block[i+1] == 0 {
+			return i
+		}
+	}
+	return -1
+}
+
+// parseEnvBlock splits the environment block into "KEY=VALUE" entries, stopping
+// at the empty entry that terminates it.
+func parseEnvBlock(block []uint16) []string {
+	var env []string
+	start := 0
+	for i := 0; i < len(block); i++ {
+		if block[i] != 0 {
+			continue
+		}
+		if i == start { // empty entry: end of block
+			break
+		}
+		env = append(env, syscall.UTF16ToString(block[start:i]))
+		start = i + 1
+	}
+	return env
+}
+
 func readUnicodeString(handle syscall.Handle, us unicodeString) string {
-	if us.Length == 0 {
+	// us.Length is a byte count. Read only whole uint16 code units, and never
+	// more bytes than the destination buffer holds: a malformed (odd or partial)
+	// Length from an incomplete PEB read must not overrun buf.
+	n := int(us.Length) / 2
+	if n == 0 || us.Buffer == 0 {
 		return ""
 	}
-	buf := make([]uint16, us.Length/2)
-	if !readProcessMemory(handle, us.Buffer, unsafe.Pointer(&buf[0]), uintptr(us.Length)) {
+	buf := make([]uint16, n)
+	if !readProcessMemory(handle, us.Buffer, unsafe.Pointer(&buf[0]), uintptr(n*2)) {
 		return ""
 	}
 	return syscall.UTF16ToString(buf)
@@ -244,4 +308,61 @@ func getInfoFromSnapshot(pid int) (int, string, error) {
 		}
 	}
 	return 0, "", fmt.Errorf("process %d not found in snapshot", pid)
+}
+
+// processCommandLineInformation is the NtQueryInformationProcess class (60,
+// Windows 8.1+) that returns a process's command line.
+const processCommandLineInformation = 60
+
+// windowsProcessCmdline returns a process's full command line via
+// NtQueryInformationProcess(ProcessCommandLineInformation). The kernel copies
+// the command line into our own buffer, so — unlike walking the PEB with
+// ReadProcessMemory — there is no remote process-memory access: inaccessible or
+// unusual processes return an error, and any anomaly degrades to an empty
+// string rather than faulting. Safe to call across the whole process list.
+func windowsProcessCmdline(pid int) string {
+	handle, err := syscall.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return ""
+	}
+	defer syscall.CloseHandle(handle)
+
+	const statusInfoLengthMismatch = 0xC0000004
+	bufLen := uint32(4096)
+	for attempt := 0; attempt < 2; attempt++ {
+		buf := make([]byte, bufLen)
+		var retLen uint32
+		status, _, _ := procNtQueryInfo.Call(
+			uintptr(handle),
+			uintptr(processCommandLineInformation),
+			uintptr(unsafe.Pointer(&buf[0])),
+			uintptr(bufLen),
+			uintptr(unsafe.Pointer(&retLen)),
+		)
+		// Buffer too small: grow to the reported size and retry once.
+		if uint32(status) == statusInfoLengthMismatch && retLen > bufLen && retLen <= 1<<20 {
+			bufLen = retLen
+			continue
+		}
+		if status != 0 {
+			return ""
+		}
+
+		// The buffer starts with a UNICODE_STRING whose Buffer points into the
+		// same buffer, just past the struct. Validate every offset before use.
+		us := (*unicodeString)(unsafe.Pointer(&buf[0]))
+		if us.Length == 0 || us.Buffer == 0 {
+			return ""
+		}
+		base := uintptr(unsafe.Pointer(&buf[0]))
+		if us.Buffer < base {
+			return ""
+		}
+		offset := us.Buffer - base
+		if offset+uintptr(us.Length) > uintptr(len(buf)) {
+			return ""
+		}
+		return syscall.UTF16ToString(unsafe.Slice((*uint16)(unsafe.Pointer(&buf[offset])), int(us.Length)/2))
+	}
+	return ""
 }

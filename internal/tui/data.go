@@ -44,7 +44,7 @@ func (m MainModel) refreshPorts() tea.Cmd {
 	return func() tea.Msg {
 		ports, err := proc.ListOpenPorts()
 		if err != nil {
-			return nil
+			return err
 		}
 		return ports
 	}
@@ -206,24 +206,27 @@ func (m *MainModel) sortProcesses() {
 
 func (m *MainModel) sortPorts() {
 	sort.Slice(m.ports, func(i, j int) bool {
-		var less bool
-		switch m.sortPortCol {
-		case "port":
-			less = m.ports[i].Port < m.ports[j].Port
-		case "proto":
-			less = strings.ToLower(m.ports[i].Protocol) < strings.ToLower(m.ports[j].Protocol)
-		case "addr":
-			less = strings.ToLower(m.ports[i].Address) < strings.ToLower(m.ports[j].Address)
-		case "state":
-			less = strings.ToLower(m.ports[i].State) < strings.ToLower(m.ports[j].State)
-		default:
-			less = m.ports[i].Port < m.ports[j].Port
-		}
+		less := lessPorts(m.ports[i], m.ports[j], m.sortPortCol)
 		if m.sortPortDesc {
 			return !less
 		}
 		return less
 	})
+}
+
+// lessPorts orders two ports by the given column (ascending). Unknown columns
+// fall back to port number.
+func lessPorts(a, b model.OpenPort, col string) bool {
+	switch col {
+	case "proto":
+		return strings.ToLower(a.Protocol) < strings.ToLower(b.Protocol)
+	case "addr":
+		return strings.ToLower(a.Address) < strings.ToLower(b.Address)
+	case "state":
+		return strings.ToLower(a.State) < strings.ToLower(b.State)
+	default: // "port" and anything unspecified
+		return a.Port < b.Port
+	}
 }
 
 func formatBytes(bytes uint64) string {
@@ -242,6 +245,15 @@ func formatBytes(bytes uint64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// processMatches reports whether p matches the already-lowercased filter on any
+// of its command, PID, user, or full command line.
+func processMatches(p model.Process, filter string) bool {
+	return strings.Contains(strings.ToLower(p.Command), filter) ||
+		strings.Contains(strconv.Itoa(p.PID), filter) ||
+		strings.Contains(strings.ToLower(p.User), filter) ||
+		strings.Contains(strings.ToLower(p.Cmdline), filter)
+}
+
 func (m *MainModel) filterProcesses() {
 	filter := strings.ToLower(m.input.Value())
 	var rows []table.Row
@@ -258,17 +270,7 @@ func (m *MainModel) filterProcesses() {
 
 	m.filtered = nil
 	for _, p := range m.processes {
-		cmd := strings.ToLower(p.Command)
-
-		match := false
-		if filter == "" {
-			match = true
-		} else {
-			match = strings.Contains(cmd, filter) ||
-				strings.Contains(strconv.Itoa(p.PID), filter) ||
-				strings.Contains(strings.ToLower(p.User), filter) ||
-				strings.Contains(strings.ToLower(p.Cmdline), filter)
-		}
+		match := filter == "" || processMatches(p, filter)
 
 		if match {
 			m.filtered = append(m.filtered, p)
@@ -279,14 +281,14 @@ func (m *MainModel) filterProcesses() {
 
 			row := table.Row{
 				fmt.Sprintf("%8d", p.PID),
-				p.User,
-				truncateMiddle(p.Command, nameWidth),
+				output.SanitizeTerminalLine(p.User),
+				truncateMiddle(output.SanitizeTerminalLine(p.Command), nameWidth),
 				fmt.Sprintf("%6s", fmt.Sprintf("%.1f%%", p.CPUPercent)),
 				fmt.Sprintf("%16s", fmt.Sprintf("%s (%.1f%%)", formatBytes(p.MemoryRSS), p.MemoryPercent)),
 				startedStr,
 			}
 			if m.showCmdCol {
-				row = append(row, truncateMiddle(p.Cmdline, cmdlineWidth))
+				row = append(row, truncateMiddle(output.SanitizeTerminalLine(p.Cmdline), cmdlineWidth))
 			}
 			rows = append(rows, row)
 		}
@@ -460,7 +462,7 @@ func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 			if !seen[p.PID] {
 				seen[p.PID] = true
 				if proc, ok := procMap[p.PID]; ok {
-					cmd := proc.Cmdline
+					cmd := output.SanitizeTerminalLine(proc.Cmdline)
 					cols := m.portDetailTable.Columns()
 					if len(cols) > 3 {
 						width := cols[3].Width
@@ -470,8 +472,8 @@ func (m *MainModel) updatePortDetailsWithMap(procMap map[int]model.Process) {
 					}
 					rows = append(rows, table.Row{
 						fmt.Sprintf("%8d", proc.PID),
-						proc.User,
-						proc.Command,
+						output.SanitizeTerminalLine(proc.User),
+						output.SanitizeTerminalLine(proc.Command),
 						cmd,
 					})
 				} else {
@@ -498,7 +500,7 @@ func (m *MainModel) updateDetailViewport() {
 		// Process detail shares space with the env pane on the right.
 		if m.width > 6 {
 			availableWidth := m.width - 6
-			detailViewWidth := int(float64(availableWidth) * 0.7)
+			detailViewWidth := int(float64(availableWidth) * detailPaneRatio)
 			m.viewport.Width = detailViewWidth - 4
 			if m.viewport.Width < 1 {
 				m.viewport.Width = 1
@@ -532,10 +534,10 @@ func (m *MainModel) updateEnvViewport() {
 
 	if len(res.Process.Env) > 0 {
 		for _, env := range res.Process.Env {
-			fmt.Fprintf(&b, "%s\n", env)
+			fmt.Fprintf(&b, "%s\n", output.SanitizeTerminalLine(env))
 		}
 	} else {
-		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
+		dimStyle := lipgloss.NewStyle().Foreground(colorMuted)
 		fmt.Fprintf(&b, "%s\n", dimStyle.Render("No environment variables found."))
 	}
 
@@ -625,13 +627,13 @@ func (m *MainModel) rerenderTree() {
 func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process) {
 	var b strings.Builder
 
-	magenta := lipgloss.NewStyle().Foreground(lipgloss.Color("#d787ff"))
-	green := lipgloss.NewStyle().Foreground(lipgloss.Color("#00d700"))
+	magenta := lipgloss.NewStyle().Foreground(colorTreeConn)
+	green := lipgloss.NewStyle().Foreground(colorTreeTarget)
 	highlight := lipgloss.NewStyle().
-		Background(lipgloss.Color("#5f00d7")).
-		Foreground(lipgloss.Color("#ffffaf"))
-	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
-	sectionLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("#af87ff")).Bold(true)
+		Background(colorSelectBg).
+		Foreground(colorSelectFg)
+	dim := lipgloss.NewStyle().Foreground(colorMuted)
+	sectionLabel := lipgloss.NewStyle().Foreground(colorSectionLabel).Bold(true)
 
 	fmt.Fprintf(&b, "%s\n", sectionLabel.Render("Ancestry Tree:"))
 
@@ -646,7 +648,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 			fmt.Fprintf(&b, "%s%s ", indent, magenta.Render("└─"))
 		}
 
-		label := fmt.Sprintf("%s (pid %d)", proc.Command, proc.PID)
+		label := fmt.Sprintf("%s (pid %d)", output.SanitizeTerminalLine(output.ChainName(proc)), proc.PID)
 		if idx == m.treeCursor {
 			label = highlight.Render(label)
 		} else if i == len(ancestry)-1 {
@@ -673,7 +675,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 				connector = "└─"
 			}
 
-			label := fmt.Sprintf("%s (pid %d)", child.Command, child.PID)
+			label := fmt.Sprintf("%s (pid %d)", output.SanitizeTerminalLine(output.ChainName(child)), child.PID)
 			if idx == m.treeCursor {
 				label = highlight.Render(label)
 			}
@@ -683,7 +685,7 @@ func (m *MainModel) renderTreeContent(res model.Result, ancestry []model.Process
 	}
 
 	if res.Process.Cmdline != "" {
-		fmt.Fprintf(&b, "\n%s\n%s\n", sectionLabel.Render("Command:"), res.Process.Cmdline)
+		fmt.Fprintf(&b, "\n%s\n%s\n", sectionLabel.Render("Command:"), output.SanitizeTerminalLine(res.Process.Cmdline))
 	}
 
 	content := b.String()
@@ -834,13 +836,13 @@ func (m *MainModel) updateContainerTable() {
 			}
 		}
 		rows = append(rows, table.Row{
-			output.ShortContainerID(c.ID),
-			truncate(c.Name, w(1)),
-			c.Runtime,
-			truncateMiddle(c.Image, w(3)),
-			truncate(c.Status, w(4)),
-			truncate(c.Ports, w(5)),
-			truncateMiddle(c.Command, w(6)),
+			output.SanitizeTerminalLine(output.ShortContainerID(c.ID)),
+			truncate(output.SanitizeTerminalLine(c.Name), w(1)),
+			output.SanitizeTerminalLine(c.Runtime),
+			truncateMiddle(output.SanitizeTerminalLine(c.Image), w(3)),
+			truncate(output.SanitizeTerminalLine(c.Status), w(4)),
+			truncate(output.SanitizeTerminalLine(c.Ports), w(5)),
+			truncateMiddle(output.SanitizeTerminalLine(c.Command), w(6)),
 		})
 		filtered = append(filtered, c)
 	}
@@ -924,10 +926,10 @@ func (m *MainModel) updateLockTable() {
 		}
 		rows = append(rows, table.Row{
 			fmt.Sprintf("%8d", l.PID),
-			truncate(l.Process, w(1)),
-			truncate(l.Type, w(2)),
-			truncate(l.Mode, w(3)),
-			truncateMiddle(l.Path, w(4)),
+			truncate(output.SanitizeTerminalLine(l.Process), w(1)),
+			truncate(output.SanitizeTerminalLine(l.Type), w(2)),
+			truncate(output.SanitizeTerminalLine(l.Mode), w(3)),
+			truncateMiddle(output.SanitizeTerminalLine(l.Path), w(4)),
 		})
 		filtered = append(filtered, l)
 	}

@@ -7,8 +7,11 @@ import (
 
 type ansiString string
 
-// Printer writes terminal-safe output to an io.Writer
-// sanitizing any string-like arguments (string, []byte, error, fmt.Stringer)
+// Printer writes terminal-safe output to an io.Writer, sanitizing any
+// string-like arguments (string, []byte, error, fmt.Stringer). Sanitization
+// escapes embedded newlines/tabs so an untrusted value can't forge extra
+// layout lines; the tool's own layout newlines must therefore go through
+// Printf's format string (which is not sanitized), never a Print/Println arg.
 type Printer struct {
 	w io.Writer
 }
@@ -39,13 +42,13 @@ func sanitizePrintArgs(args []any) []any {
 		case ansiString: // our own ansiString type is allowed to render as-is
 			out[i] = string(v)
 		case string:
-			out[i] = SanitizeTerminal(v)
+			out[i] = SanitizeTerminalLine(v)
 		case []byte:
-			out[i] = SanitizeTerminal(string(v))
+			out[i] = SanitizeTerminalLine(string(v))
 		case error:
-			out[i] = SanitizeTerminal(v.Error())
+			out[i] = SanitizeTerminalLine(v.Error())
 		case fmt.Stringer:
-			out[i] = SanitizeTerminal(v.String())
+			out[i] = SanitizeTerminalLine(v.String())
 		default:
 			out[i] = a
 		}

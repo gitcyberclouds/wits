@@ -120,17 +120,6 @@ func getThermalState() string {
 	return ""
 }
 
-// GetEnergyImpact attempts to get energy impact for a process
-// Note: This requires elevated privileges via powermetrics
-// Returns empty string if not available
-func GetEnergyImpact(pid int) string {
-	// powermetrics requires root, so we can't easily get per-process energy
-	// Instead, we rely on the prevents-sleep check as a proxy for high energy impact
-	// A future enhancement could parse Activity Monitor's energy data via private APIs
-
-	return ""
-}
-
 func getCPUAndMemoryUsage(pid int) (float64, uint64, error) {
 	// Construct the command to execute
 	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "%cpu=,rss=").Output()

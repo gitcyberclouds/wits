@@ -1,6 +1,7 @@
 package proc
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -49,6 +50,32 @@ func isWordChar(c byte) bool {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
 }
 
+// binaryBasename returns the executable name from a string that is known to
+// be a single full binary path (e.g. from `lsof ftxt`, `/proc/<pid>/exe`, or
+// `ps -o comm=` on its own line). Unlike extractExecutableName it does NOT
+// tokenize on whitespace, so paths containing spaces — like macOS .app
+// bundles ("/Applications/Microsoft Teams.app/Contents/MacOS/Microsoft Teams")
+// — are preserved intact.
+func binaryBasename(rawPath string) string {
+	s := strings.TrimSpace(rawPath)
+	s = strings.Trim(s, `"'`)
+	if s == "" {
+		return ""
+	}
+	base := filepath.Base(s)
+	if base == "." || isPathSeparator(base) {
+		return ""
+	}
+	return base
+}
+
+// isPathSeparator reports whether s is a single bare path separator. filepath.Base
+// returns the platform separator for a root path ("/" on Unix, "\\" on Windows),
+// which is never a real binary name.
+func isPathSeparator(s string) bool {
+	return len(s) == 1 && os.IsPathSeparator(s[0])
+}
+
 func extractExecutableName(cmdline string) string {
 	args := splitCmdline(cmdline)
 	for _, arg := range args {
@@ -64,7 +91,7 @@ func extractExecutableName(cmdline string) string {
 			continue
 		}
 		base := filepath.Base(clean)
-		if base == "." || base == "" || base == "/" {
+		if base == "." || base == "" || isPathSeparator(base) {
 			continue
 		}
 		return base

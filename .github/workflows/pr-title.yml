@@ -1,0 +1,21 @@
+name: PR Title
+
+# Runs only on pull_request events (never on push), so the semantic-title check
+# always runs for PRs and never shows up as a confusing skipped "(push)" check.
+# It is blocking: a non-conforming title fails the check.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  semantic-pull-request:
+    name: "Compliance: Check PR Title"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

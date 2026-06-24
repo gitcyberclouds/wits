@@ -42,9 +42,11 @@ func GetFileContext(pid int) *model.FileContext {
 // getOpenFileCount returns the number of open files and the limit for a process
 func getOpenFileCount(pid int) (int, int) {
 	// Use lsof to count open files
-	// lsof -p <pid> returns all open files
+	// lsof -p <pid> returns all open files. lsof may exit non-zero when one
+	// of the process's FDs is inaccessible while still emitting valid data
+	// on stdout; salvage stdout when present.
 	out, err := exec.Command("lsof", "-p", strconv.Itoa(pid)).Output()
-	if err != nil {
+	if err != nil && len(out) == 0 {
 		return 0, 0
 	}
 
@@ -95,8 +97,10 @@ func getLockedFiles(pid int) []string {
 	// Use lsof to find locked files
 	// -p <pid> for specific process
 	// Look for lock indicators in the output
+	// lsof may exit non-zero when one of the process's FDs is inaccessible
+	// while still emitting valid data on stdout; salvage stdout when present.
 	out, err := exec.Command("lsof", "-p", strconv.Itoa(pid), "-F", "fn").Output()
-	if err != nil {
+	if err != nil && len(out) == 0 {
 		return locked
 	}
 
@@ -128,7 +132,7 @@ func getLockedFiles(pid int) []string {
 
 	// Also check for actual fcntl/flock locks using lsof -F with lock info
 	out2, err := exec.Command("lsof", "-p", strconv.Itoa(pid)).Output()
-	if err == nil {
+	if err == nil || len(out2) > 0 {
 		for line := range strings.Lines(string(out2)) {
 			fields := strings.Fields(line)
 			// Look for lock type indicators (varies by lsof version)

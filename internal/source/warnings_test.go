@@ -1,7 +1,7 @@
 package source
 
 import (
-	"slices"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -25,11 +25,10 @@ func baseProc() model.Process {
 // wrap forces Warnings to use a known source type so we don't depend on
 // the platform-specific Detect() and its real-system probing.
 func wrap(p model.Process) []string {
-	// Add a "parent" so restart-count logic isn't tripped trivially.
 	parent := baseProc()
 	parent.PID = 1
 	parent.Command = "systemd"
-	return Warnings([]model.Process{parent, p}, model.SourceSystemd)
+	return Warnings([]model.Process{parent, p}, 0, model.SourceSystemd)
 }
 
 func contains(haystack []string, needle string) bool {
@@ -137,8 +136,17 @@ func TestWarningsUnknownSupervisor(t *testing.T) {
 	t.Parallel()
 
 	p := baseProc()
-	got := Warnings([]model.Process{p}, model.SourceUnknown)
-	if !contains(got, "No known supervisor") {
+	got := Warnings([]model.Process{p}, 0, model.SourceUnknown)
+	hasWarning := contains(got, "No known supervisor")
+	if runtime.GOOS == "windows" {
+		// Suppressed on Windows: ancestry truncates at orphaned processes, so
+		// "unknown source" is normal rather than a sign of no supervision.
+		if hasWarning {
+			t.Errorf("unknown-supervisor warning should be suppressed on Windows, got: %v", got)
+		}
+		return
+	}
+	if !hasWarning {
 		t.Errorf("expected unknown-supervisor warning, got: %v", got)
 	}
 }
@@ -150,6 +158,19 @@ func TestWarningsLongRunning(t *testing.T) {
 	p.StartedAt = time.Now().Add(-100 * 24 * time.Hour)
 	if !contains(wrap(p), "over 90 days") {
 		t.Errorf("expected long-running warning, got: %v", wrap(p))
+	}
+}
+
+// A zero start time means we couldn't read it (e.g. a protected Windows
+// process), not that the process is ancient — it must not trigger the
+// long-running warning. Regression guard for issue #205.
+func TestWarningsZeroStartTimeNotLongRunning(t *testing.T) {
+	t.Parallel()
+
+	p := baseProc()
+	p.StartedAt = time.Time{}
+	if contains(wrap(p), "over 90 days") {
+		t.Errorf("zero start time should not trigger long-running warning, got: %v", wrap(p))
 	}
 }
 
@@ -169,13 +190,29 @@ func TestWarningsSuspiciousWorkingDirs(t *testing.T) {
 	}
 }
 
-func TestWarningsContainerWithoutHealthcheck(t *testing.T) {
+func TestWarningsContainerHealthcheck(t *testing.T) {
 	t.Parallel()
 
-	p := baseProc()
-	p.Container = "docker (abc123)"
-	if !contains(wrap(p), "No healthcheck") {
-		t.Errorf("expected healthcheck warning for container, got: %v", wrap(p))
+	tests := []struct {
+		name        string
+		healthcheck string
+		wantWarning bool
+	}{
+		{"absent warns", "absent", true},
+		{"present does not warn", "present", false},
+		{"unknown does not warn", "", false},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := baseProc()
+			p.Container = "docker (abc123)"
+			p.ContainerHealthcheck = tc.healthcheck
+			if got := contains(wrap(p), "healthcheck"); got != tc.wantWarning {
+				t.Errorf("ContainerHealthcheck=%q: warning=%v, want %v (%v)", tc.healthcheck, got, tc.wantWarning, wrap(p))
+			}
+		})
 	}
 }
 
@@ -190,7 +227,7 @@ func TestWarningsSnapAndFlatpakSkipHealthcheck(t *testing.T) {
 			t.Parallel()
 			p := baseProc()
 			p.Container = container
-			if contains(wrap(p), "No healthcheck") {
+			if contains(wrap(p), "healthcheck") {
 				t.Errorf("healthcheck warning should not fire for %q, got: %v", container, wrap(p))
 			}
 		})
@@ -208,6 +245,7 @@ func TestWarningsServiceNameMismatch(t *testing.T) {
 	}{
 		{"match", "nginx", "nginx.service", false},
 		{"systemd suffix tolerated", "postgres", "postgresql.service", false}, // svcCore contains cmd substring
+		{"systemd template instance tolerated", "agetty", "getty@tty1.service", false},
 		{"mismatch", "nginx", "redis.service", true},
 		{"empty service skipped", "nginx", "", false},
 	}
@@ -230,18 +268,15 @@ func TestWarningsServiceNameMismatch(t *testing.T) {
 func TestWarningsRestartCount(t *testing.T) {
 	t.Parallel()
 
-	// Build a chain with the same command repeated > 5 times to trigger the
-	// restart-count rule.
-	chain := []model.Process{
-		{PID: 1, Command: "systemd"},
-	}
-	for i := 0; i < 7; i++ {
-		chain = append(chain, model.Process{PID: 100 + i, Command: "nginx", User: "www-data", StartedAt: time.Now()})
-	}
+	chain := []model.Process{{PID: 1, Command: "systemd"}, baseProc()}
 
-	got := Warnings(chain, model.SourceSystemd)
-	if !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, "restarted more than 5 times") }) {
-		t.Errorf("expected restart-count warning, got: %v", got)
+	// The warning is driven by the real restart count (e.g. systemd NRestarts),
+	// not by the shape of the ancestry.
+	if got := Warnings(chain, 7, model.SourceSystemd); !contains(got, "restarted 7 times") {
+		t.Errorf("expected restart warning for 7 restarts, got: %v", got)
+	}
+	if got := Warnings(chain, 5, model.SourceSystemd); contains(got, "restarted") {
+		t.Errorf("no restart warning expected for 5 restarts, got: %v", got)
 	}
 }
 
@@ -259,7 +294,7 @@ func TestWarningsBenignProcProducesNoSpurious(t *testing.T) {
 func TestWarningsEmptyInputReturnsNil(t *testing.T) {
 	t.Parallel()
 
-	if got := Warnings(nil); got != nil {
+	if got := Warnings(nil, 0); got != nil {
 		t.Errorf("Warnings(nil) = %v, want nil", got)
 	}
 }

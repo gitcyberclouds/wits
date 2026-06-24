@@ -69,6 +69,48 @@ func TestIntegration_ResolveNameFindsSpawnedChild(t *testing.T) {
 		name, childPID, pids, lastErr)
 }
 
+// TestIntegration_ResolveNameFindsGrep is a regression test for the removed
+// "grep" name-matching exclusion. witr reads the process table directly (no
+// `ps | grep` pipeline), so a real grep process must be resolvable by name —
+// previously it was silently filtered out on every Unix platform.
+func TestIntegration_ResolveNameFindsGrep(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("grep is not available on Windows")
+	}
+	if _, err := exec.LookPath("grep"); err != nil {
+		t.Skipf("grep not found in PATH: %v", err)
+	}
+
+	// grep with no file argument blocks reading stdin; keeping the pipe open
+	// holds it alive for the duration of the lookup.
+	cmd := exec.Command("grep", "witr-regression-pattern")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("StdinPipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Skipf("could not spawn grep: %v", err)
+	}
+	childPID := cmd.Process.Pid
+	defer func() {
+		_ = stdin.Close()
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+
+	var pids []int
+	var lastErr error
+	for i := 0; i < 10; i++ {
+		pids, lastErr = ResolveName("grep", true)
+		if lastErr == nil && slices.Contains(pids, childPID) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Errorf("ResolveName(%q) did not find spawned grep PID %d after retries; got %v (last err: %v)",
+		"grep", childPID, pids, lastErr)
+}
+
 // TestIntegration_ResolvePortFindsLoopbackListener binds a real TCP listener
 // on a random localhost port and asserts ResolvePort attributes it to the
 // test process. This drives the platform's port-resolution machinery end to
@@ -113,4 +155,36 @@ func TestIntegration_ResolvePortNonexistent(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Errorf("ResolvePort(%d) returned nil error for an unbound port", port)
+}
+
+// TestIntegration_ResolveFileSelf creates a file, holds it open, and confirms
+// the platform's file resolver attributes it to the test process — exercising
+// /proc/fd (Linux), lsof (macOS), fstat (FreeBSD), and the Restart Manager
+// (Windows). macOS/FreeBSD lean on external tools that may be absent or quirky
+// in minimal CI images, so a miss there is tolerated rather than failed.
+func TestIntegration_ResolveFileSelf(t *testing.T) {
+	f, err := os.CreateTemp("", "witr-file-*.tmp")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+	defer f.Close()
+	if _, err := f.WriteString("witr"); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	self := os.Getpid()
+	var pids []int
+	var lastErr error
+	for i := 0; i < 10; i++ {
+		pids, lastErr = ResolveFile(f.Name())
+		if lastErr == nil && slices.Contains(pids, self) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if runtime.GOOS == "darwin" || runtime.GOOS == "freebsd" {
+		t.Skipf("ResolveFile on %s did not attribute the file to self (got %v, err %v); tolerated", runtime.GOOS, pids, lastErr)
+	}
+	t.Errorf("ResolveFile(%q) did not find self PID %d; got %v (last err: %v)", f.Name(), self, pids, lastErr)
 }

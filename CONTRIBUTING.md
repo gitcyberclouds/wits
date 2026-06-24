@@ -15,13 +15,11 @@ All types of contributions are encouraged and valued. See the [Table of Contents
 - [Code of Conduct](#code-of-conduct)
 - [I Have a Question](#i-have-a-question)
 - [I Want To Contribute](#i-want-to-contribute)
-  - [Reporting Bugs](#reporting-bugs)
   - [Suggesting Enhancements](#suggesting-enhancements)
   - [Your First Code Contribution](#your-first-code-contribution)
   - [Improving Documentation](#improving-documentation)
 - [Styleguides](#styleguides)
   - [Commit Messages](#commit-messages)
-- [Join The Project Team](#join-the-project-team)
 
 ## Building from source
 
@@ -38,10 +36,9 @@ go build -o witr ./cmd/witr
 - The `-ldflags` block injects commit/date metadata for `witr --version`.
 - The resulting `witr` binary lands in the repo root.
 
-## Code Style
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [witr Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to .
+This project and everyone participating in it is governed by the [witr Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior as described in the Code of Conduct.
 
 ## I Have a Question
 

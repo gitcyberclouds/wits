@@ -42,6 +42,11 @@ func detectContainer(ancestry []model.Process) *model.Source {
 				Type: model.SourceContainer,
 				Name: "containerd",
 			}
+		case strings.Contains(content, "lxc.payload"):
+			return &model.Source{
+				Type: model.SourceContainer,
+				Name: detectLXCRuntime(ancestry),
+			}
 		}
 	}
 
@@ -69,4 +74,18 @@ func detectContainer(ancestry []model.Process) *model.Source {
 
 func itoa(n int) string {
 	return strconv.Itoa(n)
+}
+
+func detectLXCRuntime(ancestry []model.Process) string {
+	for _, a := range ancestry {
+		switch a.Command {
+		case "incusd":
+			return "incus"
+		case "lxd":
+			return "lxd"
+		case "lxc-start":
+			return "lxc"
+		}
+	}
+	return "lxc" // fallback
 }

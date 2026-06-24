@@ -20,6 +20,12 @@ type Process struct {
 	Container  string
 	Service    string
 
+	// Container runtime identity (from Linux cgroup detection) and the runtime's
+	// healthcheck verdict for the target: "", "present", or "absent".
+	ContainerID          string `json:",omitempty"`
+	ContainerRuntime     string `json:",omitempty"`
+	ContainerHealthcheck string `json:",omitempty"`
+
 	// Network context — every socket the process owns (LISTEN, ESTABLISHED,
 	// CLOSE_WAIT, etc.). Each entry carries protocol and state.
 	Sockets []Socket

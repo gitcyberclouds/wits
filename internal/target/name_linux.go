@@ -63,9 +63,7 @@ func ResolveName(name string, exact bool) ([]int, error) {
 				match = strings.Contains(commLower, lowerName)
 			}
 			if match {
-				if !strings.Contains(commLower, "grep") {
-					procPIDs = append(procPIDs, pid)
-				}
+				procPIDs = append(procPIDs, pid)
 				continue
 			}
 		}
@@ -80,13 +78,21 @@ func ResolveName(name string, exact bool) ([]int, error) {
 			} else {
 				match = strings.Contains(cmdLower, lowerName)
 			}
-			if match && !strings.Contains(cmdLower, "grep") {
+			if match {
 				procPIDs = append(procPIDs, pid)
 			}
 		}
 	}
 
-	servicePID, _ := resolveSystemdServiceMainPID(name)
+	// Only consult systemd when the /proc scan found nothing. A running
+	// service's main process is virtually always caught by the comm/cmdline
+	// match above, so this skips a systemctl fork on the common path and only
+	// pays it when resolving a service whose process name differs (or a service
+	// that isn't currently running).
+	var servicePID int
+	if len(procPIDs) == 0 {
+		servicePID, _ = resolveSystemdServiceMainPID(name)
+	}
 
 	seen := map[int]bool{}
 	var procUnique []int

@@ -30,11 +30,11 @@ func FuzzAppendEscapedRune(f *testing.F) {
 		var want string
 		switch {
 		case r <= 0xFF:
-			want = fmt.Sprintf(`\\x%02x`, r)
+			want = fmt.Sprintf(`\x%02x`, r)
 		case r <= 0xFFFF:
-			want = fmt.Sprintf(`\\u%04x`, r)
+			want = fmt.Sprintf(`\u%04x`, r)
 		default:
-			want = fmt.Sprintf(`\\U%08x`, r)
+			want = fmt.Sprintf(`\U%08x`, r)
 		}
 
 		if got != want {
@@ -48,4 +48,33 @@ func FuzzAppendEscapedRune(f *testing.F) {
 			}
 		}
 	})
+}
+
+// TestSanitizeTerminalEscapesControlBytes pins the human-readable contract: a
+// raw ESC renders as the visible escape \x1b (a single backslash), with the
+// surrounding printable bytes left intact.
+func TestSanitizeTerminalEscapesControlBytes(t *testing.T) {
+	in := "a\x1b[31mb"
+	want := `a\x1b[31mb`
+	if got := SanitizeTerminal(in); got != want {
+		t.Fatalf("SanitizeTerminal(%q) = %q, want %q", in, got, want)
+	}
+}
+
+// TestSanitizeTerminalLineEscapesLineBreakers verifies the single-line variant
+// neutralizes the two characters SanitizeTerminal preserves (newline and tab),
+// so an attacker-controlled field can't forge extra lines or shift columns,
+// while still escaping ESC like the base sanitizer.
+func TestSanitizeTerminalLineEscapesLineBreakers(t *testing.T) {
+	cases := map[string]string{
+		"cmd\nWarnings : none": `cmd\nWarnings : none`,
+		"a\tb":                 `a\tb`,
+		"x\x1b[2Jy":            `x\x1b[2Jy`,
+		"plain":                "plain",
+	}
+	for in, want := range cases {
+		if got := SanitizeTerminalLine(in); got != want {
+			t.Errorf("SanitizeTerminalLine(%q) = %q, want %q", in, got, want)
+		}
+	}
 }

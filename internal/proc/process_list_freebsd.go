@@ -17,7 +17,10 @@ import (
 // This is used by the TUI to display the process list.
 func ListProcesses() ([]model.Process, error) {
 	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, args.
-	// comm is excluded because it can contain spaces, which breaks strings.Fields parsing.
+	// comm is excluded from this row because it can contain spaces which breaks
+	// the strings.Fields column parse used below; it is fetched separately via
+	// readPIDCommMap() so the display name comes from an unambiguous source
+	// instead of being re-derived from the space-joined args.
 	// LC_ALL=C is required so lstart yields the expected 5-token English format;
 	// otherwise field offsets shift and %cpu picks up the rss column
 	cmd := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,args")
@@ -27,6 +30,8 @@ func ListProcesses() ([]model.Process, error) {
 		// Fallback to fast snapshot if ps fails
 		return ListProcessSnapshot()
 	}
+
+	commMap := readPIDCommMap()
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 
@@ -72,7 +77,12 @@ func ListProcesses() ([]model.Process, error) {
 			cmdline = strings.Join(fields[11:], " ")
 		}
 
-		displayName := extractExecutableName(cmdline)
+		// Prefer the separately-captured comm value over an args-based extractor
+		// so paths containing spaces are not mis-split.
+		displayName := binaryBasename(commMap[pid])
+		if displayName == "" {
+			displayName = extractExecutableName(cmdline)
+		}
 		if displayName == "" && len(fields) > 11 {
 			displayName = fields[11]
 		}

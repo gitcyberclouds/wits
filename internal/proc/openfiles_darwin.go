@@ -15,8 +15,11 @@ import (
 // the result roughly resembles "files a user would recognize on disk". This
 // can take a noticeable beat on busy systems.
 func ListAllOpenFiles() []*model.LockedFile {
+	// lsof may exit non-zero when it can't read one of the processes it
+	// scans (permission denied, process exiting mid-scan, etc.) while still
+	// emitting valid rows on stdout for the rest; salvage stdout when present.
 	out, err := exec.Command("lsof", "-l", "-n", "-P").Output()
-	if err != nil {
+	if err != nil && len(out) == 0 {
 		return nil
 	}
 

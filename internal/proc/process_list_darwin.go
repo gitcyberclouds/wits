@@ -16,14 +16,18 @@ import (
 // ListProcesses returns a list of all running processes with basic details (PID, Command, State).
 // This is used by the TUI to display the process list.
 func ListProcesses() ([]model.Process, error) {
-	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, args
-	// comm is excluded because it can contain spaces (e.g. "Microsoft Teams"),
-	// which breaks strings.Fields parsing. The display name is derived from args instead.
+	// Use ps to fetch rich information efficiently: pid, ppid, user, lstart, %cpu, rss, %mem, args.
+	// comm is excluded from this row because it can contain spaces (e.g.
+	// "Microsoft Teams") which breaks the strings.Fields column parse used below;
+	// it is fetched separately via readPIDCommMap() so the display name is taken
+	// from an unambiguous source rather than re-derived from the space-joined args.
 	out, err := exec.Command("ps", "-axo", "pid,ppid,user,lstart,%cpu,rss,%mem,args").Output()
 	if err != nil {
 		// Fallback to fast snapshot if ps fails
 		return ListProcessSnapshot()
 	}
+
+	commMap := readPIDCommMap()
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 
@@ -69,7 +73,13 @@ func ListProcesses() ([]model.Process, error) {
 			cmdline = strings.Join(fields[11:], " ")
 		}
 
-		displayName := extractExecutableName(cmdline)
+		// Prefer the comm value (full executable path on macOS, captured
+		// separately so embedded spaces survive) over an args-based extractor
+		// which would mis-split paths like "/Applications/Microsoft Teams.app/...".
+		displayName := binaryBasename(commMap[pid])
+		if displayName == "" {
+			displayName = extractExecutableName(cmdline)
+		}
 		if displayName == "" && len(fields) > 11 {
 			displayName = fields[11]
 		}

@@ -66,8 +66,31 @@ func ResolveContainerByPort(port int) *model.ContainerMatch {
 	}
 }
 
+// isValidContainerID reports whether id is a safe container identifier to hand
+// to a runtime CLI: a non-empty token of [A-Za-z0-9_.-] that begins with an
+// alphanumeric. Rejecting a leading dash (and any other metacharacter) keeps a
+// malformed, cgroup-derived id from being parsed as a CLI option.
+func isValidContainerID(id string) bool {
+	if id == "" {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case (c == '_' || c == '.' || c == '-') && i > 0:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // resolveContainerName attempts to resolve a container ID to a name using the specified runtime CLI.
 func resolveContainerName(id, runtime string) string {
+	if !isValidContainerID(id) {
+		return ""
+	}
 	var cmd *exec.Cmd
 	var prefix string
 
@@ -77,13 +100,13 @@ func resolveContainerName(id, runtime string) string {
 		if _, err := exec.LookPath("docker"); err != nil {
 			return ""
 		}
-		cmd = exec.CommandContext(ctx, "docker", "inspect", id, "--format", "{{.Name}}|{{index .Config.Labels \"com.docker.compose.project\"}}|{{index .Config.Labels \"com.docker.compose.service\"}}")
+		cmd = exec.CommandContext(ctx, "docker", "inspect", "--format", "{{.Name}}|{{index .Config.Labels \"com.docker.compose.project\"}}|{{index .Config.Labels \"com.docker.compose.service\"}}", "--", id)
 		prefix = "docker: "
 	case "podman":
 		if _, err := exec.LookPath("podman"); err != nil {
 			return ""
 		}
-		cmd = commandAsOriginalUser(ctx, "podman", "inspect", id, "--format", "{{.Name}}")
+		cmd = commandAsOriginalUser(ctx, "podman", "inspect", "--format", "{{.Name}}", "--", id)
 		prefix = "podman: "
 	case "crictl":
 		if _, err := exec.LookPath("crictl"); err != nil {
@@ -130,6 +153,31 @@ func resolveContainerName(id, runtime string) string {
 			return prefix + name
 		}
 		return name
+	}
+	return ""
+}
+
+// ContainerHealthcheckStatus reports whether the container runtime has a
+// healthcheck configured: "present", "absent", or "" when undeterminable
+// (runtime unavailable, inspect error, or unsupported runtime).
+func ContainerHealthcheckStatus(id, runtime string) string {
+	if !isValidContainerID(id) || (runtime != "docker" && runtime != "podman") {
+		return ""
+	}
+	if _, err := exec.LookPath(runtime); err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeQueryTimeout)
+	defer cancel()
+	out, err := runtimeCommand(ctx, runtime, "inspect", "--format", "{{if .Config.Healthcheck}}present{{else}}absent{{end}}", "--", id).Output()
+	if err != nil {
+		return ""
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "present":
+		return "present"
+	case "absent":
+		return "absent"
 	}
 	return ""
 }

@@ -3,14 +3,14 @@
 package proc
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
@@ -29,7 +29,6 @@ func GetFileContext(pid int) *model.FileContext {
 	fileContext.OpenFiles = len(fdFiles)
 	fileContext.FileLimit = getFileLimit(pid)
 	fileContext.LockedFiles = getLockedFiles(pid)
-	fileContext.WatchedDirs = getWatchedDirs(fdDir, fdFiles)
 
 	return &fileContext
 }
@@ -85,100 +84,77 @@ func getDefaultMaxOpenFiles() int {
 	return int(rlimit.Max)
 }
 
+// getLockedFiles returns the files locked by the process, read from
+// /proc/locks. Paths are resolved by matching each lock's device:inode against
+// the process's own open fds, keeping the work bounded to this one process.
+// (lslocks resolves every lock on the system and blocks on slow mounts.)
 func getLockedFiles(pid int) []string {
-	files, err := getLockedFilesLslocks(pid)
-	if errors.Is(err, exec.ErrNotFound) {
-		return getLockedFilesProc(pid)
-	}
-	return files
-}
-
-func getLockedFilesLslocks(pid int) ([]string, error) {
-	var locked []string
-	output, err := exec.Command("lslocks", "-o", "PATH", "-p", strconv.Itoa(pid)).Output()
-	if err != nil {
-		return nil, err
-	}
-
-	// First line of output is PATH (column name) which is not interesting.
-	skippedFirst := false
-	for fileName := range strings.Lines(string(output)) {
-		if !skippedFirst {
-			skippedFirst = true
-			continue
-		}
-
-		locked = append(locked, strings.TrimSpace(fileName))
-	}
-
-	return locked, nil
-}
-
-// get list of locked files by the process
-func getLockedFilesProc(pid int) []string {
-	lockedFileData, err := os.ReadFile("/proc/locks")
+	data, err := os.ReadFile("/proc/locks")
 	if err != nil {
 		return nil
 	}
 
-	var result []string
-	// Output Pattern: <ID>: <TYPE> <ADVISORY/MANDATORY> <ACCESS> <PID> <DEVICE> <START> <END>
+	// /proc/locks line: "<id>: <TYPE> <KIND> <ACCESS> <PID> <MAJOR:MINOR:INODE>
+	// <START> <END>", with MAJOR:MINOR in hex and INODE in decimal.
+	type fileID struct{ dev, ino uint64 }
+	ids := map[fileID]string{} // -> raw "major:minor:inode" identifier for fallback
 	pidStr := strconv.Itoa(pid)
-
-	for _, line := range strings.Split(string(lockedFileData), "\n") {
-		if line == "" {
-			continue
-		}
-
+	for _, line := range strings.Split(string(data), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) < 8 {
+		if len(fields) < 8 || fields[4] != pidStr {
 			continue
 		}
+		parts := strings.Split(fields[5], ":")
+		if len(parts) != 3 {
+			continue
+		}
+		major, err1 := strconv.ParseUint(parts[0], 16, 32)
+		minor, err2 := strconv.ParseUint(parts[1], 16, 32)
+		ino, err3 := strconv.ParseUint(parts[2], 10, 64)
+		if err1 != nil || err2 != nil || err3 != nil {
+			continue
+		}
+		ids[fileID{unix.Mkdev(uint32(major), uint32(minor)), ino}] = fields[5]
+	}
+	if len(ids) == 0 {
+		return nil
+	}
 
-		// lockType := fields[1]    // FLOCK, POSIX, or OFDLCK
-		lockPid := fields[4]     // PID that owns the lock
-		deviceInode := fields[5] // Device:Inode identifier
-
-		// consider POSIX locks (these have valid PIDs)
-		// Skip OFDLCK as PID is -1 (owned by multiple processes)
-		// skip FLOCK as it may not have valid PID association
-		if lockPid == pidStr {
-			// Store device:inode as identifier (resolving to file path would require scanning filesystem)
-			if !slices.Contains(result, deviceInode) {
-				result = append(result, deviceInode)
+	// Resolve paths from the process's own fds; keep the raw identifier for any
+	// lock that can't be matched to an open fd (e.g. an unlinked file).
+	paths := map[fileID]string{}
+	fdDir := fmt.Sprintf("/proc/%d/fd", pid)
+	if entries, err := os.ReadDir(fdDir); err == nil {
+		for _, e := range entries {
+			if len(paths) == len(ids) {
+				break
+			}
+			fdPath := fdDir + "/" + e.Name()
+			info, err := os.Stat(fdPath)
+			if err != nil {
+				continue
+			}
+			st, ok := info.Sys().(*syscall.Stat_t)
+			if !ok {
+				continue
+			}
+			id := fileID{uint64(st.Dev), uint64(st.Ino)}
+			if _, want := ids[id]; want {
+				if target, err := os.Readlink(fdPath); err == nil {
+					paths[id] = target
+				}
 			}
 		}
 	}
 
-	return result
-}
-
-// get list of directories being accessed by the process
-// directories being watched/accessed (detectable via /proc/<pid>/fd)
-func getWatchedDirs(fdDir string, entries []os.DirEntry) []string {
-	var result []string
-	seen := make(map[string]bool)
-
-	for _, entry := range entries {
-		path := fmt.Sprintf("%s/%s", fdDir, entry.Name())
-		target, err := os.Readlink(path)
-		if err != nil {
-			continue
-		}
-
-		// Check if target is a directory
-		info, err := os.Stat(target)
-		if err != nil {
-			continue
-		}
-
-		if info.IsDir() {
-			if !seen[target] {
-				seen[target] = true
-				result = append(result, target)
-			}
+	out := make([]string, 0, len(ids))
+	for id, raw := range ids {
+		if p := paths[id]; p != "" {
+			out = append(out, p)
+		} else {
+			out = append(out, raw)
 		}
 	}
-
-	return result
+	sort.Strings(out)
+	return out
 }

@@ -55,7 +55,7 @@ func ResolvePort(port int) ([]int, error) {
 	}
 
 	if len(result) == 0 {
-		return nil, fmt.Errorf("socket found but owning process not detected")
+		return nil, ErrSocketOwnerUnknown
 	}
 
 	return result, nil

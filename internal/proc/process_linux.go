@@ -5,20 +5,18 @@ package proc
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
-// isValidSymlinkTarget validates that a symlink target is safe and reasonable
-func isValidSymlinkTarget(target string) bool {
-	return target != ""
-}
-
 func ReadProcess(pid int) (model.Process, error) {
+	if pid <= 0 {
+		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
+	}
 	// Verify process still exists before reading
 	if _, err := os.Stat(fmt.Sprintf("/proc/%d", pid)); os.IsNotExist(err) {
 		return model.Process{}, fmt.Errorf("process %d does not exist", pid)
@@ -49,22 +47,20 @@ func ReadProcess(pid int) (model.Process, error) {
 	var cwd, cwdErr = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
 	if cwdErr != nil {
 		cwd = "unknown"
-	} else {
-		// Validate symlink target is reasonable
-		if !isValidSymlinkTarget(cwd) {
-			cwd = "invalid"
-		}
+	} else if cwd == "" {
+		cwd = "invalid"
 	}
 
 	// Container detection
 	container := ""
+	var containerID, containerRuntime string
 	cgroupFile := fmt.Sprintf("/proc/%d/cgroup", pid)
 	if cgroupData, err := os.ReadFile(cgroupFile); err == nil {
 		cgroupStr := string(cgroupData)
-		var containerID string
 		switch {
 		case strings.Contains(cgroupStr, "docker"):
 			container = "docker"
+			containerRuntime = "docker"
 			containerID = extractContainerID(cgroupStr, "docker-", "docker/")
 			if containerID != "" {
 				if name := resolveContainerName(containerID, "docker"); name != "" {
@@ -76,6 +72,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 		case strings.Contains(cgroupStr, "podman"), strings.Contains(cgroupStr, "libpod"):
 			container = "podman"
+			containerRuntime = "podman"
 			containerID = extractContainerID(cgroupStr, "libpod-", "libpod/")
 			if containerID != "" {
 				if name := resolveContainerName(containerID, "podman"); name != "" {
@@ -87,6 +84,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 		case strings.Contains(cgroupStr, "kubepods"):
 			container = "kubernetes"
+			containerRuntime = "crictl"
 			if id := findLongHexID(cgroupStr); id != "" {
 				containerID = id
 				if name := resolveContainerName(containerID, "crictl"); name != "" {
@@ -98,6 +96,7 @@ func ReadProcess(pid int) (model.Process, error) {
 
 		case strings.Contains(cgroupStr, "containerd"):
 			container = "containerd"
+			containerRuntime = "nerdctl"
 			if id := findLongHexID(cgroupStr); id != "" {
 				containerID = id
 				if name := resolveContainerName(containerID, "nerdctl"); name != "" {
@@ -117,6 +116,13 @@ func ReadProcess(pid int) (model.Process, error) {
 			} else if strings.Contains(cgroupStr, "colima") {
 				container = "colima: default"
 			}
+		case strings.Contains(cgroupStr, "lxc.payload"):
+			name := extractLXCBasedContainerName(cgroupStr)
+			if name != "" {
+				container = "lxc-based: " + name
+			} else {
+				container = "lxc-based"
+			}
 		}
 	}
 
@@ -134,23 +140,10 @@ func ReadProcess(pid int) (model.Process, error) {
 		}
 	}
 
-	// Service detection (try systemctl show for this PID)
-	service := ""
-	svcOut, err := exec.Command("systemctl", "status", fmt.Sprintf("%d", pid)).CombinedOutput()
-	if err == nil && strings.Contains(string(svcOut), "Loaded: loaded") {
-		// Try to extract service name from output
-		for line := range strings.Lines(string(svcOut)) {
-			if strings.HasPrefix(line, "Loaded:") && strings.Contains(line, ".service") {
-				parts := strings.Fields(line)
-				for _, part := range parts {
-					if strings.HasSuffix(part, ".service") {
-						service = part
-						break
-					}
-				}
-			}
-		}
-	}
+	// Resolve the owning systemd .service from the process cgroup — a cheap file
+	// read with no subprocess. (This replaced a per-ancestor `systemctl status`
+	// probe whose parser never matched, so the field used to be empty.)
+	service := serviceFromCgroup(pid)
 
 	gitRepo, gitBranch := detectGitInfo(cwd)
 
@@ -181,7 +174,7 @@ func ReadProcess(pid int) (model.Process, error) {
 		forked = "not-forked"
 	}
 
-	startedAt := bootTime().Add(time.Duration(startTicks) * time.Second / time.Duration(ticksPerSecond()))
+	startedAt := startTimeFromTicks(bootTime(), startTicks, ticksPerSecond())
 
 	// Health: zombie/stopped
 	switch state {
@@ -191,20 +184,31 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "stopped"
 	}
 
-	// High CPU/memory (simple: >80% of total)
+	// Flag high CPU (>2h total) and high memory (>1GB RSS).
 	utime, _ := strconv.ParseFloat(fields[11], 64)
 	stime, _ := strconv.ParseFloat(fields[12], 64)
 	rssPages, _ := strconv.ParseFloat(fields[21], 64)
 	clkTck := float64(ticksPerSecond())
 	totalCPU := (utime + stime) / clkTck
-	if totalCPU > 60*60*2 { // >2h CPU time
+	if health == "healthy" && totalCPU > 60*60*2 { // >2h CPU time
 		health = "high-cpu"
 	}
 	pageSize := float64(os.Getpagesize())
 	memBytes := rssPages * pageSize
 	memMB := memBytes / (1024 * 1024)
-	if memMB > 1024 {
+	if health == "healthy" && memMB > 1024 {
 		health = "high-mem"
+	}
+
+	memPercent := 0.0
+	if total := totalMemoryBytes(); total > 0 {
+		memPercent = memBytes / float64(total) * 100.0
+	}
+
+	// Lifetime-average CPU%: total CPU time over wall-clock time since start.
+	cpuPercent := 0.0
+	if wall := time.Since(startedAt).Seconds(); wall > 0 {
+		cpuPercent = totalCPU / wall * 100.0
 	}
 
 	user := readUser(pid)
@@ -263,24 +267,57 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:          pid,
-		PPID:         ppid,
-		Command:      displayName,
-		Cmdline:      cmdline,
-		StartedAt:    startedAt,
-		User:         user,
-		WorkingDir:   cwd,
-		GitRepo:      gitRepo,
-		GitBranch:    gitBranch,
-		Container:    container,
-		Service:      service,
-		Sockets:      procSockets,
-		Health:       health,
-		Forked:       forked,
-		Env:          env,
-		ExeDeleted:   isBinaryDeleted(pid),
-		Capabilities: ReadCapabilities(pid),
+		PID:              pid,
+		PPID:             ppid,
+		Command:          displayName,
+		Cmdline:          cmdline,
+		StartedAt:        startedAt,
+		User:             user,
+		CPUPercent:       cpuPercent,
+		MemoryRSS:        uint64(memBytes),
+		MemoryPercent:    memPercent,
+		WorkingDir:       cwd,
+		GitRepo:          gitRepo,
+		GitBranch:        gitBranch,
+		Container:        container,
+		ContainerID:      containerID,
+		ContainerRuntime: containerRuntime,
+		Service:          service,
+		Sockets:          procSockets,
+		Health:           health,
+		Forked:           forked,
+		Env:              env,
+		ExeDeleted:       isBinaryDeleted(pid),
+		Capabilities:     ReadCapabilities(pid),
 	}, nil
+}
+
+var (
+	totalMemOnce  sync.Once
+	totalMemBytes uint64
+)
+
+// totalMemoryBytes returns total physical RAM in bytes from /proc/meminfo, or 0
+// if it can't be read. The value is constant for the machine, so it is resolved
+// once rather than re-read on every ancestry hop.
+func totalMemoryBytes() uint64 {
+	totalMemOnce.Do(func() {
+		data, err := os.ReadFile("/proc/meminfo")
+		if err != nil {
+			return
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "MemTotal:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					kb, _ := strconv.ParseUint(fields[1], 10, 64)
+					totalMemBytes = kb * 1024
+					return
+				}
+			}
+		}
+	})
+	return totalMemBytes
 }
 
 func isBinaryDeleted(pid int) bool {
@@ -329,4 +366,24 @@ func extractContainerID(cgroup, dashPrefix, slashPrefix string) string {
 		}
 	}
 	return ""
+}
+
+func extractLXCBasedContainerName(cgroup string) string {
+	idx := strings.Index(cgroup, "lxc.payload.")
+	if idx == -1 {
+		return ""
+	}
+	rest := cgroup[idx+len("lxc.payload."):]
+
+	// Only strip "user-<uid>_" prefix, not arbitrary underscores
+	if strings.HasPrefix(rest, "user-") {
+		if u := strings.Index(rest, "_"); u != -1 {
+			rest = rest[u+1:]
+		}
+	}
+
+	if slash := strings.Index(rest, "/"); slash != -1 {
+		rest = rest[:slash]
+	}
+	return rest
 }

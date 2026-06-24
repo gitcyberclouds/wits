@@ -99,12 +99,14 @@ func _genExamples() string {
 
 // Exit codes
 const (
-	ExitOK            = 0
-	ExitWarnings      = 1
-	ExitInternalError = 1
-	ExitNotFound      = 2
-	ExitPermission    = 3
-	ExitInvalidInput  = 4
+	ExitOK           = 0
+	ExitWarnings     = 1
+	ExitNotFound     = 2
+	ExitPermission   = 3
+	ExitInvalidInput = 4
+	// ExitInternalError is distinct from ExitWarnings so scripts can tell an
+	// unexpected witr failure apart from "process found, has warnings".
+	ExitInternalError = 5
 )
 
 // exitCodeError wraps an error with a specific exit code.
@@ -195,7 +197,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	}
 
 	// Collect all targets preserving command-line order
-	targets := collectTargetsInOrder(os.Args[1:], args)
+	targets := collectTargetsInOrder(os.Args[1:], args, flagTakesValue(cmd))
 
 	if len(targets) == 0 {
 		return withExitCode(ExitInvalidInput, fmt.Errorf("must specify --pid, --port, --file, --container, or a process name"))
@@ -204,7 +206,7 @@ func runApp(cmd *cobra.Command, args []string) error {
 	outw := cmd.OutOrStdout()
 	outp := output.NewPrinter(outw)
 	multiMode := len(targets) > 1
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	// For JSON multi-output, collect all JSON strings and wrap in array
 	var jsonResults []string
@@ -248,9 +250,33 @@ func boolFlag(cmd *cobra.Command, name string) bool {
 	return v
 }
 
+// flagTakesValue reports whether a raw argv token names a non-boolean flag
+// whose value is the following token (e.g. "--config foo"). It lets the
+// order-preserving parser take flag-arity from cobra's flag set instead of
+// assuming every non-target flag is boolean — so a future string-valued flag
+// won't have its value mistaken for a target.
+func flagTakesValue(cmd *cobra.Command) func(string) bool {
+	return func(arg string) bool {
+		if strings.Contains(arg, "=") {
+			return false // value is attached: --flag=value
+		}
+		if name, ok := strings.CutPrefix(arg, "--"); ok {
+			if f := cmd.Flags().Lookup(name); f != nil {
+				return f.NoOptDefVal == ""
+			}
+		} else if sh, ok := strings.CutPrefix(arg, "-"); ok && len(sh) == 1 {
+			if f := cmd.Flags().ShorthandLookup(sh); f != nil {
+				return f.NoOptDefVal == ""
+			}
+		}
+		return false
+	}
+}
+
 // collectTargetsInOrder walks the raw command-line arguments to build a target
-// list that preserves the order the user typed them in.
-func collectTargetsInOrder(rawArgs []string, positionalArgs []string) []model.Target {
+// list that preserves the order the user typed them in. takesValue reports
+// whether a non-target flag consumes the following token as its value.
+func collectTargetsInOrder(rawArgs []string, positionalArgs []string, takesValue func(string) bool) []model.Target {
 	var targets []model.Target
 	positionalIdx := 0
 
@@ -267,6 +293,12 @@ func collectTargetsInOrder(rawArgs []string, positionalArgs []string) []model.Ta
 	i := 0
 	for i < len(rawArgs) {
 		arg := rawArgs[i]
+
+		// "--" ends option parsing (POSIX): everything after it is positional,
+		// matching how cobra fills positionalArgs.
+		if arg == "--" {
+			break
+		}
 
 		// Check for --flag=value form
 		if strings.HasPrefix(arg, "--") {
@@ -301,8 +333,13 @@ func collectTargetsInOrder(rawArgs []string, positionalArgs []string) []model.Ta
 			continue
 		}
 
-		// Skip known boolean flags and their short forms
+		// Non-target flag. If it's a value-taking flag in space form
+		// (--flag value, not --flag=value), skip its value too so the value
+		// isn't mistaken for a positional target.
 		if strings.HasPrefix(arg, "-") {
+			if takesValue(arg) && i+1 < len(rawArgs) {
+				i++ // consume the flag's value
+			}
 			i++
 			continue
 		}
@@ -365,7 +402,7 @@ func jsonErrorEntry(t model.Target, errMsg string) string {
 // processTarget handles resolving and rendering a single target.
 // Returns the exit code for this target.
 func processTarget(cmd *cobra.Command, outw io.Writer, outp output.Printer, t model.Target, flags appFlags, multiMode bool, jsonResults *[]string) int {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	if flags.env {
 		return processEnvTarget(outw, outp, t, flags, multiMode, jsonResults)
@@ -452,7 +489,7 @@ func processTarget(cmd *cobra.Command, outw io.Writer, outp output.Printer, t mo
 
 // processEnvTarget handles the --env flag for a single target.
 func processEnvTarget(outw io.Writer, outp output.Printer, t model.Target, flags appFlags, multiMode bool, jsonResults *[]string) int {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	pids, err := target.Resolve(t, flags.exact)
 	if err != nil {
@@ -512,12 +549,12 @@ func processEnvTarget(outw io.Writer, outp output.Printer, t model.Target, flags
 // handleResolveError handles target resolution errors, including Docker fallback.
 func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer, t model.Target, err error, flags appFlags, multiMode bool, jsonResults *[]string) int {
 	errStr := err.Error()
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	// Platform-unsupported target (e.g. -f on Windows). Don't tack on the
 	// generic "try a different name/port/PID" suffix — the operation isn't a
 	// failed lookup, it's unavailable on this OS.
-	if strings.Contains(errStr, "not supported on") {
+	if errors.Is(err, target.ErrUnsupported) || strings.Contains(errStr, "not supported on") {
 		if multiMode {
 			if flags.json {
 				*jsonResults = append(*jsonResults, jsonErrorEntry(t, errStr))
@@ -530,7 +567,7 @@ func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer,
 		return ExitInvalidInput
 	}
 
-	if strings.Contains(errStr, "socket found but owning process not detected") {
+	if errors.Is(err, target.ErrSocketOwnerUnknown) || strings.Contains(errStr, "socket found but owning process not detected") {
 		if t.Type == model.TargetPort {
 			if portNum, convErr := strconv.Atoi(t.Value); convErr == nil {
 				if match := procpkg.ResolveContainerByPort(portNum); match != nil {
@@ -586,7 +623,7 @@ func handleResolveError(cmd *cobra.Command, outw io.Writer, outp output.Printer,
 
 // renderResult renders a single result in the appropriate output mode.
 func renderResult(outw io.Writer, res model.Result, flags appFlags, multiMode bool, jsonResults *[]string) {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	if flags.json {
 		var jsonStr string
@@ -633,7 +670,7 @@ func runInteractive() error {
 }
 
 func printMultiMatch(outp output.Printer, pids []int, colorEnabled bool, hint string) {
-	outp.Print("Multiple matching processes found:\n\n")
+	outp.Printf("Multiple matching processes found:\n\n")
 	for i, pid := range pids {
 		proc, err := procpkg.ReadProcess(pid)
 		var command, cmdline string
@@ -653,12 +690,12 @@ func printMultiMatch(outp output.Printer, pids []int, colorEnabled bool, hint st
 			outp.Printf("[%d] %s (pid %d)\n    %s\n", i+1, command, pid, cmdline)
 		}
 	}
-	outp.Println("\nRe-run with:")
+	outp.Printf("\nRe-run with:\n")
 	outp.Printf("  %s\n", hint)
 }
 
 func printContainerMultiMatch(outp output.Printer, matches []*model.ContainerMatch, colorEnabled bool) {
-	outp.Print("Multiple matching containers found:\n\n")
+	outp.Printf("Multiple matching containers found:\n\n")
 	for i, m := range matches {
 		name := output.SanitizeTerminal(m.Name)
 		image := output.SanitizeTerminal(m.Image)
@@ -681,7 +718,7 @@ func printContainerMultiMatch(outp output.Printer, matches []*model.ContainerMat
 		}
 		outp.Printf("    %s\n", detail)
 	}
-	outp.Println("\nRe-run with the exact container name to disambiguate:")
+	outp.Printf("\nRe-run with the exact container name to disambiguate:\n")
 	outp.Println("  witr -c <container-name> --exact")
 }
 
@@ -711,7 +748,7 @@ func classifyError(err error) int {
 // the container's main process is host-visible, otherwise renders the
 // runtime-side metadata via the container fallback view.
 func processContainerTarget(cmd *cobra.Command, outw io.Writer, outp output.Printer, t model.Target, flags appFlags, multiMode bool, jsonResults *[]string) int {
-	colorEnabled := !flags.noColor
+	colorEnabled := useColor(flags, outw)
 
 	matches := procpkg.ResolveContainer(t.Value, flags.exact)
 	if len(matches) == 0 {

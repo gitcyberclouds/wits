@@ -1,6 +1,8 @@
 package source
 
 import (
+	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -143,7 +145,7 @@ func envSuspiciousWarnings(env []string) []string {
 	return warnings
 }
 
-func Warnings(p []model.Process, srcType ...model.SourceType) []string {
+func Warnings(p []model.Process, restartCount int, srcType ...model.SourceType) []string {
 	if len(p) == 0 {
 		return nil
 	}
@@ -152,17 +154,10 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 
 	last := p[len(p)-1]
 
-	// Restart count detection (count consecutive same-command entries)
-	restartCount := 0
-	lastCmd := ""
-	for _, proc := range p {
-		if proc.Command == lastCmd {
-			restartCount++
-		}
-		lastCmd = proc.Command
-	}
+	// Warn on a service that has restarted many times. restartCount is the real
+	// count from the service manager (e.g. systemd NRestarts), or 0 when unknown.
 	if restartCount > 5 {
-		w = append(w, "Process or ancestor restarted more than 5 times")
+		w = append(w, fmt.Sprintf("Service has restarted %d times", restartCount))
 	}
 
 	// Health warnings
@@ -195,18 +190,24 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 		}
 	}
 
-	st := model.SourceUnknown
+	var st model.SourceType
 	if len(srcType) > 0 {
 		st = srcType[0]
 	} else {
 		st = Detect(p).Type
 	}
-	if st == model.SourceUnknown {
+	// On Windows the ancestry frequently truncates at an orphaned process
+	// (Windows leaves a stale PPID instead of reparenting to an init process),
+	// so an unknown source is normal there — not a reliable "unsupervised"
+	// signal — and this warning would fire on most user processes.
+	if st == model.SourceUnknown && runtime.GOOS != "windows" {
 		w = append(w, "No known supervisor or service manager detected")
 	}
 
-	// Warn if process is very old (>90 days)
-	if time.Since(last.StartedAt).Hours() > 90*24 {
+	// Warn if process is very old (>90 days). A zero start time means we
+	// couldn't read it (e.g. protected Windows processes), not that the process
+	// is ancient — skip the warning rather than emit a false positive.
+	if !last.StartedAt.IsZero() && time.Since(last.StartedAt).Hours() > 90*24 {
 		w = append(w, "Process has been running for over 90 days")
 	}
 
@@ -214,9 +215,10 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 		w = append(w, "Process is running from a suspicious working directory: "+last.WorkingDir)
 	}
 
-	// Warn if container and no healthcheck (skip for snap/flatpak which don't use healthchecks)
-	if last.Container != "" && !strings.HasPrefix(last.Container, "snap:") && !strings.HasPrefix(last.Container, "flatpak:") {
-		w = append(w, "No healthcheck detected for container (best effort)")
+	// Warn only when the runtime confirms no healthcheck is configured. Unknown
+	// ("") — snap/flatpak, unprobed runtimes, non-Linux — does not warn.
+	if last.ContainerHealthcheck == "absent" {
+		w = append(w, "Container has no healthcheck configured")
 	}
 
 	// Warn if service name and process name are genuinely unrelated
@@ -224,6 +226,12 @@ func Warnings(p []model.Process, srcType ...model.SourceType) []string {
 		svcCore := last.Service
 		for _, suffix := range []string{".service", ".socket", ".timer", ".scope", ".slice", ".plist"} {
 			svcCore = strings.TrimSuffix(svcCore, suffix)
+		}
+		// Compare against a systemd template's base name, not its instance
+		// (getty@tty1 -> getty), so a template whose binary is named after the
+		// template (agetty) doesn't read as a mismatch.
+		if at := strings.IndexByte(svcCore, '@'); at >= 0 {
+			svcCore = svcCore[:at]
 		}
 		svcCore = strings.ToLower(svcCore)
 		cmdBase := strings.ToLower(last.Command)

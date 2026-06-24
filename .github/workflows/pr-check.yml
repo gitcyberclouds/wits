@@ -12,33 +12,18 @@ permissions: read-all
 
 jobs:
 
-  semantic-pull-request:
-    name: "Compliance: Check PR Title"
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check PR title
-        uses: amannn/action-semantic-pull-request@v6
-        id: lint_pr_title
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Warn on failure
-        if: steps.lint_pr_title.outcome == 'failure'
-        run: echo "::warning::PR title does not follow semantic commit convention"
-
   lint:
-    name: "Code Quality: Lint"
+    name: "Code Quality: Format"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.25'
+          check-latest: true
 
       - name: Verify formatting
         run: |
@@ -48,32 +33,121 @@ jobs:
             exit 1
           fi
 
-  vet:
-    name: "Code Quality: Vet"
+  golangci-lint:
+    name: "Code Quality: Lint (${{ matrix.goos }})"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, darwin, windows, freebsd]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.25'
+          check-latest: true
 
-      - name: Run go vet
-        run: go vet ./...
+      # Lint each platform's build tags in turn. Without this, _windows/_darwin/
+      # _freebsd files are skipped under the default GOOS=linux and never analyzed.
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+        env:
+          GOOS: ${{ matrix.goos }}
+
+  govulncheck:
+    name: "Security: Vulnerability Scan"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          check-latest: true
+
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  vendor:
+    name: "Code Quality: Vendor"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          check-latest: true
+
+      - name: Verify vendor is in sync
+        run: |
+          go mod vendor
+          git diff --exit-code -- vendor go.mod go.sum
 
   test:
-    name: "Tests: Unit"
-    runs-on: ubuntu-latest
+    name: "Tests: Unit (${{ matrix.os }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            race: true
+          - os: ubuntu-24.04-arm
+            race: true
+          - os: macos-latest
+            race: true
+          - os: windows-latest
+            race: false
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.25'
+          check-latest: true
 
       - name: Run tests
-        run: go test -v ./...
+        shell: bash
+        run: |
+          if [ "${{ matrix.race }}" = "true" ]; then
+            go test -race ./...
+          else
+            go test ./...
+          fi
+
+  coverage:
+    name: "Code Quality: Coverage"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          check-latest: true
+
+      # Reports total coverage of the linux build; informational, no threshold gate.
+      - name: Measure coverage
+        run: |
+          go test -covermode=atomic -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+          {
+            echo "### Test coverage (linux build)"
+            echo '```'
+            go tool cover -func=coverage.out | tail -1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

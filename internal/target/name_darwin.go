@@ -88,22 +88,18 @@ func ResolveName(name string, exact bool) ([]int, error) {
 			match = strings.Contains(comm, lowerName)
 		}
 		if match {
-			// Exclude grep-like processes
-			if !strings.Contains(comm, "grep") {
-				procPIDs = append(procPIDs, pid)
-				continue
-			}
+			procPIDs = append(procPIDs, pid)
+			continue
 		}
 
 		// Match against full command line
 		if exact {
 			match = matchesExactToken(args, lowerName)
-			if match && !strings.Contains(args, "grep") {
+			if match {
 				procPIDs = append(procPIDs, pid)
 			}
 		} else {
-			if strings.Contains(args, lowerName) &&
-				!strings.Contains(args, "grep") {
+			if strings.Contains(args, lowerName) {
 				procPIDs = append(procPIDs, pid)
 			}
 		}

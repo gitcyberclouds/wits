@@ -39,6 +39,20 @@ func fixedFixture() model.Result {
 	}
 }
 
+// Guards the regression where the tool's own layout newlines (e.g. the blank
+// line before "Source") were passed as Printer args and escaped to a literal
+// "\n". The fixture has no newline in any value, so any literal "\n" in the
+// output is a layout newline that leaked.
+func TestRenderStandardDoesNotEscapeLayoutNewlines(t *testing.T) {
+	for _, color := range []bool{false, true} {
+		var buf bytes.Buffer
+		RenderStandard(&buf, fixedFixture(), color, false)
+		if strings.Contains(buf.String(), `\n`) {
+			t.Errorf("color=%v: layout newline escaped to a literal \\n:\n%s", color, buf.String())
+		}
+	}
+}
+
 // TestRenderStandardContract pins down the structural contract of the
 // standard output: which sections appear, their order, and the format of
 // rows users (and scripts piping our output) depend on. We assert on
@@ -102,6 +116,29 @@ func TestRenderStandardSocketsOrder(t *testing.T) {
 			t.Errorf("socket row %q appeared before the previous row (idx %d < %d)", row, idx, last)
 		}
 		last = idx
+	}
+}
+
+// TestRenderStandardRestarts verifies the Restarts row renders only when the
+// managing system reports at least one restart, matching the documented
+// example output.
+func TestRenderStandardRestarts(t *testing.T) {
+	t.Parallel()
+
+	// Zero restarts: the row must be omitted (no noise for the common case).
+	var zero bytes.Buffer
+	RenderStandard(&zero, fixedFixture(), false, false)
+	if strings.Contains(zero.String(), "Restarts") {
+		t.Errorf("Restarts row should be omitted when RestartCount is 0; output:\n%s", zero.String())
+	}
+
+	// Non-zero restarts: the row appears with the count.
+	res := fixedFixture()
+	res.RestartCount = 3
+	var got bytes.Buffer
+	RenderStandard(&got, res, false, false)
+	if !strings.Contains(got.String(), "Restarts    : 3") {
+		t.Errorf("expected \"Restarts    : 3\" in output; got:\n%s", got.String())
 	}
 }
 

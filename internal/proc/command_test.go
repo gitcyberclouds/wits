@@ -127,6 +127,17 @@ func TestExtractExecutableName(t *testing.T) {
 			cmdline: "/usr/bin/my-very-long-process-name --flag",
 			want:    "my-very-long-process-name",
 		},
+		{
+			// Documents the known limitation that caused issue #201: when `ps`
+			// emits an unquoted argv (which it always does on darwin/freebsd),
+			// a path containing spaces is tokenized incorrectly. Callers must
+			// use binaryBasename(comm) or binaryBasename(binPath) to get the
+			// correct display name in this case — extractExecutableName cannot
+			// recover it from raw args alone.
+			name:    "loses spaces in unquoted .app path (issue #201)",
+			cmdline: "/Applications/Microsoft Teams.app/Contents/MacOS/Microsoft Teams --arg",
+			want:    "Microsoft",
+		},
 	}
 
 	for _, tt := range tests {
@@ -135,6 +146,67 @@ func TestExtractExecutableName(t *testing.T) {
 			t.Parallel()
 			if got := extractExecutableName(tt.cmdline); got != tt.want {
 				t.Fatalf("extractExecutableName(%q) = %q, want %q", tt.cmdline, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBinaryBasename(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "preserves spaces in .app path",
+			in:   "/Applications/Microsoft Teams.app/Contents/MacOS/Microsoft Teams",
+			want: "Microsoft Teams",
+		},
+		{
+			name: "preserves spaces in helper renderer path",
+			in:   "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/Current/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)",
+			want: "Google Chrome Helper (Renderer)",
+		},
+		{
+			name: "trims surrounding whitespace and newline (ps -o comm= output)",
+			in:   "/Applications/Visual Studio Code.app/Contents/MacOS/Electron\n",
+			want: "Electron",
+		},
+		{
+			name: "strips surrounding quotes",
+			in:   `"/usr/local/bin/my server"`,
+			want: "my server",
+		},
+		{
+			name: "returns empty for empty input",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "returns empty for whitespace-only input",
+			in:   "   \n  ",
+			want: "",
+		},
+		{
+			name: "rejects bare slash",
+			in:   "/",
+			want: "",
+		},
+		{
+			name: "handles simple basename without path",
+			in:   "bash",
+			want: "bash",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := binaryBasename(tt.in); got != tt.want {
+				t.Fatalf("binaryBasename(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}

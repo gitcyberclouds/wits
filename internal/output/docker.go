@@ -84,8 +84,8 @@ func FormatContainerLine(match *model.ContainerMatch) string {
 func RenderContainerFallback(w io.Writer, targetLabel string, match *model.ContainerMatch, colorEnabled bool, verbose bool) {
 	out := NewPrinter(w)
 
-	name := SanitizeTerminal(match.Name)
-	image := SanitizeTerminal(match.Image)
+	name := SanitizeTerminalLine(match.Name)
+	image := SanitizeTerminalLine(match.Image)
 	command := SanitizeTerminal(match.Command)
 	id := SanitizeTerminal(ShortContainerID(match.ID))
 	stateTag := SanitizeTerminal(containerStateTag(match))
@@ -257,7 +257,7 @@ func RenderContainerFallbackTree(w io.Writer, match *model.ContainerMatch, color
 
 func RenderContainerFallbackWarnings(w io.Writer, match *model.ContainerMatch, colorEnabled bool) {
 	out := NewPrinter(w)
-	name := SanitizeTerminal(match.Name)
+	name := SanitizeTerminalLine(match.Name)
 	if colorEnabled {
 		out.Printf("%sContainer%s   : %s%s%s\n", ColorBlue, ColorReset, ColorGreen, ansiString(name), ColorReset)
 		out.Printf("%sWarnings%s    : %sNo warnings (workload process not visible).%s\n", ColorRed, ColorReset, ColorGreen, ColorReset)

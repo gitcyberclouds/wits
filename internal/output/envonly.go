@@ -34,7 +34,7 @@ func RenderEnvOnly(w io.Writer, r model.Result, colorEnabled bool) {
 		p.Printf("Process     : %s (pid %d)\n", procName, r.Process.PID)
 	}
 
-	p.Printf("%sCommand%s     : %s\n", colorGreenEnv, colorResetEnv, r.Process.Cmdline)
+	p.Printf("%sCommand%s     : %s\n", colorBlueEnv, colorResetEnv, r.Process.Cmdline)
 	if len(r.Process.Env) > 0 {
 		p.Printf("%sEnvironment%s :\n", colorBlueEnv, colorResetEnv)
 		for _, env := range r.Process.Env {

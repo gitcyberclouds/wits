@@ -10,7 +10,4 @@ type FileContext struct {
 
 	// Files with locks held by this process
 	LockedFiles []string
-
-	// Directories being watched (if detectable)
-	WatchedDirs []string
 }

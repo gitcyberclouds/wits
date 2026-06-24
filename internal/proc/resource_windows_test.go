@@ -54,3 +54,24 @@ func TestGetResourceContextNonexistentPID(t *testing.T) {
 		t.Errorf("GetResourceContext(0) = %+v, want nil", got)
 	}
 }
+
+func TestWindowsHealth(t *testing.T) {
+	const gib = uint64(1) << 30
+	tests := []struct {
+		name    string
+		rss     uint64
+		cpuTime time.Duration
+		want    string
+	}{
+		{"healthy", 100 << 20, time.Minute, "healthy"},
+		{"high-mem", 2 * gib, time.Minute, "high-mem"},
+		{"high-cpu", 100 << 20, 3 * time.Hour, "high-cpu"},
+		{"high-cpu wins over high-mem", 2 * gib, 3 * time.Hour, "high-cpu"},
+		{"1 GiB exactly is not high-mem", gib, time.Minute, "healthy"},
+	}
+	for _, tt := range tests {
+		if got := windowsHealth(tt.rss, tt.cpuTime); got != tt.want {
+			t.Errorf("windowsHealth(%d, %v) = %q, want %q", tt.rss, tt.cpuTime, got, tt.want)
+		}
+	}
+}

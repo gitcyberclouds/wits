@@ -8,12 +8,16 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pranshuparmar/witr/pkg/model"
 )
 
 func ReadProcess(pid int) (model.Process, error) {
+	if pid <= 0 {
+		return model.Process{}, fmt.Errorf("invalid pid %d", pid)
+	}
 	pidStr := strconv.Itoa(pid)
 
 	// Format: pid(0) ppid(1) uid(2) lstart(3-7) state(8) pcpu(9) rss(10) args(11+)
@@ -60,7 +64,7 @@ func ReadProcess(pid int) (model.Process, error) {
 	cwd, binPath := getCwdAndBinaryPath(pid)
 
 	health := "healthy"
-	forked := "unknown"
+	var forked string
 
 	switch state {
 	case "Z":
@@ -69,22 +73,35 @@ func ReadProcess(pid int) (model.Process, error) {
 		health = "stopped"
 	}
 
-	if cpuPct > 90 {
+	if health == "healthy" && cpuPct > 90 {
 		health = "high-cpu"
 	}
 	rssMB := rssKB / 1024
-	if rssMB > 1024 {
+	if health == "healthy" && rssMB > 1024 {
 		health = "high-mem"
 	}
 
-	// Derive display name from the full command line to avoid kernel comm truncation
-	// and space-in-name parsing issues (e.g. "Microsoft Teams WebView Helper").
-	displayName := extractExecutableName(rawCmdline)
+	memBytes := uint64(rssKB * 1024)
+	memPercent := 0.0
+	if total := totalMemoryBytes(); total > 0 {
+		memPercent = float64(memBytes) / float64(total) * 100.0
+	}
+
+	// Display name resolution order:
+	//   1. filepath.Base(binPath) — binPath comes from `lsof ftxt` as a single
+	//      unsplit line, so spaces in .app bundle paths are preserved.
+	//   2. `ps -p <pid> -o comm=` on its own line — also preserves spaces.
+	//   3. extractExecutableName(rawCmdline) — last resort. `ps -o args=` joins
+	//      argv with single spaces and does not quote paths, so this can
+	//      truncate names when the executable path contains spaces (issue #201).
+	displayName := binaryBasename(binPath)
 	if displayName == "" {
-		// Fall back to ucomm for processes with no visible command line (kernel threads)
-		if ucommOut, ucommErr := exec.Command("ps", "-p", pidStr, "-o", "ucomm=").Output(); ucommErr == nil {
-			displayName = strings.TrimSpace(string(ucommOut))
+		if commOut, commErr := exec.Command("ps", "-p", pidStr, "-o", "comm=").Output(); commErr == nil {
+			displayName = binaryBasename(string(commOut))
 		}
+	}
+	if displayName == "" {
+		displayName = extractExecutableName(rawCmdline)
 	}
 	if cmdline == "" {
 		cmdline = displayName
@@ -114,31 +131,56 @@ func ReadProcess(pid int) (model.Process, error) {
 	}
 
 	return model.Process{
-		PID:        pid,
-		PPID:       ppid,
-		Command:    displayName,
-		Cmdline:    cmdline,
-		StartedAt:  startedAt,
-		User:       user,
-		WorkingDir: cwd,
-		GitRepo:    gitRepo,
-		GitBranch:  gitBranch,
-		Container:  container,
-		Service:    service,
-		Sockets:    procSockets,
-		Health:     health,
-		Forked:     forked,
-		Env:        env,
-		ExeDeleted: exeDeleted,
+		PID:           pid,
+		PPID:          ppid,
+		Command:       displayName,
+		Cmdline:       cmdline,
+		StartedAt:     startedAt,
+		User:          user,
+		CPUPercent:    cpuPct,
+		MemoryRSS:     memBytes,
+		MemoryPercent: memPercent,
+		WorkingDir:    cwd,
+		GitRepo:       gitRepo,
+		GitBranch:     gitBranch,
+		Container:     container,
+		Service:       service,
+		Sockets:       procSockets,
+		Health:        health,
+		Forked:        forked,
+		Env:           env,
+		ExeDeleted:    exeDeleted,
 	}, nil
+}
+
+var (
+	totalMemOnce  sync.Once
+	totalMemBytes uint64
+)
+
+// totalMemoryBytes returns total physical RAM in bytes via sysctl hw.memsize,
+// or 0 if it can't be read. The value is constant for the machine, so it is
+// resolved once rather than spawning sysctl on every ancestry hop.
+func totalMemoryBytes() uint64 {
+	totalMemOnce.Do(func() {
+		out, err := exec.Command("sysctl", "-n", "hw.memsize").Output()
+		if err != nil {
+			return
+		}
+		totalMemBytes, _ = strconv.ParseUint(strings.TrimSpace(string(out)), 10, 64)
+	})
+	return totalMemBytes
 }
 
 // getCwdAndBinaryPath returns the working directory and executable path for a process.
 func getCwdAndBinaryPath(pid int) (cwd string, binPath string) {
 	cwd = "unknown"
 
+	// lsof may exit non-zero when one of the requested FDs (e.g., txt for a
+	// deleted/inaccessible binary) is unavailable, but still emit valid cwd
+	// data on stdout. Salvage stdout when present instead of bailing out.
 	out, err := exec.Command("lsof", "-a", "-p", strconv.Itoa(pid), "-d", "cwd,txt", "-F", "fn").Output()
-	if err != nil {
+	if err != nil && len(out) == 0 {
 		return cwd, ""
 	}
 
@@ -155,7 +197,7 @@ func getCwdAndBinaryPath(pid int) (cwd string, binPath string) {
 		}
 		switch line[0] {
 		case 'f':
-			currentFD = line[1:]
+			currentFD = strings.TrimSpace(line[1:])
 		case 'n':
 			path := strings.TrimSpace(line[1:])
 			switch currentFD {
