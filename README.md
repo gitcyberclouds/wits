@@ -283,7 +283,7 @@ aqua i pranshuparmar/witr
 </details>
 
 <details>
-<summary><strong>Brioche (Linux)</strong> <a href="https://github.com/brioche-dev/brioche-packages/tree/main/packages/witr"><img src="https://img.shields.io/static/v1?label=brioche&message=v0.3.2&color=blue&style=flat-square" alt="Brioche"></a></summary>
+<summary><strong>Brioche (Linux)</strong> <a href="https://github.com/brioche-dev/brioche-packages/tree/main/packages/witr"><img src="https://img.shields.io/static/v1?label=brioche&message=v0.3.3&color=blue&style=flat-square" alt="Brioche"></a></summary>
 <br>
 
 You can install **witr** using [brioche](https://brioche.dev/):
@@ -923,7 +923,7 @@ witr is successful if:
 
 ## 10. Sponsors
 
-Special thanks to the people supporting **witr** ❤️
+Special thanks to the people who supported **witr** ❤️
 
 <p>
   <a href="https://github.com/timcolson" title="Tim Colson">
