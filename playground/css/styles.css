@@ -189,9 +189,12 @@ code { font-family: var(--mono); }
 .term-row { white-space: pre-wrap; overflow-wrap: anywhere; }
 .term-block { white-space: pre-wrap; overflow-wrap: anywhere; }
 .term-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Fixed (viewport-relative), not absolute inside the scroll area — otherwise
+   the browser scrolls the terminal to the top to keep this focused input in
+   view on every keystroke. Kept at the corner, 1px, invisible. */
 .term-hidden-input {
-  position: absolute; opacity: 0; pointer-events: none;
-  width: 1px; height: 1px; padding: 0; border: 0; left: -10px; top: 0;
+  position: fixed; opacity: 0; pointer-events: none;
+  width: 1px; height: 1px; padding: 0; border: 0; left: 0; top: 0;
 }
 .term-typed { color: var(--text); }
 .term-cursor { background: transparent; color: var(--text); border-radius: 1px; }
