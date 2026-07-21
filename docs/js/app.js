@@ -3,7 +3,7 @@
 import { Shell } from './shell.js';
 import { Terminal } from './terminal.js';
 import { SystemMap } from './map.js';
-import { Incident, ISSUES, SIDE_QUESTS, COLD_OPEN } from './tutorial.js';
+import { Incident, INCIDENTS } from './tutorial.js';
 import { TUI } from './tui.js';
 import { parse, tokenize } from './parser.js';
 
@@ -18,7 +18,7 @@ class App {
     this.worldId = 'webbox';
     this.live = null;     // the mutable working copy
     this._skipCold = false;
-    this._lockTimer = null;
+    this._autoTimers = {};
   }
 
   async boot() {
@@ -55,10 +55,12 @@ class App {
 
   // ---- scenario entry ---------------------------------------------------
 
-  enterScenario(initial) {
-    if (this.worldId === 'webbox') {
+  enterScenario() {
+    const def = INCIDENTS[this.worldId];
+    if (def) {
+      this.incident.load(def);
       this.incident.start();      // phase = coldopen
-      this.playColdOpen();
+      this.playColdOpen(def);
     } else {
       this.incident.stop();
       this.welcome();
@@ -67,11 +69,11 @@ class App {
 
   // ---- cold open (plays itself) -----------------------------------------
 
-  async playColdOpen() {
+  async playColdOpen(def) {
     this._skipCold = false;
     this.term.locked = true;
     this.renderIncident();
-    for (const step of COLD_OPEN) {
+    for (const step of def.coldOpen) {
       await this.sleep(step.delay);
       if (step.type === 'line') this.term.printHtml(`<div class="co-line">${step.html}</div>`);
       else if (step.type === 'note') this.term.printHtml(`<div class="co-note">${step.html}</div>`);
@@ -82,7 +84,7 @@ class App {
     }
     this.term.locked = false;
     this.incident.beginInvestigation();
-    this.term.printHtml(`<div class="co-brief"><span class="co-brief-tag">🚨 incident</span> That was one problem. A quick sweep flags <b>three</b> on <b>webbox</b>. Investigate each with witr, clean it up, and get the box back to <span class="a-green">green</span> — the tracker on the left counts down.</div>`);
+    this.term.printHtml(`<div class="co-brief"><span class="co-brief-tag">🚨 incident</span> ${def.briefing}</div>`);
     this.renderIncident();
     this.term.focus();
   }
@@ -116,8 +118,18 @@ class App {
     const ctx = this.analyze(line, res);
     this.updateMap(ctx);
     this.incident.observe(ctx);
-    this.maybeScheduleLockRelease();
+    this.maybeScheduleAutoResolve();
+    if (this.incident.phase === 'done') this.refreshQuests();
     this.term.setPrompt(this.shell.prompt());
+  }
+
+  // Keep the finale's side-quest checklist in sync as they're tried afterwards.
+  refreshQuests() {
+    const el = document.getElementById('finale-quests');
+    if (!el) return;
+    el.innerHTML = `<span class="fq-h">Keep poking:</span>${this.questsHtml()}`;
+    el.querySelectorAll('[data-cmd]').forEach((b) =>
+      b.addEventListener('click', () => { if (!this.term.locked) this.term.typeAndRun(b.dataset.cmd); }));
   }
 
   analyze(line, res) {
@@ -156,22 +168,29 @@ class App {
 
   // ---- lock auto-resolve ------------------------------------------------
 
-  maybeScheduleLockRelease() {
+  // Some issues (e.g. the dpkg lock) resolve on their own once investigated —
+  // schedule that the first time such an issue is found.
+  maybeScheduleAutoResolve() {
     if (!this.incident.active) return;
-    if (this._lockTimer || this.incident.resolved.has('lock')) return;
-    if (!this.incident.found.has('lock')) return;
-    const cfg = ISSUES.find((i) => i.id === 'lock').autoResolve;
-    this.term.printHtml(`<div class="learned"><span class="learned-badge a-dimyellow">…</span> The dpkg lock is held by a scheduled <b>unattended-upgrade</b> — you don’t kill that. Give it a moment; it should finish on its own.</div>`);
-    this._lockTimer = setTimeout(() => {
-      const w = this.currentWorld();
-      w.processes = w.processes.filter((p) => p.pid !== cfg.pid);
-      w.locks = (w.locks || []).filter((l) => l.pid !== cfg.pid);
-      w._lockReleased = true;
-      this.shell.engine.reindex();
-      this.map.removeProcess(cfg.pid);
-      this.refreshHostChip();
-      this.incident.observe({ targets: [], world: w });
-    }, cfg.delayMs);
+    for (const issue of this.incident.issues()) {
+      const cfg = issue.autoResolve;
+      if (!cfg) continue;
+      if (this._autoTimers[issue.id] || this.incident.resolved.has(issue.id)) continue;
+      if (!this.incident.found.has(issue.id)) continue;
+      if (cfg.waiting) {
+        this.term.printHtml(`<div class="learned"><span class="learned-badge a-dimyellow">…</span> ${cfg.waiting}</div>`);
+      }
+      this._autoTimers[issue.id] = setTimeout(() => {
+        const w = this.currentWorld();
+        const remove = new Set(cfg.remove || []);
+        w.processes = w.processes.filter((p) => !remove.has(p.pid));
+        w.locks = (w.locks || []).filter((l) => !remove.has(l.pid));
+        this.shell.engine.reindex();
+        for (const pid of remove) this.map.removeProcess(pid);
+        this.refreshHostChip();
+        this.incident.observe({ targets: [], flags: {}, world: w });
+      }, cfg.delayMs);
+    }
   }
 
   // ---- incident outcomes ------------------------------------------------
@@ -181,15 +200,22 @@ class App {
   }
 
   onIncidentComplete() {
-    const quests = SIDE_QUESTS.map((q) => `<button class="sq" data-cmd="${escapeAttr(q.cmd)}"><code>${escapeHtml(q.cmd)}</code> — ${q.label}</button>`).join('');
+    const w = this.currentWorld();
     this.term.printHtml(`<div class="finale-card">
-      <div class="finale-badge">✓ webbox is green</div>
-      <div class="finale-title">You just ran an incident with witr — port, lock, tunnel, all traced to <i>why</i> in one command each.</div>
+      <div class="finale-badge">✓ ${escapeHtml(w.hostname)} is green</div>
+      <div class="finale-title">You just ran an incident with witr — every problem traced to <i>why</i> in one command, then fixed.</div>
       <div class="finale-sub">It does exactly this on a real machine, against live processes:</div>
       <pre class="tut-install">${INSTALL_CMD}</pre>
-      <div class="finale-quests"><span class="fq-h">Keep poking:</span>${quests}</div>
+      <div class="finale-quests" id="finale-quests"><span class="fq-h">Keep poking:</span>${this.questsHtml()}</div>
     </div>`);
     this.term.scroll();
+  }
+
+  questsHtml() {
+    return this.incident.sideQuests().map((q) => {
+      const done = this.incident.tried.has(q.id);
+      return `<button class="sq${done ? ' done' : ''}" data-cmd="${escapeAttr(q.cmd)}"><span class="sq-ic">${done ? '✓' : '○'}</span><code>${escapeHtml(q.cmd)}</code> — ${q.label}</button>`;
+    }).join('');
   }
 
   // ---- incident / free-play panel ---------------------------------------
@@ -203,8 +229,8 @@ class App {
       panel.innerHTML = `
         <div class="tut-head"><span class="tut-kicker alert">● incident detected</span>
           <button class="tut-skip" data-skip>Skip intro ⏭</button></div>
-        <h2 class="tut-title">webbox</h2>
-        <p class="tut-story">A deploy just failed. Watching witr trace the cause…</p>`;
+        <h2 class="tut-title">${escapeHtml(this.currentWorld().hostname)}</h2>
+        <p class="tut-story">Something just broke. Watching witr trace the cause…</p>`;
       const sk = panel.querySelector('[data-skip]');
       if (sk) sk.addEventListener('click', () => this.skipColdOpen());
       return;
@@ -213,7 +239,7 @@ class App {
     const done = this.incident.remaining() === 0;
     const total = this.incident.total();
     const resolved = total - this.incident.remaining();
-    const rows = ISSUES.map((issue) => {
+    const rows = this.incident.issues().map((issue) => {
       const st = this.incident.status(issue);
       const icon = st === 'resolved' ? '✓' : (st === 'found' ? '◔' : '○');
       let action = '';
@@ -233,7 +259,7 @@ class App {
 
     panel.innerHTML = `
       <div class="tut-head">
-        <span class="tut-kicker ${done ? 'ok' : 'alert'}">${done ? '● all clear' : '● incident · webbox'}</span>
+        <span class="tut-kicker ${done ? 'ok' : 'alert'}">${done ? '● all clear' : '● incident · ' + escapeHtml(this.currentWorld().hostname)}</span>
         <button class="tut-skip" data-freeplay>Free play →</button>
       </div>
       <div class="health"><div class="health-bar"><span style="width:${(resolved / total) * 100}%"></span></div>
@@ -287,7 +313,7 @@ class App {
   wireChrome() {
     document.getElementById('btn-tutorial').addEventListener('click', () => {
       if (this.incident.active) this.incident.stop();
-      else if (this.worldId === 'webbox') { this.term.clear(); this.resetScenario(); }
+      else this.resetScenario();
       this.term.focus();
     });
     document.getElementById('btn-scenario').addEventListener('click', () => this.openScenario());
@@ -307,7 +333,8 @@ class App {
 
   // Reset the current scenario to its pristine state (restores killed procs).
   resetScenario() {
-    if (this._lockTimer) { clearTimeout(this._lockTimer); this._lockTimer = null; }
+    for (const id of Object.keys(this._autoTimers)) clearTimeout(this._autoTimers[id]);
+    this._autoTimers = {};
     this.live = cloneWorld(this.pristine[this.worldId]);
     this.shell.setWorld(this.live);
     this.map.setWorld(this.live);

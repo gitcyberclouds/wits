@@ -291,10 +291,14 @@ code { font-family: var(--mono); }
 .finale-sub { color: var(--text-dim); font-size: 13.5px; }
 .finale-quests { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .fq-h { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 1px; }
-.sq { text-align: left; border: 1px solid var(--line); background: var(--panel-2); color: var(--text-dim);
-  padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 12.5px; font-family: var(--sans); }
+.sq { display: flex; align-items: center; gap: 8px; text-align: left; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text-dim); padding: 7px 10px; border-radius: 7px;
+  cursor: pointer; font-size: 12.5px; font-family: var(--sans); }
 .sq:hover { border-color: var(--accent-2); }
 .sq code { font-family: var(--mono); color: var(--accent-2); }
+.sq-ic { font-family: var(--mono); color: var(--text-faint); flex: 0 0 auto; }
+.sq.done { border-color: color-mix(in srgb, var(--accent) 40%, transparent); opacity: 0.85; }
+.sq.done .sq-ic, .sq.done code { color: var(--accent); }
 
 /* chips (mobile suggested commands) */
 .chips { display: none; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--panel); overflow-x: auto; flex: 0 0 auto; }

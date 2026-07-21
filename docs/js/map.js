@@ -36,6 +36,12 @@ export class SystemMap {
     this.camera = new THREE.PerspectiveCamera(45, 1, 1, 4000);
     this.camera.position.set(this.TARGET * 0.28, this.TARGET * 0.32, this.TARGET * 2.15);
     this.camera.lookAt(0, 0, 0);
+    // Camera easing: the view glides to frame the highlighted chain and back.
+    this._defaultCamPos = this.camera.position.clone();
+    this._camPosTarget = this.camera.position.clone();
+    this._camLook = new THREE.Vector3(0, 0, 0);
+    this._camLookTarget = new THREE.Vector3(0, 0, 0);
+    this._frozen = false;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
@@ -216,12 +222,50 @@ export class SystemMap {
     this.hlEdges.geometry = new THREE.BufferGeometry().setFromPoints(pts);
     this._applyStyles();
     this._pulse = 0;
+    this._frameHighlight(pids);
+  }
+
+  // Freeze the rotation and glide the camera to frame the highlighted chain.
+  _frameHighlight(pids) {
+    this.group.updateMatrixWorld(true);
+    const worlds = [];
+    const centroid = new THREE.Vector3();
+    for (const pid of pids) {
+      const n = this.nodeByPid.get(pid);
+      if (!n) continue;
+      const wp = n.pos.clone().applyMatrix4(this.group.matrixWorld);
+      worlds.push(wp);
+      centroid.add(wp);
+    }
+    if (!worlds.length) return;
+    centroid.multiplyScalar(1 / worlds.length);
+    let radius = 0;
+    for (const wp of worlds) radius = Math.max(radius, wp.distanceTo(centroid));
+    // Pad for the enlarged/pulsing highlighted node spheres and their glow.
+    radius = Math.max(radius, 24) + 16;
+
+    this._frozen = true;
+    const fov = (this.camera.fov * Math.PI) / 180;
+    // Fit against the tighter (vertical) axis with generous margin, so even a
+    // long chain (systemd → sshd → sshd → sshd → bash → …) sits fully in frame.
+    let dist = (radius * 2.1) / Math.tan(fov / 2);
+    dist = Math.min(Math.max(dist, this.TARGET * 0.95), this.TARGET * 3.6);
+    const dir = this.camera.position.clone().sub(centroid);
+    if (dir.lengthSq() < 1) dir.set(0.25, 0.3, 1);
+    dir.normalize();
+    this._camPosTarget = centroid.clone().add(dir.multiplyScalar(dist));
+    this._camLookTarget = centroid.clone();
   }
 
   clearHighlight() {
     this.highlightSet = new Set();
     if (this.hlEdges) { this.hlEdges.geometry.dispose(); this.hlEdges.geometry = new THREE.BufferGeometry(); }
     this._applyStyles();
+    this._frozen = false;
+    if (this._defaultCamPos) {
+      this._camPosTarget = this._defaultCamPos.clone();
+      this._camLookTarget = new THREE.Vector3(0, 0, 0);
+    }
   }
 
   // Remove a node when its process is killed, then rebuild the edge lines.
@@ -298,9 +342,16 @@ export class SystemMap {
 
   _animate() {
     requestAnimationFrame(this._animate);
-    if (!this.reduced) this.group.rotation.y += 0.0011;
+    if (!this.reduced && !this._frozen) this.group.rotation.y += 0.0011;
     if (this._stars) this._stars.rotation.y += 0.0003;
     if (this._pulse !== undefined) this._pulse += 0.06;
+
+    // Ease the camera toward its target (default orbit, or a framed chain).
+    if (this._camPosTarget) {
+      this.camera.position.lerp(this._camPosTarget, 0.055);
+      this._camLook.lerp(this._camLookTarget, 0.055);
+      this.camera.lookAt(this._camLook);
+    }
 
     // Pulse highlighted nodes.
     if (this.highlightSet.size > 0) {
