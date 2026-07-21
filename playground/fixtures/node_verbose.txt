@@ -1,0 +1,31 @@
+Target      : node
+
+Process     : node (pid 14233)
+User        : deploy
+Command     : node /srv/expense-manager/index.js
+Started     : 2 days ago (Sun 2026-07-19 10:09:44 +00:00)
+Restarts    : 3
+
+Why It Exists :
+  systemd (pid 1) → PM2 v5.3.1: God (pid 5034) → node (pid 14233)
+
+Source      : pm2 (supervisor)
+Description : Managed by PM2 (app: expense-manager, id 0)
+
+Working Dir : /srv/expense-manager
+Git Repo    : expense-manager (main)
+Sockets     : 127.0.0.1:5000 (TCP | LISTENING)
+
+
+Memory:
+  Virtual  : 1.1 GB
+  Resident : 179.0 MB
+  Shared   : 40.0 MB
+
+I/O Statistics:
+  Read  : 15.0 MB (2140 ops)
+  Write : 4.0 MB (512 ops)
+
+File Descriptors: 34/1024
+
+Threads: 11

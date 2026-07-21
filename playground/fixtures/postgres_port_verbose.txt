@@ -1,0 +1,21 @@
+Target      : postgres
+
+Process     : postgres (pid 2010)
+User        : postgres
+Command     : /usr/lib/postgresql/16/bin/postgres -D /var/lib/postgresql/16/main
+Started     : 6 days ago (Wed 2026-07-15 10:09:44 +00:00)
+
+Why It Exists :
+  systemd (pid 1) → postgres (pid 2010)
+
+Source      : postgresql@16-main.service (systemd)
+Description : PostgreSQL Cluster 16-main
+Unit File   : /lib/systemd/system/postgresql@.service
+Sockets     : 127.0.0.1:5432 (TCP | LISTENING)
+
+Socket      : LISTENING
+
+Children of postgres (pid 2010):
+  ├─ postgres (pid 2011)
+  ├─ postgres (pid 2012)
+  └─ postgres (pid 2013)

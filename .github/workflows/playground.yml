@@ -1,0 +1,54 @@
+name: Playground
+
+# Builds and deploys the interactive witr playground (playground/) to GitHub
+# Pages, and verifies the in-browser engine still matches the real witr output.
+#
+# To turn on deployment: repo Settings → Pages → Build and deployment →
+# Source: "GitHub Actions". The playground then publishes on every push to the
+# default branch.
+
+on:
+  push:
+    branches: [main]
+    paths: ['playground/**', '.github/workflows/playground.yml']
+  pull_request:
+    paths: ['playground/**', '.github/workflows/playground.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Fidelity guard: the browser engine must reproduce witr's real output
+  # byte-for-byte. Golden fixtures were generated from witr's own output package
+  # (playground/fixtures/gen); this replays the JS engine against them.
+  fidelity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check engine fidelity against golden fixtures
+        run: node playground/scripts/check-fixtures.mjs
+
+  deploy:
+    needs: fidelity
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload playground as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: playground
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,5 @@
+Process     : python3 (pid 8123)
+Command     : python3 -m http.server 8000
+Warnings    :
+  • Listening on all interfaces (0.0.0.0:8000) — reachable from any host that can route to this machine
+  • Started interactively and left running in the background — will die when the shell (pid 40141) exits

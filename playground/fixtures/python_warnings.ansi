@@ -1,0 +1,5 @@
+[94mProcess[0m     : [92mpython3[0m ([90mpid 8123[0m)
+[94mCommand[0m     : python3 -m http.server 8000
+[91mWarnings[0m    :
+  • Listening on all interfaces (0.0.0.0:8000) — reachable from any host that can route to this machine
+  • Started interactively and left running in the background — will die when the shell (pid 40141) exits
