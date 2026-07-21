@@ -3,30 +3,35 @@
 import { Shell } from './shell.js';
 import { Terminal } from './terminal.js';
 import { SystemMap } from './map.js';
-import { Tutorial, MISSIONS } from './tutorial.js';
+import { Incident, ISSUES, SIDE_QUESTS, COLD_OPEN } from './tutorial.js';
 import { TUI } from './tui.js';
 import { parse, tokenize } from './parser.js';
 
 const WORLD_IDS = ['webbox', 'devbox'];
-const COMPLETIONS = ['witr', 'ls', 'cat', 'ps', 'pwd', 'cd', 'whoami', 'hostname', 'uname', 'neofetch', 'clear', 'help', 'scenario'];
+const COMPLETIONS = ['witr', 'ls', 'cat', 'ps', 'kill', 'pwd', 'cd', 'whoami', 'hostname', 'uname', 'neofetch', 'clear', 'help', 'scenario'];
 const WITR_FLAGS = ['--pid', '--port', '--file', '--container', '--short', '--tree', '--json', '--env', '--warnings', '--verbose', '--exact', '--no-color', '--interactive', '--help', '--version'];
+const INSTALL_CMD = 'curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash';
 
 class App {
   constructor() {
-    this.worlds = {};
+    this.pristine = {};   // worlds as loaded (never mutated)
     this.worldId = 'webbox';
+    this.live = null;     // the mutable working copy
+    this._skipCold = false;
+    this._lockTimer = null;
   }
 
   async boot() {
     for (const id of WORLD_IDS) {
       const res = await fetch(`./worlds/${id}.json`);
-      this.worlds[id] = await res.json();
+      this.pristine[id] = await res.json();
     }
+    this.live = cloneWorld(this.pristine[this.worldId]);
 
-    this.shell = new Shell(this.worlds[this.worldId]);
+    this.shell = new Shell(this.live);
     this.term = new Terminal(document.getElementById('terminal'));
     this.map = new SystemMap(document.getElementById('map-canvas'), document.getElementById('map-labels'));
-    this.tutorial = new Tutorial();
+    this.incident = new Incident();
     this.tui = new TUI(document.getElementById('tui'));
 
     this.term.onSubmit = (line) => this.handle(line);
@@ -34,19 +39,61 @@ class App {
     this.map.onSelect = (proc) => this.launchFromMap(proc);
     this.tui.onClose = () => this.term.focus();
 
-    this.tutorial.onChange = () => this.renderTutorial();
-    this.tutorial.onComplete = (m) => this.celebrate(m);
-    this.tutorial.onFinish = () => this.finishTutorial();
+    this.incident.onChange = () => this.renderIncident();
+    this.incident.onResolve = (issue) => this.onIssueResolved(issue);
+    this.incident.onComplete = () => this.onIncidentComplete();
 
-    this.map.setWorld(this.worlds[this.worldId]);
+    this.map.setWorld(this.live);
     this.map.start();
     window.addEventListener('resize', () => this.map.resize());
 
     this.wireChrome();
     this.applyWorld();
-    this.tutorial.start();
-    this.welcome();
+    this.enterScenario(true);
     this.term.focus();
+  }
+
+  // ---- scenario entry ---------------------------------------------------
+
+  enterScenario(initial) {
+    if (this.worldId === 'webbox') {
+      this.incident.start();      // phase = coldopen
+      this.playColdOpen();
+    } else {
+      this.incident.stop();
+      this.welcome();
+    }
+  }
+
+  // ---- cold open (plays itself) -----------------------------------------
+
+  async playColdOpen() {
+    this._skipCold = false;
+    this.term.locked = true;
+    this.renderIncident();
+    for (const step of COLD_OPEN) {
+      await this.sleep(step.delay);
+      if (step.type === 'line') this.term.printHtml(`<div class="co-line">${step.html}</div>`);
+      else if (step.type === 'note') this.term.printHtml(`<div class="co-note">${step.html}</div>`);
+      else if (step.type === 'run') {
+        this.term.locked = false;
+        await this.term.typeAndRun(step.cmd, { speed: this._skipCold ? 6 : 34 });
+      }
+    }
+    this.term.locked = false;
+    this.incident.beginInvestigation();
+    this.term.printHtml(`<div class="co-brief"><span class="co-brief-tag">🚨 incident</span> That was one problem. A quick sweep flags <b>three</b> on <b>webbox</b>. Investigate each with witr, clean it up, and get the box back to <span class="a-green">green</span> — the tracker on the left counts down.</div>`);
+    this.renderIncident();
+    this.term.focus();
+  }
+
+  skipColdOpen() { this._skipCold = true; }
+
+  sleep(ms) {
+    return new Promise((resolve) => {
+      if (this._skipCold) return resolve();
+      setTimeout(resolve, ms);
+    });
   }
 
   // ---- command handling -------------------------------------------------
@@ -61,11 +108,15 @@ class App {
       setTimeout(() => this.tui.show(this.currentWorld(), this.shell.engine), 260);
     }
     if (res.action === 'scenario') this.openScenario();
+    if (res.action === 'killed' && res.killed) {
+      for (const pid of res.killed) this.map.removeProcess(pid);
+      this.refreshHostChip();
+    }
 
-    // Update the map + tutorial based on what was queried.
     const ctx = this.analyze(line, res);
     this.updateMap(ctx);
-    this.tutorial.observe(ctx);
+    this.incident.observe(ctx);
+    this.maybeScheduleLockRelease();
     this.term.setPrompt(this.shell.prompt());
   }
 
@@ -73,29 +124,12 @@ class App {
     const tokens = tokenize(line.trim());
     const isWitr = tokens[0] === 'witr';
     const { targets, flags } = isWitr ? parse(tokens.slice(1)) : { targets: [], flags: {} };
-    const eng = this.shell.engine;
-
-    let multi = false;
-    for (const t of targets) {
-      if (t.type === 'name' && eng.resolveName(t.value, flags.exact).length > 1) multi = true;
-      if (t.type === 'container' && eng.resolveContainer(t.value, flags.exact).length > 1) multi = true;
-    }
-    const plain = isWitr && !flags.tree && !flags.short && !flags.json && !flags.env && !flags.warnings;
-    return {
-      line, isWitr, targets, flags,
-      exit: res.exit, action: res.action,
-      hasName: targets.some((t) => t.type === 'name'),
-      hasPort: targets.some((t) => t.type === 'port'),
-      hasFile: targets.some((t) => t.type === 'file'),
-      hasContainer: targets.some((t) => t.type === 'container'),
-      multi, plain,
-    };
+    return { line, isWitr, targets, flags, exit: res.exit, action: res.action, world: this.currentWorld() };
   }
 
   updateMap(ctx) {
     if (!ctx.isWitr || ctx.targets.length === 0) return;
     const eng = this.shell.engine;
-    // Highlight the chain of the first resolvable process target.
     for (const t of ctx.targets) {
       let pid = null;
       if (t.type === 'pid') pid = eng.procByPid.has(+t.value) ? +t.value : null;
@@ -108,17 +142,120 @@ class App {
       }
       if (pid) {
         const proc = eng.procByPid.get(pid);
-        this.map.highlightPids(eng.ancestryOf(proc).map((p) => p.pid));
-        return;
+        if (proc) { this.map.highlightPids(eng.ancestryOf(proc).map((p) => p.pid)); return; }
       }
     }
     this.map.clearHighlight();
   }
 
   launchFromMap(proc) {
-    if (this.tui.open) return;
+    if (this.tui.open || this.term.locked) return;
     this.term.focus();
     this.term.typeAndRun(`witr --pid ${proc.pid}`);
+  }
+
+  // ---- lock auto-resolve ------------------------------------------------
+
+  maybeScheduleLockRelease() {
+    if (!this.incident.active) return;
+    if (this._lockTimer || this.incident.resolved.has('lock')) return;
+    if (!this.incident.found.has('lock')) return;
+    const cfg = ISSUES.find((i) => i.id === 'lock').autoResolve;
+    this.term.printHtml(`<div class="learned"><span class="learned-badge a-dimyellow">…</span> The dpkg lock is held by a scheduled <b>unattended-upgrade</b> — you don’t kill that. Give it a moment; it should finish on its own.</div>`);
+    this._lockTimer = setTimeout(() => {
+      const w = this.currentWorld();
+      w.processes = w.processes.filter((p) => p.pid !== cfg.pid);
+      w.locks = (w.locks || []).filter((l) => l.pid !== cfg.pid);
+      w._lockReleased = true;
+      this.shell.engine.reindex();
+      this.map.removeProcess(cfg.pid);
+      this.refreshHostChip();
+      this.incident.observe({ targets: [], world: w });
+    }, cfg.delayMs);
+  }
+
+  // ---- incident outcomes ------------------------------------------------
+
+  onIssueResolved(issue) {
+    this.term.printHtml(`<div class="learned"><span class="learned-badge">✓ resolved</span> ${issue.done || (issue.autoResolve && issue.autoResolve.done) || ''}</div>`);
+  }
+
+  onIncidentComplete() {
+    const quests = SIDE_QUESTS.map((q) => `<button class="sq" data-cmd="${escapeAttr(q.cmd)}"><code>${escapeHtml(q.cmd)}</code> — ${q.label}</button>`).join('');
+    this.term.printHtml(`<div class="finale-card">
+      <div class="finale-badge">✓ webbox is green</div>
+      <div class="finale-title">You just ran an incident with witr — port, lock, tunnel, all traced to <i>why</i> in one command each.</div>
+      <div class="finale-sub">It does exactly this on a real machine, against live processes:</div>
+      <pre class="tut-install">${INSTALL_CMD}</pre>
+      <div class="finale-quests"><span class="fq-h">Keep poking:</span>${quests}</div>
+    </div>`);
+    this.term.scroll();
+  }
+
+  // ---- incident / free-play panel ---------------------------------------
+
+  renderIncident() {
+    const panel = document.getElementById('tutorial');
+    if (!this.incident.active) { panel.classList.add('hidden'); return; }
+    panel.classList.remove('hidden');
+
+    if (this.incident.phase === 'coldopen') {
+      panel.innerHTML = `
+        <div class="tut-head"><span class="tut-kicker alert">● incident detected</span>
+          <button class="tut-skip" data-skip>Skip intro ⏭</button></div>
+        <h2 class="tut-title">webbox</h2>
+        <p class="tut-story">A deploy just failed. Watching witr trace the cause…</p>`;
+      const sk = panel.querySelector('[data-skip]');
+      if (sk) sk.addEventListener('click', () => this.skipColdOpen());
+      return;
+    }
+
+    const done = this.incident.remaining() === 0;
+    const total = this.incident.total();
+    const resolved = total - this.incident.remaining();
+    const rows = ISSUES.map((issue) => {
+      const st = this.incident.status(issue);
+      const icon = st === 'resolved' ? '✓' : (st === 'found' ? '◔' : '○');
+      let action = '';
+      if (st === 'open') {
+        action = `<button class="btn btn-sm" data-cmd="${escapeAttr(issue.find)}">Investigate</button>`;
+      } else if (st === 'found' && issue.fixHint) {
+        action = `<button class="btn btn-sm btn-primary" data-cmd="${escapeAttr(issue.fixHint)}">Fix · <code>${escapeHtml(issue.fixHint)}</code></button>`;
+      } else if (st === 'found') {
+        action = `<span class="issue-wait">clearing on its own…</span>`;
+      }
+      return `<div class="issue ${st} sev-${issue.severity}">
+        <div class="issue-top"><span class="issue-ic">${icon}</span><span class="issue-title">${issue.title}</span></div>
+        ${st !== 'resolved' ? `<div class="issue-blurb">${issue.blurb}</div>` : `<div class="issue-blurb done">${issue.done || (issue.autoResolve && issue.autoResolve.done) || ''}</div>`}
+        ${action ? `<div class="issue-act">${action}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    panel.innerHTML = `
+      <div class="tut-head">
+        <span class="tut-kicker ${done ? 'ok' : 'alert'}">${done ? '● all clear' : '● incident · webbox'}</span>
+        <button class="tut-skip" data-freeplay>Free play →</button>
+      </div>
+      <div class="health"><div class="health-bar"><span style="width:${(resolved / total) * 100}%"></span></div>
+        <span class="health-n">${resolved} / ${total} resolved</span></div>
+      <div class="issues">${rows}</div>
+      ${done ? `<div class="tut-actions"><button class="btn btn-primary" data-freeplay>Explore freely →</button><button class="btn" data-replay>Replay incident</button></div>` : ''}`;
+
+    panel.querySelectorAll('[data-cmd]').forEach((b) =>
+      b.addEventListener('click', () => { if (!this.term.locked) this.term.typeAndRun(b.dataset.cmd); }));
+    const fp = panel.querySelector('[data-freeplay]');
+    if (fp) fp.addEventListener('click', () => { this.incident.stop(); this.term.focus(); });
+    const rp = panel.querySelector('[data-replay]');
+    if (rp) rp.addEventListener('click', () => this.resetScenario());
+  }
+
+  welcome() {
+    const w = this.currentWorld();
+    this.term.printHtml(`<div class="welcome">
+      <div class="welcome-logo">witr <span>· why is this running?</span></div>
+      <div class="welcome-sub">Free play on <b>${escapeHtml(w.promptUser)}@${escapeHtml(w.hostname)}</b> — a <span class="sim-badge">simulated</span> ${escapeHtml(w.distro)}. Nothing here touches your real computer.</div>
+      <div class="welcome-hint">Try <code>witr code</code>, hunt the <code>witr --pid 6120</code> zombie, explore with <code>ls</code> / <code>ps</code>, or open the <code>witr</code> dashboard. Type <code>help</code> anytime.</div>
+    </div>`);
   }
 
   // ---- completion -------------------------------------------------------
@@ -145,82 +282,21 @@ class App {
     return null;
   }
 
-  // ---- tutorial UI ------------------------------------------------------
-
-  renderTutorial() {
-    const panel = document.getElementById('tutorial');
-    if (!this.tutorial.active) { panel.classList.add('hidden'); return; }
-    panel.classList.remove('hidden');
-
-    const dots = MISSIONS.map((m, i) => {
-      const done = i < this.tutorial.index;
-      const cur = i === this.tutorial.index;
-      return `<button class="mdot${done ? ' done' : ''}${cur ? ' cur' : ''}" data-i="${i}" title="${escapeAttr(m.title)}"></button>`;
-    }).join('');
-
-    if (this.tutorial.isDone()) {
-      panel.innerHTML = `
-        <div class="tut-head"><span class="tut-kicker">Tutorial complete</span></div>
-        <div class="tut-dots">${dots}</div>
-        <h2 class="tut-title">You’ve seen every mode 🎉</h2>
-        <p class="tut-story">Run witr on a real machine and it does all of this against live processes.</p>
-        <pre class="tut-install">curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash</pre>
-        <div class="tut-actions">
-          <button class="btn btn-primary" data-freeplay>Keep exploring →</button>
-          <button class="btn" data-restart>Restart tutorial</button>
-        </div>`;
-    } else {
-      const m = this.tutorial.current();
-      const n = this.tutorial.index + 1;
-      panel.innerHTML = `
-        <div class="tut-head">
-          <span class="tut-kicker">Mission ${n} / ${MISSIONS.length}</span>
-          <button class="tut-skip" data-freeplay>Free play →</button>
-        </div>
-        <div class="tut-dots">${dots}</div>
-        <h2 class="tut-title">${m.title}</h2>
-        <p class="tut-story">${m.story}</p>
-        <div class="tut-actions">
-          <button class="btn btn-primary" data-hint>Run <code>${escapeHtml(m.hint)}</code></button>
-        </div>
-        <p class="tut-tiny">Type it yourself, or press the button. Explore freely — anything that shows the idea counts.</p>`;
-    }
-
-    panel.querySelectorAll('.mdot').forEach((d) => d.addEventListener('click', () => { this.tutorial.jumpTo(+d.dataset.i); }));
-    const hint = panel.querySelector('[data-hint]');
-    if (hint) hint.addEventListener('click', () => { if (!this.term.locked) this.term.typeAndRun(this.tutorial.current().hint); });
-    const fp = panel.querySelector('[data-freeplay]');
-    if (fp) fp.addEventListener('click', () => this.tutorial.stop());
-    const rs = panel.querySelector('[data-restart]');
-    if (rs) rs.addEventListener('click', () => this.tutorial.start());
-  }
-
-  celebrate(m) {
-    this.term.print('');
-    this.term.printHtml(`<div class="learned"><span class="learned-badge">✓ ${escapeHtml(m.title)}</span> ${m.learned}</div>`);
-  }
-
-  finishTutorial() {
-    this.term.printHtml('<div class="learned finale">That’s the whole tool. Switch to the <b>devbox</b> scenario for a messier machine, or install witr for real.</div>');
-  }
-
-  // ---- chrome: scenario switch, buttons, welcome ------------------------
+  // ---- chrome -----------------------------------------------------------
 
   wireChrome() {
     document.getElementById('btn-tutorial').addEventListener('click', () => {
-      this.tutorial.active ? this.tutorial.stop() : this.tutorial.start();
+      if (this.incident.active) this.incident.stop();
+      else if (this.worldId === 'webbox') { this.term.clear(); this.resetScenario(); }
       this.term.focus();
     });
     document.getElementById('btn-scenario').addEventListener('click', () => this.openScenario());
-    document.getElementById('btn-reset').addEventListener('click', () => {
-      this.term.clear(); this.welcome(); this.term.focus();
-    });
+    document.getElementById('btn-reset').addEventListener('click', () => this.resetScenario());
     const modal = document.getElementById('scenario-modal');
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
     document.querySelectorAll('[data-scenario]').forEach((b) =>
       b.addEventListener('click', () => this.switchWorld(b.dataset.scenario)));
 
-    // Mobile suggested-command chips.
     document.getElementById('chips').addEventListener('click', (e) => {
       const chip = e.target.closest('[data-cmd]');
       if (chip && !this.term.locked) this.term.typeAndRun(chip.dataset.cmd);
@@ -229,47 +305,51 @@ class App {
 
   openScenario() { document.getElementById('scenario-modal').classList.add('open'); }
 
-  switchWorld(id) {
-    if (!this.worlds[id]) return;
-    this.worldId = id;
-    this.shell.setWorld(this.worlds[id]);
-    this.map.setWorld(this.worlds[id]);
+  // Reset the current scenario to its pristine state (restores killed procs).
+  resetScenario() {
+    if (this._lockTimer) { clearTimeout(this._lockTimer); this._lockTimer = null; }
+    this.live = cloneWorld(this.pristine[this.worldId]);
+    this.shell.setWorld(this.live);
+    this.map.setWorld(this.live);
     this.map.resize();
-    document.getElementById('scenario-modal').classList.remove('open');
     this.term.clear();
-    if (id === 'webbox') this.tutorial.start(); else this.tutorial.stop();
     this.applyWorld();
-    this.welcome();
+    this.enterScenario(false);
     this.term.setPrompt(this.shell.prompt());
     this.term.focus();
   }
 
-  currentWorld() { return this.worlds[this.worldId]; }
+  switchWorld(id) {
+    if (!this.pristine[id]) return;
+    this.worldId = id;
+    document.getElementById('scenario-modal').classList.remove('open');
+    this.resetScenario();
+  }
+
+  currentWorld() { return this.live; }
+
+  refreshHostChip() {
+    const w = this.currentWorld();
+    document.getElementById('host-distro').textContent = `${w.distro} · ${w.processes.length} procs`;
+  }
 
   applyWorld() {
     const w = this.currentWorld();
     document.getElementById('host-name').textContent = `${w.promptUser}@${w.hostname}`;
-    document.getElementById('host-distro').textContent = `${w.distro} · ${w.processes.length} procs`;
     document.getElementById('term-title').textContent = `${w.promptUser}@${w.hostname}: ~`;
+    this.refreshHostChip();
     this.term.setPrompt(this.shell.prompt());
-    this.renderTutorial();
-    // Update chips to the current scenario's greatest hits.
+    this.renderIncident();
     const chips = this.worldId === 'webbox'
-      ? ['witr node', 'witr --port 5000', 'witr ng', 'witr --file /var/lib/dpkg/lock', 'witr']
+      ? ['witr --port 8000', 'kill 8123', 'witr ng', 'witr --file /var/lib/dpkg/lock', 'witr']
       : ['witr code', 'witr --pid 6120', 'witr --container shop', 'witr ffmpeg', 'witr'];
     document.getElementById('chips').innerHTML = chips.map((c) => `<button class="chip" data-cmd="${escapeAttr(c)}">${escapeHtml(c)}</button>`).join('');
   }
-
-  welcome() {
-    const w = this.currentWorld();
-    this.term.printHtml(`<div class="welcome">
-      <div class="welcome-logo">witr <span>· why is this running?</span></div>
-      <div class="welcome-sub">You're on <b>${escapeHtml(w.promptUser)}@${escapeHtml(w.hostname)}</b> — a <span class="sim-badge">simulated</span> ${escapeHtml(w.distro)} box. Nothing here touches your real computer.</div>
-      <div class="welcome-hint">Try <code>witr node</code>, explore with <code>ls</code> / <code>ps</code>, or follow the tutorial on the left. Type <code>help</code> anytime.</div>
-    </div>`);
-  }
 }
 
+function cloneWorld(w) {
+  return typeof structuredClone === 'function' ? structuredClone(w) : JSON.parse(JSON.stringify(w));
+}
 function dimNote(s) { return `\x1b[90m${s}\x1b[0m\n`; }
 function commonPrefix(arr) {
   if (arr.length === 0) return '';

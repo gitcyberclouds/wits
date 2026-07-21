@@ -27,9 +27,15 @@ export class Engine {
   constructor(world) {
     this.world = world;
     this.procByPid = new Map();
-    for (const p of world.processes) this.procByPid.set(p.pid, p);
+    this.reindex();
     // Clock is injectable so the fixture generator and the browser agree.
     this._now = () => Date.now();
+  }
+
+  // Rebuild the pid index after the world mutates (e.g. a process is killed).
+  reindex() {
+    this.procByPid = new Map();
+    for (const p of this.world.processes) this.procByPid.set(p.pid, p);
   }
 
   setNow(fn) { this._now = fn; }

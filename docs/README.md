@@ -21,10 +21,18 @@ lock is authored data; the terminal simulates witr, not a real shell.
 - **Terminal-first.** A dependency-free terminal widget runs `witr …` against
   the simulated world and renders witr's real ANSI output. A handful of flavour
   commands (`ls`, `cat`, `ps`, `neofetch`, …) make the box feel real to poke at.
-- **Tutorial mode.** Missions frame each witr feature as a small mystery
-  (a mystery port, a stuck `dpkg` lock, a Redis container with no host process,
-  a zombie …) — walking through names, `--port`, `--tree`, `--exact`, `--file`,
-  `--container`, `--json`, `--verbose`, and the TUI.
+- **The incident (tutorial).** A cold open plays itself — a deploy fails with
+  `EADDRINUSE`, witr traces the cause in one command — then hands the visitor a
+  box with three real problems (a public dev server squatting on a port, a rogue
+  ngrok tunnel, a stuck `dpkg` lock). They investigate with witr and **fix** them
+  (`kill` actually removes processes; the lock clears on its own). A health
+  tracker counts down to zero; hitting zero is the finale with the install
+  command. Feature coverage (`--port`, `--file`, multi-match, the chain) falls
+  out of the investigation; `--json`, `--verbose`, `--container`, and the TUI are
+  optional side quests.
+- **Reactive world.** The loaded world is a mutable clone: `kill`/`pkill` remove
+  processes (and their subtrees), which the engine, the constellation, the TUI,
+  and the incident tracker all reflect live. **Reset** restores the pristine box.
 - **Playground mode.** Free rein to type any witr command against the box, or
   switch scenarios (a production web box, a messy dev laptop).
 - **Process constellation.** A three.js view of the machine. When a query

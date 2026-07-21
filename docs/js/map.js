@@ -224,6 +224,28 @@ export class SystemMap {
     this._applyStyles();
   }
 
+  // Remove a node when its process is killed, then rebuild the edge lines.
+  removeProcess(pid) {
+    const node = this.nodeByPid.get(pid);
+    if (!node) return;
+    this.group.remove(node.mesh);
+    this.group.remove(node.halo);
+    node.mat.dispose?.();
+    node.halo.material.dispose?.();
+    if (node.label && node.label.remove) node.label.remove();
+    this.nodes = this.nodes.filter((n) => n.pid !== pid);
+    this.nodeByPid.delete(pid);
+
+    const pts = [];
+    for (const n of this.nodes) {
+      const parent = this.nodeByPid.get(n.proc.ppid);
+      if (parent) pts.push(parent.pos.clone(), n.pos.clone());
+    }
+    this.edges.geometry.dispose();
+    this.edges.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    if (this.highlightSet.has(pid)) this.clearHighlight();
+  }
+
   _applyStyles() {
     const has = this.highlightSet.size > 0;
     for (const n of this.nodes) {

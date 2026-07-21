@@ -19,6 +19,7 @@ const HELP = `Available commands in this playground:
   ${ESC.dim}ls${ESC.reset} [dir]               list a directory
   ${ESC.dim}cat${ESC.reset} <file>             print a file
   ${ESC.dim}ps${ESC.reset}                     list running processes
+  ${ESC.dim}kill${ESC.reset} <pid>             stop a process (it really goes away here)
   ${ESC.dim}pwd / cd / whoami${ESC.reset}      the usual
   ${ESC.dim}uname${ESC.reset} [-a] / ${ESC.dim}hostname${ESC.reset}  system info
   ${ESC.dim}neofetch${ESC.reset}               about this machine
@@ -98,9 +99,58 @@ export class Shell {
       case 'man': return this.man(args);
       case 'exit': case 'logout': return { output: 'There is no escape from a simulation.\n', exit: 0 };
       case 'sudo': return { output: `${this.world.promptUser} is not in the sudoers file. This incident will (not) be reported.\n`, exit: 1 };
+      case 'kill': case 'pkill': return this.kill(cmd, args);
       default:
         return { output: `${cmd}: command not found. Type ${ESC.cyan}help${ESC.reset}.\n`, exit: 127 };
     }
+  }
+
+  // kill/pkill mutate the world: the target process (and its subtree) goes away,
+  // which the engine, map, TUI, and incident tracker all reflect.
+  kill(cmd, args) {
+    const pids = [];
+    let bad = '';
+    if (cmd === 'pkill') {
+      const name = args.find((a) => !a.startsWith('-'));
+      if (!name) return { output: 'usage: pkill <name>\n', exit: 1 };
+      for (const p of this.world.processes) {
+        if ((p.command || '').toLowerCase().includes(name.toLowerCase())) pids.push(p.pid);
+      }
+      if (pids.length === 0) return { output: `pkill: no process matched "${name}"\n`, exit: 1 };
+    } else {
+      for (const a of args) {
+        if (a.startsWith('-')) continue; // signal flag, ignored by the sim
+        const n = parseInt(a, 10);
+        if (Number.isNaN(n)) { bad += `kill: illegal pid: ${a}\n`; continue; }
+        if (!this.world.processes.some((p) => p.pid === n)) { bad += `kill: (${n}): No such process\n`; continue; }
+        pids.push(n);
+      }
+      if (pids.length === 0) return { output: bad || 'usage: kill [-signal] <pid>\n', exit: 1 };
+    }
+
+    const killed = this.killProcesses(pids);
+    let out = bad;
+    for (const p of killed) {
+      out += `${ESC.dim}[sim] terminated ${p.command} (pid ${p.pid})${ESC.reset}\n`;
+    }
+    return { output: out, exit: bad ? 1 : 0, action: 'killed', killed: killed.map((p) => p.pid) };
+  }
+
+  // Remove the given pids and their descendants; returns the removed processes.
+  killProcesses(pids) {
+    const toRemove = new Set();
+    const collect = (pid) => {
+      if (toRemove.has(pid)) return;
+      toRemove.add(pid);
+      for (const c of this.world.processes) if (c.ppid === pid) collect(c.pid);
+    };
+    for (const pid of pids) collect(pid);
+    const removed = this.world.processes.filter((p) => toRemove.has(p.pid));
+    this.world.processes = this.world.processes.filter((p) => !toRemove.has(p.pid));
+    // A killed process also drops any locks it held.
+    if (this.world.locks) this.world.locks = this.world.locks.filter((l) => !toRemove.has(l.pid));
+    this.engine.reindex();
+    return removed;
   }
 
   witr(args) {
