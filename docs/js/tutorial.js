@@ -53,10 +53,13 @@ export const INCIDENTS = {
       },
     ],
     sideQuests: [
-      { id: 'verbose', cmd: 'witr node --verbose', label: 'the full deep-dive (memory, threads, sockets)', test: (c) => c.flags.verbose },
-      { id: 'json', cmd: 'witr node --json', label: 'machine-readable output for scripts', test: (c) => c.flags.json },
-      { id: 'container', cmd: 'witr --container redis', label: 'the Redis container with no host process', test: (c) => c.targets.some((t) => t.type === 'container') },
-      { id: 'tui', cmd: 'witr', label: 'the live TUI dashboard', test: (c) => c.action === 'tui' },
+      { id: 'tree', cmd: 'witr node --tree', label: 'the full family tree', test: (c) => c.flags.tree, note: '<b>--tree</b> draws the whole ancestry top-down and lists the target’s children.' },
+      { id: 'short', cmd: 'witr node --short', label: 'the one-line causal chain', test: (c) => c.flags.short, note: '<b>--short</b> collapses the answer to a single causal line — great for scripts and chat.' },
+      { id: 'json', cmd: 'witr node --json', label: 'machine-readable output', test: (c) => c.flags.json, note: 'Any query takes <b>--json</b>; witr also returns exit codes — <code>0</code> clean, <code>1</code> warnings, <code>2</code> not-found.' },
+      { id: 'verbose', cmd: 'witr node --verbose', label: 'the deep dive', test: (c) => c.flags.verbose, note: '<b>--verbose</b> adds memory, threads, open files and sockets — the full picture.' },
+      { id: 'env', cmd: 'witr node --env', label: 'environment variables', test: (c) => c.flags.env, note: '<b>--env</b> dumps the process’s environment variables.' },
+      { id: 'container', cmd: 'witr --container redis', label: 'a container with no host process', test: (c) => c.targets.some((t) => t.type === 'container'), note: '<b>--container</b> finds Docker/Podman/compose workloads by name, image or service — even with no visible host process.' },
+      { id: 'tui', cmd: 'witr', label: 'the live TUI dashboard', test: (c) => c.action === 'tui', note: '<b>witr</b> with no arguments opens the live TUI — Processes / Ports / Containers / Locks.' },
     ],
   },
 
@@ -93,10 +96,13 @@ export const INCIDENTS = {
       },
     ],
     sideQuests: [
-      { id: 'tree', cmd: 'witr code --tree', label: "VS Code's whole process family", test: (c) => c.flags.tree },
-      { id: 'port', cmd: 'witr --port 5173', label: 'what the Vite dev server is', test: (c) => c.targets.some((t) => t.type === 'port') },
-      { id: 'containers', cmd: 'witr --container shop', label: 'the docker-compose stack (multi-match)', test: (c) => c.targets.some((t) => t.type === 'container') },
-      { id: 'tui', cmd: 'witr', label: 'the live TUI dashboard', test: (c) => c.action === 'tui' },
+      { id: 'tree', cmd: 'witr code --tree', label: "VS Code's whole process family", test: (c) => c.flags.tree, note: '<b>--tree</b> draws the whole ancestry top-down and lists the target’s children.' },
+      { id: 'short', cmd: 'witr --port 5173 --short', label: 'the Vite server in one line', test: (c) => c.flags.short, note: '<b>--short</b> collapses the answer to a single causal line — great for scripts and chat.' },
+      { id: 'json', cmd: 'witr code --json', label: 'machine-readable output', test: (c) => c.flags.json, note: 'Any query takes <b>--json</b>; witr also returns exit codes — <code>0</code> clean, <code>1</code> warnings, <code>2</code> not-found.' },
+      { id: 'verbose', cmd: 'witr --port 5173 --verbose', label: 'the deep dive', test: (c) => c.flags.verbose, note: '<b>--verbose</b> adds memory, threads, open files and sockets — the full picture.' },
+      { id: 'env', cmd: 'witr --port 5173 --env', label: 'environment variables', test: (c) => c.flags.env, note: '<b>--env</b> dumps the process’s environment variables.' },
+      { id: 'containers', cmd: 'witr --container shop', label: 'the docker-compose stack', test: (c) => c.targets.some((t) => t.type === 'container'), note: '<b>--container</b> matches every container in a compose project — pass the exact name to pick one.' },
+      { id: 'tui', cmd: 'witr', label: 'the live TUI dashboard', test: (c) => c.action === 'tui', note: '<b>witr</b> with no arguments opens the live TUI — Processes / Ports / Containers / Locks.' },
     ],
   },
 };
@@ -112,6 +118,7 @@ export class Incident {
     this.onChange = null;
     this.onResolve = null;
     this.onComplete = null;
+    this.onQuestTried = null;
   }
 
   load(def) { this.def = def; }
@@ -146,7 +153,15 @@ export class Incident {
     // Side quests keep tracking even after the incident is resolved, so the
     // finale checklist ticks off as they're tried.
     for (const q of this.sideQuests()) {
-      if (!this.tried.has(q.id)) { try { if (q.test(ctx)) { this.tried.add(q.id); this._emit(); } } catch (_) {} }
+      if (!this.tried.has(q.id)) {
+        try {
+          if (q.test(ctx)) {
+            this.tried.add(q.id);
+            if (this.onQuestTried) this.onQuestTried(q);
+            this._emit();
+          }
+        } catch (_) {}
+      }
     }
     if (this.phase === 'done') return [];
 

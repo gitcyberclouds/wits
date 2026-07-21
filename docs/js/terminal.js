@@ -184,7 +184,9 @@ export class Terminal {
   }
 
   // Programmatically run a command with a typewriter effect (tutorial helper).
-  typeAndRun(cmd, { speed = 34 } = {}) {
+  // `pause` is a beat after the command finishes typing, before it runs, so the
+  // reader can register the command before the output appears.
+  typeAndRun(cmd, { speed = 34, pause = 340 } = {}) {
     return new Promise((resolve) => {
       this.locked = true;
       this.line.innerHTML = '';
@@ -201,11 +203,14 @@ export class Terminal {
         if (i < cmd.length) { i++; setTimeout(tick, speed); }
         else {
           rowPromptOnly.innerHTML = `${this.promptHtml()}<span class="term-typed">${escapeHtml(cmd)}</span>`;
-          this.locked = false;
           if (cmd.trim() !== '') this.history.push(cmd);
           this.histIdx = -1;
-          if (this.onSubmit) this.onSubmit(cmd);
-          resolve();
+          // Beat to let the command register, then run it.
+          setTimeout(() => {
+            this.locked = false;
+            if (this.onSubmit) this.onSubmit(cmd);
+            resolve();
+          }, pause);
         }
       };
       setTimeout(tick, 180);

@@ -47,6 +47,7 @@ class App {
     this.incident.onChange = () => this.renderIncident();
     this.incident.onResolve = (issue) => this.onIssueResolved(issue);
     this.incident.onComplete = () => this.onIncidentComplete();
+    this.incident.onQuestTried = (q) => this.onQuestTried(q);
 
     this.viewSetWorld(this.live);
     this.map.start();
@@ -327,6 +328,7 @@ class App {
       <div class="health"><div class="health-bar"><span style="width:${(resolved / total) * 100}%"></span></div>
         <span class="health-n">${resolved} / ${total} resolved</span></div>
       <div class="issues">${rows}</div>
+      ${this.toolkitHtml()}
       ${done ? `<div class="tut-actions"><button class="btn btn-primary" data-freeplay>Explore freely →</button><button class="btn" data-replay>Replay incident</button></div>` : ''}`;
 
     panel.querySelectorAll('[data-cmd]').forEach((b) =>
@@ -335,6 +337,28 @@ class App {
     if (fp) fp.addEventListener('click', () => { this.incident.stop(); this.term.focus(); });
     const rp = panel.querySelector('[data-replay]');
     if (rp) rp.addEventListener('click', () => this.resetScenario());
+  }
+
+  // The "Explore witr" toolkit — visible throughout the incident so the tool's
+  // breadth (every output mode) is front and centre, not hidden until the end.
+  toolkitHtml() {
+    const quests = this.incident.sideQuests();
+    if (!quests.length) return '';
+    const rows = quests.map((q) => {
+      const on = this.incident.tried.has(q.id);
+      return `<button class="tk-row${on ? ' done' : ''}" data-cmd="${escapeAttr(q.cmd)}" title="${escapeAttr(q.cmd)}">` +
+        `<span class="tk-ic">${on ? '✓' : '○'}</span>` +
+        `<span class="tk-cmd"><code>${escapeHtml(q.cmd)}</code></span>` +
+        `<span class="tk-label">${q.label}</span></button>`;
+    }).join('');
+    return `<div class="toolkit">
+      <div class="tk-head"><span>Explore witr’s modes</span><span class="tk-count">${this.incident.tried.size} / ${quests.length}</span></div>
+      <div class="tk-list">${rows}</div>
+    </div>`;
+  }
+
+  onQuestTried(q) {
+    if (q && q.note) this.term.printHtml(`<div class="learned"><span class="learned-badge">witr</span> ${q.note}</div>`);
   }
 
   welcome() {

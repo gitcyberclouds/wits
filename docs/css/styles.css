@@ -326,6 +326,23 @@ code { font-family: var(--mono); }
 .sq.done { border-color: color-mix(in srgb, var(--accent) 40%, transparent); opacity: 0.85; }
 .sq.done .sq-ic, .sq.done code { color: var(--accent); }
 
+/* ---- toolkit (explore witr's modes, shown throughout the incident) ---- */
+.toolkit { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.tk-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+  color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+.tk-count { font-family: var(--mono); color: var(--accent-2); letter-spacing: 0; }
+.tk-list { display: flex; flex-direction: column; gap: 5px; }
+.tk-row { display: flex; align-items: center; gap: 9px; text-align: left; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text-dim); padding: 6px 10px; border-radius: 7px;
+  cursor: pointer; font-family: var(--sans); font-size: 12.5px; }
+.tk-row:hover { border-color: var(--accent-2); }
+.tk-ic { font-family: var(--mono); color: var(--text-faint); flex: 0 0 auto; }
+.tk-cmd { flex: 0 0 auto; }
+.tk-cmd code { font-family: var(--mono); color: var(--accent-2); font-size: 12px; }
+.tk-label { color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-row.done { border-color: color-mix(in srgb, var(--accent) 40%, transparent); opacity: 0.9; }
+.tk-row.done .tk-ic, .tk-row.done .tk-cmd code { color: var(--accent); }
+
 /* chips (mobile suggested commands) */
 .chips { display: none; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--panel); overflow-x: auto; flex: 0 0 auto; }
 .chip {
