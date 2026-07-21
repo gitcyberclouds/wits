@@ -254,7 +254,7 @@ class App {
       this.shell.wasmRun = runner;
       btn.classList.add('engine-real');
       label.textContent = '⚡ Real engine (WASM)';
-      this.term.printHtml('<div class="learned finale"><span class="learned-badge">⚡</span> Now running <b>witr’s actual Go engine</b> in your browser — the same resolve → analyze → render pipeline the CLI runs. System facts (systemd units, etc.) come from the scenario; everything else is real witr. Try <code>witr --pid 1201</code> to see live warnings.</div>');
+      this.term.printHtml('<div class="learned finale"><span class="learned-badge">⚡</span> Now running <b>witr’s actual Go engine</b> compiled to WebAssembly — the real resolve → analyze → render pipeline. It still reads the <b>simulated machine, not your computer</b> (a browser can’t see host processes): the <i>logic</i> is real witr, the process/port/lock <i>data</i> is the scenario’s. Try <code>witr --pid 1201</code> to see real warnings the simulation didn’t author.</div>');
     } catch (e) {
       label.textContent = 'Engine: Simulated';
       this.term.printHtml(`<div class="learned"><span class="learned-badge" style="color:var(--danger)">✗</span> Couldn’t load the WASM engine (${escapeHtml(e.message)}). Build it with <code>playground/scripts/build-wasm.sh</code>. Staying on the simulated engine.</div>`);
