@@ -3,9 +3,12 @@
 import { Shell } from './shell.js';
 import { Terminal } from './terminal.js';
 import { SystemMap } from './map.js';
+import { Tree } from './tree.js';
 import { Incident, INCIDENTS } from './tutorial.js';
 import { TUI } from './tui.js';
 import { parse, tokenize } from './parser.js';
+
+const VERSION_URL = 'https://raw.githubusercontent.com/pranshuparmar/witr/main/internal/version/VERSION';
 
 const WORLD_IDS = ['webbox', 'devbox'];
 const COMPLETIONS = ['witr', 'ls', 'cat', 'ps', 'kill', 'pwd', 'cd', 'whoami', 'hostname', 'uname', 'neofetch', 'clear', 'help', 'scenario'];
@@ -31,26 +34,78 @@ class App {
     this.shell = new Shell(this.live);
     this.term = new Terminal(document.getElementById('terminal'));
     this.map = new SystemMap(document.getElementById('map-canvas'), document.getElementById('map-labels'));
+    this.tree = new Tree(document.getElementById('tree-view'));
     this.incident = new Incident();
     this.tui = new TUI(document.getElementById('tui'));
 
     this.term.onSubmit = (line) => this.handle(line);
     this.term.completer = (v) => this.complete(v);
-    this.map.onSelect = (proc) => this.launchFromMap(proc);
+    this.map.onSelect = (proc) => this.launchFromPid(proc.pid);
+    this.tree.onSelect = (pid) => this.launchFromPid(pid);
     this.tui.onClose = () => this.term.focus();
 
     this.incident.onChange = () => this.renderIncident();
     this.incident.onResolve = (issue) => this.onIssueResolved(issue);
     this.incident.onComplete = () => this.onIncidentComplete();
 
-    this.map.setWorld(this.live);
+    this.viewSetWorld(this.live);
     this.map.start();
     window.addEventListener('resize', () => this.map.resize());
 
     this.wireChrome();
+    this.setupView();
+    this.setupResizer();
     this.applyWorld();
     this.enterScenario(true);
+    this.fetchVersion();
     this.term.focus();
+  }
+
+  // ---- process views (tree + constellation kept in sync) ----------------
+
+  viewSetWorld(w) { this.map.setWorld(w); this.tree.setWorld(w); }
+  viewHighlight(pids) { this.map.highlightPids(pids); this.tree.highlightPids(pids); }
+  viewClear() { this.map.clearHighlight(); this.tree.clearHighlight(); }
+  viewRemove(pid) { this.map.removeProcess(pid); this.tree.setWorld(this.currentWorld()); }
+
+  setupView() {
+    let v = 'tree';
+    try { v = localStorage.getItem('witr-view') || 'tree'; } catch (_) {}
+    document.querySelectorAll('.vt').forEach((b) => b.addEventListener('click', () => this.setView(b.dataset.view)));
+    this.setView(v);
+  }
+
+  setView(v) {
+    this.view = v === 'map' ? 'map' : 'tree';
+    document.getElementById('view-panel').classList.toggle('show-map', this.view === 'map');
+    document.querySelectorAll('.vt').forEach((b) => b.classList.toggle('active', b.dataset.view === this.view));
+    document.getElementById('view-hint').textContent = this.view === 'map' ? 'hover a node, click to inspect' : 'click a row to inspect it';
+    try { localStorage.setItem('witr-view', this.view); } catch (_) {}
+    if (this.view === 'map') requestAnimationFrame(() => this.map.resize());
+  }
+
+  setupResizer() {
+    const handle = document.getElementById('vsplit');
+    const col = document.querySelector('.right-col');
+    let dragging = false;
+    const move = (e) => {
+      if (!dragging) return;
+      const rect = col.getBoundingClientRect();
+      const cy = e.touches ? e.touches[0].clientY : e.clientY;
+      const pct = Math.max(18, Math.min(80, ((cy - rect.top) / rect.height) * 100));
+      col.style.setProperty('--incident-h', pct + '%');
+    };
+    const stop = () => { dragging = false; handle.classList.remove('dragging'); document.body.style.userSelect = ''; };
+    handle.addEventListener('pointerdown', (e) => { dragging = true; handle.classList.add('dragging'); document.body.style.userSelect = 'none'; e.preventDefault(); });
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+  }
+
+  async fetchVersion() {
+    try {
+      const res = await fetch(VERSION_URL);
+      if (res.ok) { const v = (await res.text()).trim(); if (v) this.shell.setVersion('v' + v); }
+    } catch (_) { /* offline / file:// — keep the fallback */ }
   }
 
   // ---- scenario entry ---------------------------------------------------
@@ -112,6 +167,7 @@ class App {
     if (res.action === 'scenario') this.openScenario();
     if (res.action === 'killed' && res.killed) {
       for (const pid of res.killed) this.map.removeProcess(pid);
+      this.tree.setWorld(this.currentWorld());
       this.refreshHostChip();
     }
 
@@ -154,16 +210,17 @@ class App {
       }
       if (pid) {
         const proc = eng.procByPid.get(pid);
-        if (proc) { this.map.highlightPids(eng.ancestryOf(proc).map((p) => p.pid)); return; }
+        if (proc) { this.viewHighlight(eng.ancestryOf(proc).map((p) => p.pid)); return; }
       }
     }
-    this.map.clearHighlight();
+    this.viewClear();
   }
 
-  launchFromMap(proc) {
+  launchFromPid(pid) {
     if (this.tui.open || this.term.locked) return;
+    if (!this.shell.engine.procByPid.has(pid)) return;
     this.term.focus();
-    this.term.typeAndRun(`witr --pid ${proc.pid}`);
+    this.term.typeAndRun(`witr --pid ${pid}`);
   }
 
   // ---- lock auto-resolve ------------------------------------------------
@@ -187,6 +244,7 @@ class App {
         w.locks = (w.locks || []).filter((l) => !remove.has(l.pid));
         this.shell.engine.reindex();
         for (const pid of remove) this.map.removeProcess(pid);
+        this.tree.setWorld(w);
         this.refreshHostChip();
         this.incident.observe({ targets: [], flags: {}, world: w });
       }, cfg.delayMs);
@@ -316,6 +374,7 @@ class App {
 
   wireChrome() {
     this.setupTheme();
+    document.getElementById('btn-tui').addEventListener('click', () => this.openTui());
     document.getElementById('btn-tutorial').addEventListener('click', () => {
       if (this.incident.active) this.incident.stop();
       else this.resetScenario();
@@ -341,6 +400,7 @@ class App {
     try { saved = localStorage.getItem('witr-theme'); } catch (_) {}
     if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
     this.updateThemeIcon();
+    this.map.applyTheme(this.effectiveTheme());
     document.getElementById('btn-theme').addEventListener('click', () => this.toggleTheme());
   }
 
@@ -355,10 +415,17 @@ class App {
     document.documentElement.setAttribute('data-theme', next);
     try { localStorage.setItem('witr-theme', next); } catch (_) {}
     this.updateThemeIcon();
+    this.map.applyTheme(next);
   }
 
   updateThemeIcon() {
     document.getElementById('btn-theme').textContent = this.effectiveTheme() === 'dark' ? '🌙' : '☀️';
+  }
+
+  openTui() {
+    this.tui.show(this.currentWorld(), this.shell.engine);
+    this.incident.observe({ targets: [], flags: {}, action: 'tui', world: this.currentWorld() });
+    if (this.incident.phase === 'done') this.refreshQuests();
   }
 
   openScenario() { document.getElementById('scenario-modal').classList.add('open'); }
@@ -369,7 +436,7 @@ class App {
     this._autoTimers = {};
     this.live = cloneWorld(this.pristine[this.worldId]);
     this.shell.setWorld(this.live);
-    this.map.setWorld(this.live);
+    this.viewSetWorld(this.live);
     this.map.resize();
     this.term.clear();
     this.applyWorld();

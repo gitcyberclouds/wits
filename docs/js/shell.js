@@ -8,7 +8,8 @@ import { Engine, EXIT } from './engine.js';
 import { ESC } from './ansi.js';
 import { tokenize, parse } from './parser.js';
 
-const WITR_VERSION = 'v1.4.0';
+// Fallback until app.js fetches the real value from internal/version/VERSION.
+const WITR_VERSION_FALLBACK = 'v0.3.3';
 
 const HELP = `Available commands in this playground:
 
@@ -58,9 +59,12 @@ Positional arguments are treated as process or service names (substring match).`
 
 export class Shell {
   constructor(world) {
+    this.version = WITR_VERSION_FALLBACK;
     this.setWorld(world);
     this.cwd = `/home/${world.promptUser}`;
   }
+
+  setVersion(v) { if (v) this.version = v; }
 
   setWorld(world) {
     this.world = world;
@@ -156,7 +160,7 @@ export class Shell {
   witr(args) {
     const { targets, flags, errors } = parse(args);
     if (flags.help) return { output: WITR_HELP + '\n', exit: 0 };
-    if (flags.version) return { output: `witr ${WITR_VERSION}\n`, exit: 0 };
+    if (flags.version) return { output: `witr ${this.version}\n`, exit: 0 };
     if (errors.length > 0) {
       return { output: errors.map((e) => `Error: ${e}`).join('\n') + '\n', exit: EXIT.INVALID_INPUT };
     }

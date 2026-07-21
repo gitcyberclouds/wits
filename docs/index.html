@@ -26,10 +26,11 @@
     </div>
     <nav class="top-actions">
       <button id="btn-theme" class="btn btn-ghost btn-icon" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
+      <button id="btn-tui" class="btn btn-ghost" title="Open the live TUI dashboard (or type witr)">⊞ Dashboard</button>
       <button id="btn-tutorial" class="btn btn-ghost" title="Toggle the guided tutorial">Tutorial</button>
       <button id="btn-scenario" class="btn btn-ghost" title="Switch the machine">Scenario</button>
       <button id="btn-reset" class="btn btn-ghost" title="Clear the screen">Reset</button>
-      <a class="btn btn-ghost" href="https://github.com/pranshuparmar/witr" target="_blank" rel="noopener">GitHub ↗</a>
+      <a class="btn btn-star" href="https://github.com/pranshuparmar/witr" target="_blank" rel="noopener" title="Star witr on GitHub">★ Star</a>
     </nav>
   </header>
 
@@ -44,21 +45,30 @@
       <div id="chips" class="chips"></div>
     </div>
 
-    <div id="tutorial" class="tutorial-panel area-incident"></div>
+    <div class="right-col">
+      <div id="tutorial" class="tutorial-panel"></div>
+      <div id="vsplit" class="vsplit" title="Drag to resize"><span class="vsplit-grip"></span></div>
 
-    <div class="map-wrap area-map">
-      <div class="map-head">
-        <span class="map-title">process constellation</span>
-        <span class="map-sub">every process is a node · hover to read one, click to inspect it</span>
-      </div>
-      <canvas id="map-canvas"></canvas>
-      <div id="map-labels" class="map-labels"></div>
-      <div class="map-legend">
-        <span><i class="lg lg-root"></i> pid 1</span>
-        <span><i class="lg lg-listener"></i> listener</span>
-        <span><i class="lg lg-proc"></i> process</span>
-        <span><i class="lg lg-warn"></i> warning</span>
-        <span><i class="lg lg-hl"></i> active chain</span>
+      <div class="view-panel" id="view-panel">
+        <div class="view-head">
+          <span class="view-title">processes · <span id="view-hint">click a row to inspect it</span></span>
+          <div class="view-toggle" role="group" aria-label="View">
+            <button class="vt active" data-view="tree" title="Readable, scrollable tree">Tree</button>
+            <button class="vt" data-view="map" title="3D constellation">Constellation</button>
+          </div>
+        </div>
+        <div id="tree-view" class="tree-view"></div>
+        <div class="map-wrap">
+          <canvas id="map-canvas"></canvas>
+          <div id="map-labels" class="map-labels"></div>
+          <div class="map-legend">
+            <span><i class="lg lg-root"></i> pid 1</span>
+            <span><i class="lg lg-listener"></i> listener</span>
+            <span><i class="lg lg-proc"></i> process</span>
+            <span><i class="lg lg-warn"></i> warning</span>
+            <span><i class="lg lg-hl"></i> active chain</span>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -76,7 +86,7 @@
         </button>
         <button class="scenario-card" data-scenario="devbox">
           <span class="sc-name">Developer laptop</span>
-          <span class="sc-host">maya@devbox · Arch Linux</span>
+          <span class="sc-host">pranshu@devbox · Arch Linux</span>
           <span class="sc-desc">VS Code, a Vite dev server, a docker-compose stack, a zombie, a runaway ffmpeg and a git lock nobody released.</span>
           <span class="sc-tag">sandbox</span>
         </button>

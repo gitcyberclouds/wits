@@ -7,16 +7,19 @@
 
 import * as THREE from '../vendor/three.module.min.js';
 
-const COLORS = {
-  base: 0x2b3a4a,
-  edge: 0x243445,
-  proc: 0x5fb0d8,
-  listener: 0x6cc58f,
-  container: 0xc58fd8,
-  root: 0xd8d2c0,
-  warn: 0xd8a24a,
-  highlight: 0x8ce0a2,
-  highlightEdge: 0x6cc58f,
+// Two palettes so the constellation follows the page theme. Highlight stays
+// green in both (reads on light and dark).
+const PALETTES = {
+  dark: {
+    base: 0x2b3a4a, edge: 0x243445, proc: 0x5fb0d8, listener: 0x6cc58f,
+    container: 0xc58fd8, root: 0xd8d2c0, warn: 0xd8a24a, star: 0x3a4c60,
+    highlight: 0x8ce0a2, highlightEdge: 0x6cc58f, haloOpacity: 0.45,
+  },
+  light: {
+    base: 0xaab8c6, edge: 0xc2cfdb, proc: 0x2f7fb0, listener: 0x2f9e63,
+    container: 0x8a52c0, root: 0x9a8a63, warn: 0xc07a1a, star: 0xcdd8e3,
+    highlight: 0x2f9e63, highlightEdge: 0x2f9e63, haloOpacity: 0.28,
+  },
 };
 
 export class SystemMap {
@@ -29,6 +32,8 @@ export class SystemMap {
     this.hovered = null;
     this.highlightSet = new Set();
     this.reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.theme = 'dark';
+    this.pal = PALETTES.dark;
 
     this.TARGET = 130; // constellation is normalised to this radius
 
@@ -94,9 +99,26 @@ export class SystemMap {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x3a4c60, size: 1.7, transparent: true, opacity: 0.7 }));
+    const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: this.pal.star, size: 1.7, transparent: true, opacity: 0.7 }));
     this.scene.add(stars);
     this._stars = stars;
+  }
+
+  // Repaint the constellation for the given page theme ('light' | 'dark').
+  applyTheme(theme) {
+    this.theme = theme === 'light' ? 'light' : 'dark';
+    this.pal = PALETTES[this.theme];
+    if (this._stars) this._stars.material.color.setHex(this.pal.star);
+    if (this.edges) this.edges.material.color.setHex(this.pal.edge);
+    if (this.hlEdges) this.hlEdges.material.color.setHex(this.pal.highlightEdge);
+    for (const n of this.nodes) {
+      let color = this.pal.proc;
+      if (n.isRoot) color = this.pal.root;
+      else if (n.hasWarn) color = this.pal.warn;
+      else if (n.isListener) color = this.pal.listener;
+      n.color = color;
+    }
+    this._applyStyles();
   }
 
   // ---- build the graph from a world -------------------------------------
@@ -167,10 +189,10 @@ export class SystemMap {
       const isRoot = d === 0;
       const isListener = (p.sockets || []).some((s) => s.state === 'LISTEN');
       const hasWarn = (p.warnings || []).length > 0 || (p.health && p.health !== 'healthy');
-      let color = COLORS.proc;
-      if (isRoot) color = COLORS.root;
-      else if (hasWarn) color = COLORS.warn;
-      else if (isListener) color = COLORS.listener;
+      let color = this.pal.proc;
+      if (isRoot) color = this.pal.root;
+      else if (hasWarn) color = this.pal.warn;
+      else if (isListener) color = this.pal.listener;
 
       const mat = new THREE.MeshBasicMaterial({ color });
       const mesh = new THREE.Mesh(nodeGeo, mat);
@@ -203,11 +225,11 @@ export class SystemMap {
       if (parent && self) { edgePts.push(parent.pos.clone(), self.pos.clone()); }
     }
     const edgeGeo = new THREE.BufferGeometry().setFromPoints(edgePts);
-    this.edges = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: COLORS.edge, transparent: true, opacity: 0.55 }));
+    this.edges = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: this.pal.edge, transparent: true, opacity: 0.55 }));
     this.group.add(this.edges);
 
     // Highlighted-chain edge overlay (empty initially).
-    this.hlEdges = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: COLORS.highlightEdge, transparent: true, opacity: 0.95 }));
+    this.hlEdges = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: this.pal.highlightEdge, transparent: true, opacity: 0.95 }));
     this.group.add(this.hlEdges);
 
     this.group.position.set(0, 0, 0);
@@ -304,18 +326,18 @@ export class SystemMap {
       if (!has) {
         n.mat.color.setHex(n.color);
         n.mesh.scale.setScalar(1);
-        n.halo.material.opacity = 0.45;
+        n.halo.material.opacity = this.pal.haloOpacity;
         n.halo.material.color.setHex(n.color);
       } else if (on) {
-        n.mat.color.setHex(COLORS.highlight);
+        n.mat.color.setHex(this.pal.highlight);
         n.mesh.scale.setScalar(1.5);
         n.halo.material.opacity = 0.9;
-        n.halo.material.color.setHex(COLORS.highlight);
+        n.halo.material.color.setHex(this.pal.highlight);
       } else {
-        n.mat.color.setHex(COLORS.base);
+        n.mat.color.setHex(this.pal.base);
         n.mesh.scale.setScalar(0.8);
         n.halo.material.opacity = 0.08;
-        n.halo.material.color.setHex(COLORS.base);
+        n.halo.material.color.setHex(this.pal.base);
       }
     }
     if (this.edges) this.edges.material.opacity = has ? 0.18 : 0.55;

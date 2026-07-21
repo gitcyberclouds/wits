@@ -62,18 +62,18 @@ export const INCIDENTS = {
 
   devbox: {
     coldOpen: [
-      { type: 'line', html: '<span class="co-prompt">maya@devbox</span><span class="co-sep">:</span><span class="co-dir">~/projects/shop</span><span class="co-sep">$</span> git commit -m "wip"', delay: 500 },
+      { type: 'line', html: '<span class="co-prompt">pranshu@devbox</span><span class="co-sep">:</span><span class="co-dir">~/projects/shop</span><span class="co-sep">$</span> git commit -m "wip"', delay: 500 },
       { type: 'line', html: '<span class="a-red">fatal: Unable to create \'.git/index.lock\': File exists.</span>', delay: 550 },
       { type: 'line', html: '<span class="a-dim">  Another git process seems to be running in this repository.</span>', delay: 1100 },
       { type: 'note', html: 'A stale lock — but which process? <b>witr</b> resolves the file to its owner:', delay: 900 },
-      { type: 'run', cmd: 'witr --file /home/maya/projects/shop/.git/index.lock', delay: 400 },
+      { type: 'run', cmd: 'witr --file /home/pranshu/projects/shop/.git/index.lock', delay: 400 },
     ],
     briefing: "This laptop is a mess. Three things need cleaning up on <b>devbox</b> — a stuck git lock, a zombie, and something eating the CPU. Trace each with witr and sort it out.",
     issues: [
       {
         id: 'gitlock', severity: 'high', title: 'git index.lock blocking every commit',
         blurb: "A crashed <code>git commit</code> (pid 7300) is still holding <code>.git/index.lock</code>, so every new git command fails with “File exists”. Release it.",
-        find: 'witr --file /home/maya/projects/shop/.git/index.lock', fixHint: 'kill 7300',
+        find: 'witr --file /home/pranshu/projects/shop/.git/index.lock', fixHint: 'kill 7300',
         touched: (ts) => targetsPid(7300)(ts) || ts.some((t) => t.type === 'file' && t.value.includes('index.lock')),
         resolved: gone(7300), done: 'Lock released — git works again.',
       },

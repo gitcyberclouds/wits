@@ -116,6 +116,8 @@ code { font-family: var(--mono); }
 .btn-primary:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 .btn-primary code { color: var(--accent); }
 .btn-icon { padding: 7px 10px; font-size: 15px; line-height: 1; }
+.btn-star { color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); background: transparent; }
+.btn-star:hover { background: color-mix(in srgb, var(--warn) 14%, transparent); border-color: var(--warn); color: var(--warn); }
 /* Active (tutorial running) — clearly distinct from the resting ghost button. */
 .btn.active {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -126,21 +128,30 @@ code { font-family: var(--mono); }
 
 /* ---- layout ----
    The terminal (the "box") owns the whole left column, full height, always.
-   The right column stacks the incident tracker over the constellation. */
+   The right column stacks the incident tracker, a drag handle, and the process
+   view (tree or constellation). */
 .layout {
   flex: 1 1 auto; min-height: 0;
   display: grid; gap: 16px; padding: 16px;
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
-  grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  grid-template-areas: "term incident" "term map";
+  grid-template-rows: 1fr;
 }
-.area-term { grid-area: term; }
-.area-incident { grid-area: incident; }
-.area-map { grid-area: map; }
-/* When there's no incident (free play), the constellation takes the whole
-   right column. */
-.layout.no-incident { grid-template-areas: "term map" "term map"; }
-.layout.no-incident .area-incident { display: none; }
+.area-term { min-height: 0; min-width: 0; }
+.right-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.tutorial-panel { flex: 0 0 var(--incident-h, 54%); }
+.view-panel { flex: 1 1 auto; min-height: 120px; }
+.vsplit { flex: 0 0 auto; }
+/* Free play: no incident tracker or handle — the view takes the whole column. */
+.layout.no-incident #tutorial,
+.layout.no-incident #vsplit { display: none; }
+
+/* ---- resize handle ---- */
+.vsplit {
+  height: 12px; margin: 3px 0; cursor: row-resize; display: flex;
+  align-items: center; justify-content: center;
+}
+.vsplit-grip { width: 46px; height: 4px; border-radius: 3px; background: var(--line-2); transition: background .15s; }
+.vsplit:hover .vsplit-grip, .vsplit.dragging .vsplit-grip { background: var(--accent-2); }
 
 /* ---- incident / tutorial panel ---- */
 .tutorial-panel {
@@ -327,16 +338,68 @@ code { font-family: var(--mono); }
 /* ---- system map ---- */
 /* The constellation always uses a dark surface — it reads best on space-black,
    independent of the page's light/dark theme. */
+/* ---- view panel (tree | constellation) ---- */
+.view-panel {
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+}
+.view-head {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2);
+}
+.view-title { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.4px; color: var(--text-dim); }
+#view-hint { color: var(--text-faint); }
+.view-toggle { display: inline-flex; border: 1px solid var(--line-2); border-radius: 7px; overflow: hidden; flex: 0 0 auto; }
+.vt { border: none; background: transparent; color: var(--text-dim); padding: 4px 11px; font-size: 12px; cursor: pointer; font-family: var(--sans); }
+.vt.active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+
+/* tree view (default) */
+#tree-view { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 6px 0; font-family: var(--mono); font-size: 12.5px; }
+.tree-empty { color: var(--text-faint); padding: 20px; }
+.tree-row {
+  display: grid; grid-template-columns: 1fr 58px 84px; align-items: center; gap: 8px;
+  padding: 2px 12px; cursor: pointer; white-space: nowrap; color: var(--text-dim);
+}
+.tree-row:hover { background: color-mix(in srgb, var(--accent-2) 12%, transparent); }
+.tree-row .tr-name { overflow: hidden; text-overflow: ellipsis; }
+.tr-guide { color: var(--text-faint); opacity: 0.6; }
+.tr-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: middle; background: var(--a-blue); }
+.k-root .tr-dot { background: var(--text-faint); }
+.k-listener .tr-dot { background: var(--accent); }
+.k-warn .tr-dot { background: var(--warn); }
+.k-warn .tr-name { color: var(--warn); }
+.tr-pid { color: var(--text-faint); text-align: right; }
+.tr-user { color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; }
+.tr-tag { color: var(--warn); }
+/* dim everything but the active chain during a query */
+#tree-view.has-hl .tree-row { opacity: 0.35; }
+#tree-view.has-hl .tree-row.on-chain { opacity: 1; }
+.tree-row.on-chain {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-left: 2px solid var(--accent); padding-left: 10px;
+}
+.tree-row.on-chain .tr-name { color: var(--text); font-weight: 600; }
+
+/* constellation (opt-in) */
 .map-wrap {
-  height: 100%; position: relative; border: 1px solid #1b2735; border-radius: var(--radius);
-  overflow: hidden; background:
+  flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; display: none;
+  background:
     radial-gradient(680px 480px at 68% 26%, #16283733 0%, transparent 70%),
     radial-gradient(900px 700px at 30% 100%, #10202b 0%, transparent 60%),
     #070b11;
 }
-.map-head { position: absolute; top: 14px; left: 16px; right: 16px; z-index: 3; pointer-events: none; }
-.map-title { font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: #56d4dd; }
-.map-sub { display: block; font-size: 12px; color: #6d7d8f; margin-top: 3px; }
+.view-panel.show-map #tree-view { display: none; }
+.view-panel.show-map .map-wrap { display: block; }
+:root[data-theme="light"] .map-wrap {
+  background: radial-gradient(680px 480px at 68% 26%, #dbe6f0 0%, transparent 70%),
+    radial-gradient(900px 700px at 30% 100%, #e9eef4 0%, transparent 60%), #eef3f8;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .map-wrap {
+    background: radial-gradient(680px 480px at 68% 26%, #dbe6f0 0%, transparent 70%),
+      radial-gradient(900px 700px at 30% 100%, #e9eef4 0%, transparent 60%), #eef3f8;
+  }
+}
 #map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .map-labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
 /* Every node is labelled so processes are identifiable, not guesswork. Resting
@@ -356,6 +419,10 @@ code { font-family: var(--mono); }
 .map-label-hl { color: #07120a; background: #7ee787; border-color: #7ee787; font-weight: 600; font-size: 11px; opacity: 1; z-index: 4; }
 .map-label-warn { color: #e3b341; border-color: rgba(227,179,65,0.45); }
 .map-label-faded { opacity: 0.16; }
+:root[data-theme="light"] .map-label { color: #2a3644; background: rgba(255,255,255,0.86); border-color: #c6d2de; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .map-label { color: #2a3644; background: rgba(255,255,255,0.86); border-color: #c6d2de; }
+}
 .map-legend {
   position: absolute; bottom: 12px; left: 16px; z-index: 3; display: flex; gap: 14px; flex-wrap: wrap;
   font-size: 11.5px; color: #7d8b9c; pointer-events: none;
@@ -436,17 +503,15 @@ code { font-family: var(--mono); }
 @keyframes pulse { 50% { opacity: 0.35; } }
 
 /* ---- responsive ---- */
-/* Medium and below: single column. Incident on top, terminal below, the map
-   (3D, least useful on small screens) hidden; the command chips appear. */
+/* Medium and below: single column. Incident on top, terminal below; the process
+   view (tree/constellation, least useful on a phone) and resize handle hide; the
+   command chips appear. */
 @media (max-width: 980px) {
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, auto) minmax(0, 1fr);
-    grid-template-areas: "incident" "term";
-  }
-  .layout.no-incident { grid-template-columns: 1fr; grid-template-rows: 1fr; grid-template-areas: "term"; }
-  .area-map { display: none; }
-  .tutorial-panel { max-height: 44vh; }
+  .layout { display: flex; flex-direction: column; }
+  .area-term { order: 2; flex: 1 1 auto; min-height: 42vh; }
+  .right-col { order: 1; flex: 0 0 auto; }
+  .right-col .view-panel, #vsplit { display: none; }
+  .tutorial-panel { flex: 0 0 auto; height: auto; max-height: 46vh; }
   .chips { display: flex; }
 }
 @media (max-width: 720px) {
