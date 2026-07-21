@@ -54,8 +54,15 @@ export class SystemMap {
     this._haloTexture = makeHaloTexture();
 
     canvas.addEventListener('pointermove', (e) => this._onPointerMove(e));
-    canvas.addEventListener('pointerleave', () => { this.pointer.set(-2, -2); });
+    canvas.addEventListener('pointerleave', () => { this.pointer.set(-2, -2); this.hovered = null; });
     canvas.addEventListener('click', (e) => this._onClick(e));
+
+    // Re-fit whenever the canvas box changes size (layout switches, free play,
+    // window resize) — the map lives in a grid cell that grows and shrinks.
+    if (window.ResizeObserver) {
+      this._ro = new ResizeObserver(() => this.resize());
+      this._ro.observe(canvas);
+    }
 
     this._animate = this._animate.bind(this);
   }
@@ -368,16 +375,20 @@ export class SystemMap {
     const v = new THREE.Vector3();
     const hasHl = this.highlightSet.size > 0;
     for (const n of this.nodes) {
-      const show = hasHl ? this.highlightSet.has(n.pid) : (n.isListener || n.isRoot || n.hasWarn || n === this.hovered) || n === this.hovered;
-      if (!show) { n.label.style.display = 'none'; continue; }
+      const onChain = hasHl && this.highlightSet.has(n.pid);
+      const hovered = n === this.hovered;
+      // At rest every node is labelled (so processes are identifiable). During a
+      // query only the active chain stays labelled — hover reveals the rest.
+      const hide = (hasHl && !onChain && !hovered);
       v.copy(n.pos).applyMatrix4(this.group.matrixWorld).project(this.camera);
-      if (v.z > 1) { n.label.style.display = 'none'; continue; }
+      if (hide || v.z > 1) { n.label.style.display = 'none'; continue; }
       const x = (v.x * 0.5 + 0.5) * rect.width;
       const y = (-v.y * 0.5 + 0.5) * rect.height;
       n.label.style.display = 'block';
-      n.label.style.transform = `translate(-50%, -140%) translate(${x}px, ${y}px)`;
-      n.label.classList.toggle('map-label-hl', hasHl && this.highlightSet.has(n.pid));
-      n.label.classList.toggle('map-label-warn', !hasHl && n.hasWarn);
+      n.label.style.transform = `translate(-50%, -150%) translate(${x}px, ${y}px)`;
+      n.label.classList.toggle('map-label-hl', onChain);
+      n.label.classList.toggle('map-label-hover', hovered && !onChain);
+      n.label.classList.toggle('map-label-warn', !hasHl && !hovered && n.hasWarn);
     }
   }
 }

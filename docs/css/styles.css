@@ -30,25 +30,22 @@
   --a-dimyellow: #e3b341;
 }
 
+/* Light palette. Applied automatically when the OS prefers light AND the user
+   hasn't overridden with the theme toggle; the explicit selector below wins when
+   they have. */
 @media (prefers-color-scheme: light) {
-  :root {
-    --bg: #eef1f5;
-    --bg-2: #e6ebf1;
-    --panel: #ffffff;
-    --panel-2: #f4f7fa;
-    --line: #dce3ec;
-    --line-2: #cdd7e3;
-    --text: #1c2530;
-    --text-dim: #566473;
-    --text-faint: #8996a6;
-    --a-red: #c9403a;
-    --a-green: #1f7a3f;
-    --a-blue: #1f6feb;
-    --a-cyan: #0a8f9c;
-    --a-magenta: #8250df;
-    --a-dim: #6a7683;
-    --a-dimyellow: #9a6b00;
+  :root:not([data-theme]) {
+    --bg: #eef1f5; --bg-2: #e6ebf1; --panel: #ffffff; --panel-2: #f4f7fa;
+    --line: #dce3ec; --line-2: #cdd7e3; --text: #1c2530; --text-dim: #566473; --text-faint: #8996a6;
+    --a-red: #c9403a; --a-green: #1f7a3f; --a-blue: #1f6feb; --a-cyan: #0a8f9c;
+    --a-magenta: #8250df; --a-dim: #6a7683; --a-dimyellow: #9a6b00;
   }
+}
+:root[data-theme="light"] {
+  --bg: #eef1f5; --bg-2: #e6ebf1; --panel: #ffffff; --panel-2: #f4f7fa;
+  --line: #dce3ec; --line-2: #cdd7e3; --text: #1c2530; --text-dim: #566473; --text-faint: #8996a6;
+  --a-red: #c9403a; --a-green: #1f7a3f; --a-blue: #1f6feb; --a-cyan: #0a8f9c;
+  --a-magenta: #8250df; --a-dim: #6a7683; --a-dimyellow: #9a6b00;
 }
 
 * { box-sizing: border-box; }
@@ -63,8 +60,9 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+:root[data-theme="light"] body { background: radial-gradient(1200px 700px at 78% -10%, #dfeaf3 0%, var(--bg) 55%); }
 @media (prefers-color-scheme: light) {
-  body { background: radial-gradient(1200px 700px at 78% -10%, #dfeaf3 0%, var(--bg) 55%); }
+  :root:not([data-theme]) body { background: radial-gradient(1200px 700px at 78% -10%, #dfeaf3 0%, var(--bg) 55%); }
 }
 
 button { font-family: inherit; }
@@ -117,22 +115,39 @@ code { font-family: var(--mono); }
 }
 .btn-primary:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 .btn-primary code { color: var(--accent); }
+.btn-icon { padding: 7px 10px; font-size: 15px; line-height: 1; }
+/* Active (tutorial running) — clearly distinct from the resting ghost button. */
+.btn.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent); color: var(--accent);
+}
+.btn.active::before { content: '● '; font-size: 9px; vertical-align: middle; }
+.btn.active:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 
-/* ---- layout ---- */
+/* ---- layout ----
+   The terminal (the "box") owns the whole left column, full height, always.
+   The right column stacks the incident tracker over the constellation. */
 .layout {
   flex: 1 1 auto; min-height: 0;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
-  gap: 16px; padding: 16px;
+  display: grid; gap: 16px; padding: 16px;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-areas: "term incident" "term map";
 }
-.left { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
-.right { min-height: 0; min-width: 0; }
+.area-term { grid-area: term; }
+.area-incident { grid-area: incident; }
+.area-map { grid-area: map; }
+/* When there's no incident (free play), the constellation takes the whole
+   right column. */
+.layout.no-incident { grid-template-areas: "term map" "term map"; }
+.layout.no-incident .area-incident { display: none; }
 
-/* ---- tutorial panel ---- */
+/* ---- incident / tutorial panel ---- */
 .tutorial-panel {
-  flex: 0 0 auto;
+  min-height: 0; overflow-y: auto;
   border: 1px solid var(--line); border-radius: var(--radius);
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  padding: 16px 18px; position: relative; overflow: hidden;
+  padding: 16px 18px; position: relative;
 }
 .tutorial-panel.hidden { display: none; }
 .tut-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -324,14 +339,23 @@ code { font-family: var(--mono); }
 .map-sub { display: block; font-size: 12px; color: #6d7d8f; margin-top: 3px; }
 #map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .map-labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+/* Every node is labelled so processes are identifiable, not guesswork. Resting
+   labels are small and semi-transparent; hover and the active chain bring them
+   forward. */
 .map-label {
-  position: absolute; top: 0; left: 0; font-family: var(--mono); font-size: 11px;
-  color: #aeb9c7; background: rgba(9,14,20,0.82);
-  border: 1px solid #24323f; padding: 1px 6px; border-radius: 5px; white-space: nowrap;
-  transform: translate(-50%, -140%); will-change: transform;
+  position: absolute; top: 0; left: 0; font-family: var(--mono); font-size: 10px;
+  color: #9aa7b6; background: rgba(9,14,20,0.7);
+  border: 1px solid #1e2a36; padding: 0 5px; border-radius: 4px; white-space: nowrap;
+  transform: translate(-50%, -150%); will-change: transform, opacity;
+  opacity: 0.82; transition: opacity .15s;
 }
-.map-label-hl { color: #07120a; background: #7ee787; border-color: #7ee787; font-weight: 600; }
-.map-label-warn { color: #e3b341; border-color: rgba(227,179,65,0.4); }
+.map-label-hover {
+  color: #eef4fb; background: rgba(12,18,26,0.95); border-color: var(--accent-2);
+  font-size: 11.5px; z-index: 5; opacity: 1;
+}
+.map-label-hl { color: #07120a; background: #7ee787; border-color: #7ee787; font-weight: 600; font-size: 11px; opacity: 1; z-index: 4; }
+.map-label-warn { color: #e3b341; border-color: rgba(227,179,65,0.45); }
+.map-label-faded { opacity: 0.16; }
 .map-legend {
   position: absolute; bottom: 12px; left: 16px; z-index: 3; display: flex; gap: 14px; flex-wrap: wrap;
   font-size: 11.5px; color: #7d8b9c; pointer-events: none;
@@ -412,16 +436,24 @@ code { font-family: var(--mono); }
 @keyframes pulse { 50% { opacity: 0.35; } }
 
 /* ---- responsive ---- */
-@media (max-width: 1080px) {
-  .layout { grid-template-columns: 1fr; grid-template-rows: minmax(0,1fr) 260px; }
-  .right { min-height: 240px; }
+/* Medium and below: single column. Incident on top, terminal below, the map
+   (3D, least useful on small screens) hidden; the command chips appear. */
+@media (max-width: 980px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, auto) minmax(0, 1fr);
+    grid-template-areas: "incident" "term";
+  }
+  .layout.no-incident { grid-template-columns: 1fr; grid-template-rows: 1fr; grid-template-areas: "term"; }
+  .area-map { display: none; }
+  .tutorial-panel { max-height: 44vh; }
+  .chips { display: flex; }
 }
 @media (max-width: 720px) {
   .host-chip { display: none; }
-  .layout { grid-template-rows: 1fr; padding: 10px; gap: 10px; }
-  .right { display: none; }
-  .chips { display: flex; }
-  .top-actions .btn { padding: 6px 10px; font-size: 12px; }
+  .layout { padding: 10px; gap: 10px; }
+  .top-actions .btn { padding: 6px 9px; font-size: 12px; }
+  .top-actions .btn-icon { padding: 6px 8px; }
   .brand-tag { display: none; }
   .tut-title { font-size: 17px; }
   .tui-side { display: none; }

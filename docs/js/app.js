@@ -222,6 +222,10 @@ class App {
 
   renderIncident() {
     const panel = document.getElementById('tutorial');
+    // Give the map the whole right column when there's no incident, and mark the
+    // Tutorial button active while one is running.
+    document.querySelector('.layout').classList.toggle('no-incident', !this.incident.active);
+    document.getElementById('btn-tutorial').classList.toggle('active', this.incident.active);
     if (!this.incident.active) { panel.classList.add('hidden'); return; }
     panel.classList.remove('hidden');
 
@@ -311,6 +315,7 @@ class App {
   // ---- chrome -----------------------------------------------------------
 
   wireChrome() {
+    this.setupTheme();
     document.getElementById('btn-tutorial').addEventListener('click', () => {
       if (this.incident.active) this.incident.stop();
       else this.resetScenario();
@@ -327,6 +332,33 @@ class App {
       const chip = e.target.closest('[data-cmd]');
       if (chip && !this.term.locked) this.term.typeAndRun(chip.dataset.cmd);
     });
+  }
+
+  // ---- theme ------------------------------------------------------------
+
+  setupTheme() {
+    let saved = null;
+    try { saved = localStorage.getItem('witr-theme'); } catch (_) {}
+    if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+    this.updateThemeIcon();
+    document.getElementById('btn-theme').addEventListener('click', () => this.toggleTheme());
+  }
+
+  effectiveTheme() {
+    const attr = document.documentElement.getAttribute('data-theme');
+    if (attr) return attr;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  toggleTheme() {
+    const next = this.effectiveTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('witr-theme', next); } catch (_) {}
+    this.updateThemeIcon();
+  }
+
+  updateThemeIcon() {
+    document.getElementById('btn-theme').textContent = this.effectiveTheme() === 'dark' ? '🌙' : '☀️';
   }
 
   openScenario() { document.getElementById('scenario-modal').classList.add('open'); }

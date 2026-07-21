@@ -25,6 +25,7 @@
       <span class="sim-pill">simulated</span>
     </div>
     <nav class="top-actions">
+      <button id="btn-theme" class="btn btn-ghost btn-icon" title="Toggle light / dark theme" aria-label="Toggle theme">🌙</button>
       <button id="btn-tutorial" class="btn btn-ghost" title="Toggle the guided tutorial">Tutorial</button>
       <button id="btn-scenario" class="btn btn-ghost" title="Switch the machine">Scenario</button>
       <button id="btn-reset" class="btn btn-ghost" title="Clear the screen">Reset</button>
@@ -33,36 +34,33 @@
   </header>
 
   <main class="layout">
-    <section class="left">
-      <div id="tutorial" class="tutorial-panel"></div>
-      <div class="terminal-wrap">
-        <div class="term-titlebar">
-          <span class="tdots"><i></i><i></i><i></i></span>
-          <span class="term-title" id="term-title">deploy@webbox: ~</span>
-          <span class="term-flag">bash</span>
-        </div>
-        <div id="terminal" tabindex="0"></div>
-        <div id="chips" class="chips"></div>
+    <div class="terminal-wrap area-term">
+      <div class="term-titlebar">
+        <span class="tdots"><i></i><i></i><i></i></span>
+        <span class="term-title" id="term-title">deploy@webbox: ~</span>
+        <span class="term-flag">bash</span>
       </div>
-    </section>
+      <div id="terminal" tabindex="0"></div>
+      <div id="chips" class="chips"></div>
+    </div>
 
-    <aside class="right">
-      <div class="map-wrap">
-        <div class="map-head">
-          <span class="map-title">process constellation</span>
-          <span class="map-sub">the causal chain lights up as you query · click a node to inspect it</span>
-        </div>
-        <canvas id="map-canvas"></canvas>
-        <div id="map-labels" class="map-labels"></div>
-        <div class="map-legend">
-          <span><i class="lg lg-root"></i> pid 1</span>
-          <span><i class="lg lg-listener"></i> listener</span>
-          <span><i class="lg lg-proc"></i> process</span>
-          <span><i class="lg lg-warn"></i> warning</span>
-          <span><i class="lg lg-hl"></i> active chain</span>
-        </div>
+    <div id="tutorial" class="tutorial-panel area-incident"></div>
+
+    <div class="map-wrap area-map">
+      <div class="map-head">
+        <span class="map-title">process constellation</span>
+        <span class="map-sub">every process is a node · hover to read one, click to inspect it</span>
       </div>
-    </aside>
+      <canvas id="map-canvas"></canvas>
+      <div id="map-labels" class="map-labels"></div>
+      <div class="map-legend">
+        <span><i class="lg lg-root"></i> pid 1</span>
+        <span><i class="lg lg-listener"></i> listener</span>
+        <span><i class="lg lg-proc"></i> process</span>
+        <span><i class="lg lg-warn"></i> warning</span>
+        <span><i class="lg lg-hl"></i> active chain</span>
+      </div>
+    </div>
   </main>
 
   <div id="scenario-modal" class="modal" aria-hidden="true">
