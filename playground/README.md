@@ -29,6 +29,30 @@ lock is authored data; the terminal simulates witr, not a real shell.
 - **Interactive TUI.** `witr` with no arguments opens a live dashboard
   (Processes / Ports / Containers / Locks) with an ancestry side-panel — the
   same shape as witr's real bubbletea TUI.
+- **Two engines.** By default the playground runs a faithful JS reimplementation
+  of witr's output. Flip the **Engine** toggle in the header to load witr's
+  *actual* Go engine, compiled to WebAssembly, and run the real
+  resolve → analyze → render pipeline in the browser.
+
+## Two engines
+
+The playground can run witr two ways:
+
+1. **Simulated (JS)** — the default. `js/engine.js` faithfully reimplements
+   witr's output layer; verified byte-for-byte against golden fixtures.
+2. **Real (WASM)** — witr's genuine Go code compiled to `js/wasm`. The browser
+   becomes a fifth platform: `internal/proc/world_js.go` serves process/port/lock
+   data from the in-memory world instead of `/proc`, and
+   `internal/source/detect_js.go` supplies the systemd/launchd/bsd-rc unit
+   metadata that only a real host could introspect. **Everything else — ancestry
+   walking, container/SSH/shell/supervisor detection, warning generation, and all
+   output rendering — is witr's real code, running unchanged.** `cmd/witr-wasm`
+   is the entry point; it exposes `witrRun(worldJSON, nowMs, argv)` to JS.
+
+   The real engine is loaded lazily (~4 MB) only when you toggle it on, and it
+   produces genuinely different, more complete output than the simulation — real
+   "running as root" / "public interface" warnings, real supervisor detection,
+   real exit codes — because it *is* witr.
 
 ## Fidelity
 
@@ -60,7 +84,8 @@ playground/
   css/styles.css        terminal-first theme (dark + light)
   js/
     ansi.js             ANSI escape → HTML
-    engine.js           faithful witr output engine  ← fidelity-critical
+    engine.js           faithful witr output engine (JS)  ← fidelity-critical
+    wasm-engine.js      lazy loader for the real (WASM) engine
     parser.js           witr command-line parser
     shell.js            command routing + flavour commands
     terminal.js         dependency-free terminal widget
@@ -75,9 +100,33 @@ playground/
     gen/main.go         generator (build-tagged: `-tags fixtures`)
   scripts/
     check-fixtures.mjs  JS engine ⇄ golden fixture diff
+    check-wasm.mjs      WASM engine smoke test
+    build-wasm.sh       builds witr.wasm + vendors wasm_exec.js
+  wasm/                 built WASM engine (gitignored; produced by build-wasm.sh)
   vendor/
     three.module.min.js three.js r160 (vendored, MIT)
+    wasm_exec.js        Go's WASM glue (from GOROOT)
 ```
+
+The real engine's browser-specific Go lives in the main module:
+
+```
+cmd/witr-wasm/main.go            WASM entry point (//go:build js && wasm)
+internal/proc/world_js.go        process/port/lock data provider (from the world)
+internal/source/detect_js.go     systemd/launchd/bsd-rc metadata injection
+internal/target/resolve_js.go    name/port/file resolution
+```
+
+## Building the real engine
+
+```bash
+# from the repo root — produces playground/wasm/witr.wasm
+playground/scripts/build-wasm.sh
+node playground/scripts/check-wasm.mjs   # smoke test
+```
+
+The `.wasm` binary is gitignored; CI (and anyone running the playground with the
+real engine) builds it with the script above.
 
 ## Regenerating fixtures
 

@@ -132,13 +132,20 @@ export class Engine {
     if (!proc) return null;
     const ancestry = this.ancestryOf(proc);
     const children = this.childrenOf(pid);
+    const source = this.resolveSource(proc, ancestry);
+    // Restart count comes only from a systemd unit's NRestarts, mirroring
+    // pipeline.AnalyzePID — not an arbitrary per-process field.
+    let restartCount = 0;
+    if (source.type === 'systemd' && source.details && source.details.NRestarts) {
+      restartCount = parseInt(source.details.NRestarts, 10) || 0;
+    }
     return {
       target: proc,
       ancestry,
       children,
       process: proc,
-      source: this.resolveSource(proc, ancestry),
-      restartCount: proc.restartCount || 0,
+      source,
+      restartCount,
       warnings: proc.warnings || [],
     };
   }

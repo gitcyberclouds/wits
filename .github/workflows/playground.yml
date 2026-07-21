@@ -19,9 +19,11 @@ permissions:
   contents: read
 
 jobs:
-  # Fidelity guard: the browser engine must reproduce witr's real output
-  # byte-for-byte. Golden fixtures were generated from witr's own output package
-  # (playground/fixtures/gen); this replays the JS engine against them.
+  # Fidelity guard, two engines:
+  #  - the JS engine must reproduce witr's real output byte-for-byte (golden
+  #    fixtures were generated from witr's own output package, fixtures/gen);
+  #  - the WASM engine (witr compiled to js/wasm) must run and produce the
+  #    expected structure.
   fidelity:
     runs-on: ubuntu-latest
     steps:
@@ -29,8 +31,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Check engine fidelity against golden fixtures
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check JS engine against golden fixtures
         run: node playground/scripts/check-fixtures.mjs
+      - name: Build the WASM engine
+        run: bash playground/scripts/build-wasm.sh
+      - name: Smoke-test the WASM engine
+        run: node playground/scripts/check-wasm.mjs
 
   deploy:
     needs: fidelity
@@ -44,6 +53,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build the WASM engine into the artifact
+        run: bash playground/scripts/build-wasm.sh
       - uses: actions/configure-pages@v5
       - name: Upload playground as Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -259,12 +259,20 @@ func buildResult(w world, byPID map[int]proc, pid int, now time.Time, f fixture)
 	sort.Slice(kids, func(i, j int) bool { return kids[i].PID < kids[j].PID })
 
 	src := resolveSource(byPID, target)
+	// RestartCount comes only from a systemd unit's NRestarts, mirroring
+	// pipeline.AnalyzePID.
+	restart := 0
+	if src.Type == model.SourceSystemd {
+		if v, ok := src.Details["NRestarts"]; ok {
+			restart, _ = strconv.Atoi(v)
+		}
+	}
 	r := model.Result{
 		Process:      toModelProc(target, now),
 		Ancestry:     chain,
 		Children:     kids,
 		Source:       src,
-		RestartCount: target.RestartCount,
+		RestartCount: restart,
 		Warnings:     target.Warnings,
 	}
 	if len(target.LockedFiles) > 0 {

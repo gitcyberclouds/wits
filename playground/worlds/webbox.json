@@ -65,8 +65,7 @@
         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
         "PWD=/srv/expense-manager"
       ],
-      "restartCount": 3,
-      "source": { "type": "supervisor", "name": "pm2", "description": "Managed by PM2 (app: expense-manager, id 0)" } },
+      "source": { "type": "systemd", "name": "pm2-deploy.service", "unitFile": "/etc/systemd/system/pm2-deploy.service", "description": "PM2 process manager for user deploy (app: expense-manager)", "details": { "NRestarts": "3" } } },
     { "pid": 14290, "ppid": 40141, "command": "ngrok", "cmdline": "ngrok http 5000", "user": "deploy", "startedAgo": 3000,
       "forked": "forked", "workingDir": "/home/deploy",
       "sockets": [ { "address": "127.0.0.1", "port": 4040, "protocol": "TCP", "state": "LISTEN" } ],
