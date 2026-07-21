@@ -1,29 +1,25 @@
 name: Playground
 
-# Builds and deploys the interactive witr playground (playground/) to GitHub
-# Pages, and verifies the in-browser engine still matches the real witr output.
+# Fidelity guard for the interactive playground (docs/). The in-browser JS
+# engine must reproduce witr's real output byte-for-byte; golden fixtures were
+# generated from witr's own output package (docs/fixtures/gen). This replays the
+# engine against them on every change.
 #
-# To turn on deployment: repo Settings → Pages → Build and deployment →
-# Source: "GitHub Actions". The playground then publishes on every push to the
-# default branch.
+# Deployment is handled by GitHub Pages directly (Settings → Pages → Deploy from
+# a branch → main /docs), so there is no deploy job here.
 
 on:
   push:
     branches: [main]
-    paths: ['playground/**', '.github/workflows/playground.yml']
+    paths: ['docs/**', '.github/workflows/playground.yml']
   pull_request:
-    paths: ['playground/**', '.github/workflows/playground.yml']
+    paths: ['docs/**', '.github/workflows/playground.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  # Fidelity guard, two engines:
-  #  - the JS engine must reproduce witr's real output byte-for-byte (golden
-  #    fixtures were generated from witr's own output package, fixtures/gen);
-  #  - the WASM engine (witr compiled to js/wasm) must run and produce the
-  #    expected structure.
   fidelity:
     runs-on: ubuntu-latest
     steps:
@@ -31,38 +27,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Check JS engine against golden fixtures
-        run: node playground/scripts/check-fixtures.mjs
-      - name: Build the WASM engine
-        run: bash playground/scripts/build-wasm.sh
-      - name: Smoke-test the WASM engine
-        run: node playground/scripts/check-wasm.mjs
-
-  deploy:
-    needs: fidelity
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Build the WASM engine into the artifact
-        run: bash playground/scripts/build-wasm.sh
-      - uses: actions/configure-pages@v5
-      - name: Upload playground as Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: playground
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Check the engine against witr's golden fixtures
+        run: node docs/scripts/check-fixtures.mjs

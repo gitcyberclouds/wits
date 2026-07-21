@@ -57,9 +57,6 @@ Positional arguments are treated as process or service names (substring match).`
 
 export class Shell {
   constructor(world) {
-    // When set (real-engine mode), witr queries route to the WASM engine:
-    //   (worldJSON, nowMs, argv[]) -> { output, exit }
-    this.wasmRun = null;
     this.setWorld(world);
     this.cwd = `/home/${world.promptUser}`;
   }
@@ -113,15 +110,9 @@ export class Shell {
     if (errors.length > 0) {
       return { output: errors.map((e) => `Error: ${e}`).join('\n') + '\n', exit: EXIT.INVALID_INPUT };
     }
-    // No targets, or explicit -i → launch the TUI (JS only; the WASM engine has
-    // no TUI, so this stays on the interactive dashboard either way).
+    // No targets, or explicit -i → launch the TUI.
     if (targets.length === 0 || flags.interactive) {
       return { output: '', exit: 0, action: 'tui' };
-    }
-    // Real-engine mode: run the actual witr Go code (compiled to WASM).
-    if (this.wasmRun) {
-      const { output, exit } = this.wasmRun(JSON.stringify(this.world), Date.now(), args);
-      return { output, exit };
     }
     const { text, exit } = this.engine.run({ targets, flags });
     return { output: text, exit };

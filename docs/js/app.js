@@ -6,7 +6,6 @@ import { SystemMap } from './map.js';
 import { Tutorial, MISSIONS } from './tutorial.js';
 import { TUI } from './tui.js';
 import { parse, tokenize } from './parser.js';
-import { loadWasmEngine } from './wasm-engine.js';
 
 const WORLD_IDS = ['webbox', 'devbox'];
 const COMPLETIONS = ['witr', 'ls', 'cat', 'ps', 'pwd', 'cd', 'whoami', 'hostname', 'uname', 'neofetch', 'clear', 'help', 'scenario'];
@@ -208,7 +207,6 @@ class App {
   // ---- chrome: scenario switch, buttons, welcome ------------------------
 
   wireChrome() {
-    document.getElementById('btn-engine').addEventListener('click', () => this.toggleEngine());
     document.getElementById('btn-tutorial').addEventListener('click', () => {
       this.tutorial.active ? this.tutorial.stop() : this.tutorial.start();
       this.term.focus();
@@ -230,40 +228,6 @@ class App {
   }
 
   openScenario() { document.getElementById('scenario-modal').classList.add('open'); }
-
-  async toggleEngine() {
-    const btn = document.getElementById('btn-engine');
-    const label = document.getElementById('engine-label');
-    if (this.shell.wasmRun) {
-      // Real → Simulated.
-      this.shell.wasmRun = null;
-      btn.classList.remove('engine-real');
-      label.textContent = 'Engine: Simulated';
-      this.term.printHtml('<div class="learned"><span class="learned-badge">↩</span> Back to the <b>simulated</b> JS engine.</div>');
-      this.term.focus();
-      return;
-    }
-    // Simulated → Real (lazy-load the WASM module).
-    if (this._engineLoading) return;
-    this._engineLoading = true;
-    label.textContent = 'Loading real engine…';
-    btn.disabled = true;
-    this.term.printHtml('<div class="learned"><span class="learned-badge">⚡</span> Loading witr’s <b>real engine</b> compiled to WebAssembly (~4&nbsp;MB)…</div>');
-    try {
-      const runner = await loadWasmEngine();
-      this.shell.wasmRun = runner;
-      btn.classList.add('engine-real');
-      label.textContent = '⚡ Real engine (WASM)';
-      this.term.printHtml('<div class="learned finale"><span class="learned-badge">⚡</span> Now running <b>witr’s actual Go engine</b> compiled to WebAssembly — the real resolve → analyze → render pipeline. It still reads the <b>simulated machine, not your computer</b> (a browser can’t see host processes): the <i>logic</i> is real witr, the process/port/lock <i>data</i> is the scenario’s. Try <code>witr --pid 1201</code> to see real warnings the simulation didn’t author.</div>');
-    } catch (e) {
-      label.textContent = 'Engine: Simulated';
-      this.term.printHtml(`<div class="learned"><span class="learned-badge" style="color:var(--danger)">✗</span> Couldn’t load the WASM engine (${escapeHtml(e.message)}). Build it with <code>playground/scripts/build-wasm.sh</code>. Staying on the simulated engine.</div>`);
-    } finally {
-      btn.disabled = false;
-      this._engineLoading = false;
-      this.term.focus();
-    }
-  }
 
   switchWorld(id) {
     if (!this.worlds[id]) return;

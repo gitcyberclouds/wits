@@ -1,11 +1,11 @@
 // check-fixtures.mjs — verify the browser engine reproduces witr's real output.
 //
-// Fixtures under playground/fixtures/ are generated from witr's actual output
+// Fixtures under docs/fixtures/ are generated from witr's actual output
 // package (see fixtures/gen). This runs the JS engine over the same world with
 // the same pinned clock and asserts byte-for-byte equality — the guarantee that
 // the playground never lies about what `witr` prints.
 //
-//   node playground/scripts/check-fixtures.mjs
+//   node docs/scripts/check-fixtures.mjs
 //
 // Exit 0 on match, 1 on any drift.
 

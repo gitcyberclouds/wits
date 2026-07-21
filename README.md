@@ -11,7 +11,7 @@
 📖 Read the [story](https://medium.com/@pranshu.parmar/witr-why-is-this-running-a9a97cbedd18) behind witr
 
 ### 🎮 [**Try witr in your browser →**](https://pranshuparmar.github.io/witr/)
-*An interactive [playground & tutorial](playground/) — investigate a simulated Linux box, no install required.*
+*An interactive [playground & tutorial](docs/) — investigate a simulated Linux box, no install required.*
 
 <img width="1232" height="693" alt="witr_banner" src="https://github.com/user-attachments/assets/e9c19ef0-1391-4a5f-a015-f4003d3697a9" />
 

@@ -1,15 +1,15 @@
 //go:build fixtures
 
 // Command gen renders golden fixtures for the playground using witr's *real*
-// output package. The browser engine (playground/js/engine.js) must reproduce
+// output package. The browser engine (docs/js/engine.js) must reproduce
 // these byte-for-byte; scripts/check-fixtures.mjs enforces it.
 //
 // Run from the repo root:
 //
-//	go run -tags fixtures ./playground/fixtures/gen
+//	go run -tags fixtures ./docs/fixtures/gen
 //
-// It reads playground/worlds/webbox.json, builds model.Result values, renders
-// each fixture command, and writes playground/fixtures/*.txt plus _meta.json
+// It reads docs/worlds/webbox.json, builds model.Result values, renders
+// each fixture command, and writes docs/fixtures/*.txt plus _meta.json
 // (which pins the clock so the browser check is deterministic).
 package main
 
@@ -78,7 +78,7 @@ type fixture struct {
 func main() {
 	root := repoRoot()
 	var w world
-	readJSON(filepath.Join(root, "playground/worlds/webbox.json"), &w)
+	readJSON(filepath.Join(root, "docs/worlds/webbox.json"), &w)
 
 	now := time.Now().UTC()
 	byPID := map[int]proc{}
@@ -97,7 +97,7 @@ func main() {
 		{"postgres_port_verbose", "verbose", "port", "5432"},
 	}
 
-	outDir := filepath.Join(root, "playground/fixtures")
+	outDir := filepath.Join(root, "docs/fixtures")
 	meta := map[string]any{
 		"generatedAtMs": now.UnixMilli(),
 		"world":         "webbox",

@@ -37,6 +37,3 @@ result
 # Ignore build artifacts
 dist/
 pkg-dist/
-
-# Built WASM engine (produced by playground/scripts/build-wasm.sh / CI)
-playground/wasm/*.wasm
