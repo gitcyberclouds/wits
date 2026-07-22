@@ -43,6 +43,7 @@ class App {
     this.map.onSelect = (proc) => this.launchFromPid(proc.pid);
     this.tree.onSelect = (pid) => this.launchFromPid(pid);
     this.tui.onClose = () => this.term.focus();
+    this.tui.onKill = (pid) => this.killFromTui(pid);
 
     this.incident.onChange = () => this.renderIncident();
     this.incident.onResolve = (issue) => this.onIssueResolved(issue);
@@ -143,6 +144,12 @@ class App {
     this.term.printHtml(`<div class="co-brief"><span class="co-brief-tag">🚨 incident</span> ${def.briefing}</div>`);
     this.renderIncident();
     this.term.focus();
+    // The whole cold-open story is now on screen. Rewind to the top so the
+    // reader can take in the first witr answer from the beginning, at their own
+    // pace, instead of landing at the bottom of a tall scrollback. Do it after a
+    // beat (and once more) so it wins against the focus/print scroll-to-bottom.
+    this.term.scrollToTop();
+    setTimeout(() => this.term.scrollToTop(), 60);
   }
 
   skipColdOpen() { this._skipCold = true; }
@@ -163,7 +170,7 @@ class App {
 
     if (res.action === 'tui') {
       this.term.print(dimNote('opening interactive dashboard… (press q or Esc to return)'));
-      setTimeout(() => this.tui.show(this.currentWorld(), this.shell.engine), 260);
+      setTimeout(() => this.tui.show(this.currentWorld(), this.shell.engine, this.shell.version), 260);
     }
     if (res.action === 'scenario') this.openScenario();
     if (res.action === 'killed' && res.killed) {
@@ -281,10 +288,14 @@ class App {
 
   renderIncident() {
     const panel = document.getElementById('tutorial');
-    // Give the map the whole right column when there's no incident, and mark the
-    // Tutorial button active while one is running.
+    // Give the map the whole right column when there's no incident. The topbar
+    // button doubles as a mode indicator: highlighted "Tutorial" while one runs,
+    // an un-highlighted "Free play" invitation once you've stepped out.
     document.querySelector('.layout').classList.toggle('no-incident', !this.incident.active);
-    document.getElementById('btn-tutorial').classList.toggle('active', this.incident.active);
+    const btnT = document.getElementById('btn-tutorial');
+    btnT.classList.toggle('active', this.incident.active);
+    btnT.textContent = this.incident.active ? 'Tutorial' : 'Free play';
+    btnT.title = this.incident.active ? 'Exit the tutorial and explore freely' : 'Restart the guided tutorial';
     if (!this.incident.active) { panel.classList.add('hidden'); return; }
     panel.classList.remove('hidden');
 
@@ -309,7 +320,8 @@ class App {
       if (st === 'open') {
         action = `<button class="btn btn-sm" data-cmd="${escapeAttr(issue.find)}">Investigate</button>`;
       } else if (st === 'found' && issue.fixHint) {
-        action = `<button class="btn btn-sm btn-primary" data-cmd="${escapeAttr(issue.fixHint)}">Fix · <code>${escapeHtml(issue.fixHint)}</code></button>`;
+        const label = issue.fixLabel ? escapeHtml(issue.fixLabel) : `Fix · <code>${escapeHtml(issue.fixHint)}</code>`;
+        action = `<button class="btn btn-sm btn-primary" data-cmd="${escapeAttr(issue.fixHint)}">${label}</button>`;
       } else if (st === 'found') {
         action = `<span class="issue-wait">clearing on its own…</span>`;
       }
@@ -333,10 +345,22 @@ class App {
 
     panel.querySelectorAll('[data-cmd]').forEach((b) =>
       b.addEventListener('click', () => { if (!this.term.locked) this.term.typeAndRun(b.dataset.cmd); }));
-    const fp = panel.querySelector('[data-freeplay]');
-    if (fp) fp.addEventListener('click', () => { this.incident.stop(); this.term.focus(); });
+    panel.querySelectorAll('[data-freeplay]').forEach((b) =>
+      b.addEventListener('click', () => this.exitToFreePlay()));
     const rp = panel.querySelector('[data-replay]');
     if (rp) rp.addEventListener('click', () => this.resetScenario());
+  }
+
+  // Leaving the tutorial hands the box over for free exploration: stop the
+  // incident, wipe the screen so the story doesn't linger, and drop a short
+  // welcome so free play never starts on a blank void.
+  exitToFreePlay() {
+    if (this._autoTimers) { for (const id of Object.keys(this._autoTimers)) clearTimeout(this._autoTimers[id]); this._autoTimers = {}; }
+    this.incident.stop();
+    this.term.clear();
+    this.welcome();
+    this.term.setPrompt(this.shell.prompt());
+    this.term.focus();
   }
 
   // The "Explore witr" toolkit — visible throughout the incident so the tool's
@@ -400,9 +424,8 @@ class App {
     this.setupTheme();
     document.getElementById('btn-tui').addEventListener('click', () => this.openTui());
     document.getElementById('btn-tutorial').addEventListener('click', () => {
-      if (this.incident.active) this.incident.stop();
+      if (this.incident.active) this.exitToFreePlay();
       else this.resetScenario();
-      this.term.focus();
     });
     document.getElementById('btn-scenario').addEventListener('click', () => this.openScenario());
     document.getElementById('btn-reset').addEventListener('click', () => this.resetScenario());
@@ -429,9 +452,10 @@ class App {
   }
 
   effectiveTheme() {
+    // Light by default; dark only when the user has explicitly toggled it. The
+    // OS colour-scheme preference is intentionally ignored.
     const attr = document.documentElement.getAttribute('data-theme');
-    if (attr) return attr;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return attr === 'dark' ? 'dark' : 'light';
   }
 
   toggleTheme() {
@@ -447,8 +471,19 @@ class App {
   }
 
   openTui() {
-    this.tui.show(this.currentWorld(), this.shell.engine);
+    this.tui.show(this.currentWorld(), this.shell.engine, this.shell.version);
     this.incident.observe({ targets: [], flags: {}, action: 'tui', world: this.currentWorld() });
+    if (this.incident.phase === 'done') this.refreshQuests();
+  }
+
+  // A kill issued from inside the TUI removes the process (and its subtree) from
+  // the shared world, then syncs every other view and the incident tracker.
+  killFromTui(pid) {
+    const killed = this.shell.killProcesses([pid]);
+    for (const p of killed) this.map.removeProcess(p.pid);
+    this.tree.setWorld(this.currentWorld());
+    this.refreshHostChip();
+    this.incident.observe({ targets: [{ type: 'pid', value: String(pid) }], flags: {}, action: 'kill', world: this.currentWorld() });
     if (this.incident.phase === 'done') this.refreshQuests();
   }
 

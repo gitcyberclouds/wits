@@ -1,51 +1,45 @@
 /* witr playground — styles.
-   Dark-first terminal aesthetic with a light-mode fallback. */
+   Light-first. Dark is opt-in via the theme toggle ([data-theme="dark"]);
+   there is no automatic switch based on the OS colour-scheme preference. */
 
 :root {
-  --bg: #0a0e14;
-  --bg-2: #0e131b;
-  --panel: #0f151d;
-  --panel-2: #131b25;
-  --line: #1e2a38;
-  --line-2: #26364a;
-  --text: #c9d4e0;
-  --text-dim: #8b98a8;
-  --text-faint: #5c6b7d;
-  --accent: #7ee787;
-  --accent-2: #56d4dd;
-  --accent-3: #d2a8ff;
-  --warn: #e3b341;
-  --danger: #ff7b72;
+  --bg: #eef1f5;
+  --bg-2: #e6ebf1;
+  --panel: #ffffff;
+  --panel-2: #f4f7fa;
+  --line: #dce3ec;
+  --line-2: #cdd7e3;
+  --text: #1c2530;
+  --text-dim: #566473;
+  --text-faint: #8996a6;
+  --accent: #1f7a3f;
+  --accent-2: #0a8f9c;
+  --accent-3: #8250df;
+  --warn: #9a6b00;
+  --danger: #c9403a;
   --radius: 12px;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, system-ui, sans-serif;
 
-  /* ANSI palette (witr bright colours). */
-  --a-red: #ff7b72;
-  --a-green: #7ee787;
-  --a-blue: #79c0ff;
-  --a-cyan: #56d4dd;
-  --a-magenta: #d2a8ff;
-  --a-dim: #7d8b9c;
-  --a-dimyellow: #e3b341;
+  /* ANSI palette (witr colours, tuned for a light background). */
+  --a-red: #c9403a;
+  --a-green: #1f7a3f;
+  --a-blue: #1f6feb;
+  --a-cyan: #0a8f9c;
+  --a-magenta: #8250df;
+  --a-dim: #6a7683;
+  --a-dimyellow: #9a6b00;
 }
 
-/* Light palette. Applied automatically when the OS prefers light AND the user
-   hasn't overridden with the theme toggle; the explicit selector below wins when
-   they have. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) {
-    --bg: #eef1f5; --bg-2: #e6ebf1; --panel: #ffffff; --panel-2: #f4f7fa;
-    --line: #dce3ec; --line-2: #cdd7e3; --text: #1c2530; --text-dim: #566473; --text-faint: #8996a6;
-    --a-red: #c9403a; --a-green: #1f7a3f; --a-blue: #1f6feb; --a-cyan: #0a8f9c;
-    --a-magenta: #8250df; --a-dim: #6a7683; --a-dimyellow: #9a6b00;
-  }
-}
-:root[data-theme="light"] {
-  --bg: #eef1f5; --bg-2: #e6ebf1; --panel: #ffffff; --panel-2: #f4f7fa;
-  --line: #dce3ec; --line-2: #cdd7e3; --text: #1c2530; --text-dim: #566473; --text-faint: #8996a6;
-  --a-red: #c9403a; --a-green: #1f7a3f; --a-blue: #1f6feb; --a-cyan: #0a8f9c;
-  --a-magenta: #8250df; --a-dim: #6a7683; --a-dimyellow: #9a6b00;
+/* Dark palette — applied only when the user picks it with the theme toggle. */
+:root[data-theme="dark"] {
+  --bg: #0a0e14; --bg-2: #0e131b; --panel: #0f151d; --panel-2: #131b25;
+  --line: #1e2a38; --line-2: #26364a;
+  --text: #c9d4e0; --text-dim: #8b98a8; --text-faint: #5c6b7d;
+  --accent: #7ee787; --accent-2: #56d4dd; --accent-3: #d2a8ff;
+  --warn: #e3b341; --danger: #ff7b72;
+  --a-red: #ff7b72; --a-green: #7ee787; --a-blue: #79c0ff; --a-cyan: #56d4dd;
+  --a-magenta: #d2a8ff; --a-dim: #7d8b9c; --a-dimyellow: #e3b341;
 }
 
 * { box-sizing: border-box; }
@@ -53,17 +47,14 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: var(--sans);
-  background: radial-gradient(1200px 700px at 78% -10%, #12202b 0%, var(--bg) 55%);
+  background: radial-gradient(1200px 700px at 78% -10%, #dfeaf3 0%, var(--bg) 55%);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-:root[data-theme="light"] body { background: radial-gradient(1200px 700px at 78% -10%, #dfeaf3 0%, var(--bg) 55%); }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) body { background: radial-gradient(1200px 700px at 78% -10%, #dfeaf3 0%, var(--bg) 55%); }
-}
+:root[data-theme="dark"] body { background: radial-gradient(1200px 700px at 78% -10%, #12202b 0%, var(--bg) 55%); }
 
 button { font-family: inherit; }
 code { font-family: var(--mono); }
@@ -173,7 +164,7 @@ code { font-family: var(--mono); }
 .tut-story { margin: 0 0 14px; color: var(--text-dim); line-height: 1.55; font-size: 14.5px; }
 .tut-story code, .tut-tiny code { font-family: var(--mono); background: var(--panel); padding: 1px 6px; border-radius: 5px; color: var(--accent-2); border: 1px solid var(--line); font-size: 0.92em; }
 .tut-story b { color: var(--text); }
-.tut-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.tut-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .tut-tiny { margin: 12px 0 0; font-size: 12px; color: var(--text-faint); }
 .tut-install {
   font-family: var(--mono); font-size: 12.5px; background: var(--bg); color: var(--accent);
@@ -204,6 +195,9 @@ code { font-family: var(--mono); }
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
   padding: 14px 16px; font-family: var(--mono); font-size: 13.5px; line-height: 1.5;
   color: var(--text); cursor: text; position: relative;
+  /* Don't let the browser re-anchor the scroll to the bottom when new output is
+     appended — we manage stick-to-bottom ourselves (see terminal.js). */
+  overflow-anchor: none;
 }
 .term-output { }
 .term-row { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -400,22 +394,16 @@ code { font-family: var(--mono); }
 /* constellation (opt-in) */
 .map-wrap {
   flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; display: none;
+  background: radial-gradient(680px 480px at 68% 26%, #dbe6f0 0%, transparent 70%),
+    radial-gradient(900px 700px at 30% 100%, #e9eef4 0%, transparent 60%), #eef3f8;
+}
+.view-panel.show-map #tree-view { display: none; }
+.view-panel.show-map .map-wrap { display: block; }
+:root[data-theme="dark"] .map-wrap {
   background:
     radial-gradient(680px 480px at 68% 26%, #16283733 0%, transparent 70%),
     radial-gradient(900px 700px at 30% 100%, #10202b 0%, transparent 60%),
     #070b11;
-}
-.view-panel.show-map #tree-view { display: none; }
-.view-panel.show-map .map-wrap { display: block; }
-:root[data-theme="light"] .map-wrap {
-  background: radial-gradient(680px 480px at 68% 26%, #dbe6f0 0%, transparent 70%),
-    radial-gradient(900px 700px at 30% 100%, #e9eef4 0%, transparent 60%), #eef3f8;
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) .map-wrap {
-    background: radial-gradient(680px 480px at 68% 26%, #dbe6f0 0%, transparent 70%),
-      radial-gradient(900px 700px at 30% 100%, #e9eef4 0%, transparent 60%), #eef3f8;
-  }
 }
 #map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .map-labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
@@ -424,8 +412,8 @@ code { font-family: var(--mono); }
    forward. */
 .map-label {
   position: absolute; top: 0; left: 0; font-family: var(--mono); font-size: 10px;
-  color: #9aa7b6; background: rgba(9,14,20,0.7);
-  border: 1px solid #1e2a36; padding: 0 5px; border-radius: 4px; white-space: nowrap;
+  color: #2a3644; background: rgba(255,255,255,0.86);
+  border: 1px solid #c6d2de; padding: 0 5px; border-radius: 4px; white-space: nowrap;
   transform: translate(-50%, -150%); will-change: transform, opacity;
   opacity: 0.82; transition: opacity .15s;
 }
@@ -434,12 +422,10 @@ code { font-family: var(--mono); }
   font-size: 11.5px; z-index: 5; opacity: 1;
 }
 .map-label-hl { color: #07120a; background: #7ee787; border-color: #7ee787; font-weight: 600; font-size: 11px; opacity: 1; z-index: 4; }
-.map-label-warn { color: #e3b341; border-color: rgba(227,179,65,0.45); }
+.map-label-warn { color: #b3860f; border-color: rgba(179,134,15,0.45); }
 .map-label-faded { opacity: 0.16; }
-:root[data-theme="light"] .map-label { color: #2a3644; background: rgba(255,255,255,0.86); border-color: #c6d2de; }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) .map-label { color: #2a3644; background: rgba(255,255,255,0.86); border-color: #c6d2de; }
-}
+:root[data-theme="dark"] .map-label { color: #9aa7b6; background: rgba(9,14,20,0.7); border-color: #1e2a36; }
+:root[data-theme="dark"] .map-label-warn { color: #e3b341; border-color: rgba(227,179,65,0.45); }
 .map-legend {
   position: absolute; bottom: 12px; left: 16px; z-index: 3; display: flex; gap: 14px; flex-wrap: wrap;
   font-size: 11.5px; color: #7d8b9c; pointer-events: none;
@@ -471,53 +457,88 @@ code { font-family: var(--mono); }
 .modal-close { margin-top: 18px; }
 .modal-close { border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); padding: 8px 16px; border-radius: 8px; cursor: pointer; }
 
-/* ---- TUI overlay ---- */
+/* ---- TUI overlay ----
+   A faithful, DOM rendition of witr's bubbletea TUI. It keeps its own dark
+   "terminal" palette (the real tool's Dark adaptive scheme) regardless of the
+   page theme, so it reads like an actual terminal window: purple brand badge,
+   green active tab, yellow-on-violet selection, a bordered box. */
 .tui { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
   background: rgba(3,6,10,0.72); backdrop-filter: blur(5px); padding: 18px; }
 .tui.tui-open { display: flex; }
-.tui-window { width: min(1000px, 100%); height: min(640px, 92vh); display: flex; flex-direction: column;
-  background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 12px; overflow: hidden;
-  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.7); font-family: var(--mono); }
-.tui-titlebar { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.tui-title { font-size: 13px; color: var(--accent); }
-.tui-sim { font-size: 10.5px; color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); padding: 0 6px; border-radius: 4px; }
-.tui-x { margin-left: auto; border: none; background: none; color: var(--text-faint); cursor: pointer; font-size: 14px; }
-.tui-x:hover { color: var(--text); }
-.tui-tabs { display: flex; gap: 2px; padding: 8px 10px 0; background: var(--panel); border-bottom: 1px solid var(--line); }
-.tui-tab { border: 1px solid transparent; border-bottom: none; background: none; color: var(--text-dim); padding: 6px 14px;
-  font-family: var(--mono); font-size: 12.5px; cursor: pointer; border-radius: 7px 7px 0 0; }
-.tui-tab.active { background: var(--bg-2); color: var(--accent); border-color: var(--line); }
-.tui-body { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; }
-.tui-split { display: flex; width: 100%; min-height: 0; position: relative; }
-.tui-table { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: auto; font-size: 12.5px; }
-.tui-table.wide { width: 100%; }
-.tui-head, .tui-row { display: grid; align-items: center; gap: 10px; padding: 3px 14px; }
-.tui-split .tui-table .tui-head, .tui-split .tui-table .tui-row { grid-template-columns: 56px 78px 84px 1fr; }
-.tui-table.wide .tui-head, .tui-table.wide .tui-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.tui-head { position: sticky; top: 0; background: var(--panel); color: var(--text-faint); font-size: 11px; letter-spacing: 0.5px; z-index: 1; border-bottom: 1px solid var(--line); }
-.tui-row { color: var(--text-dim); cursor: pointer; white-space: nowrap; }
-.tui-row > span { overflow: hidden; text-overflow: ellipsis; }
-.tui-row:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
-.tui-row.sel { background: color-mix(in srgb, var(--accent-2) 16%, transparent); color: var(--text); }
-.tui-row .c-pid, .tui-row .c-user { color: var(--text-faint); }
-.tui-tag { color: var(--warn); }
-.st-ok { color: var(--accent); } .st-warn { color: var(--warn); } .st-dim { color: var(--text-faint); }
-.tui-side { width: 320px; flex: 0 0 auto; border-left: 1px solid var(--line); padding: 14px; overflow-y: auto; background: var(--panel); }
-.tui-side-empty { color: var(--text-faint); padding: 20px; }
-.tui-side-h { font-size: 12.5px; color: var(--text); margin-bottom: 10px; }
-.tui-side-h b { color: var(--accent); }
-.tui-chain { margin-bottom: 12px; }
-.tui-chain-node { font-size: 12px; color: var(--text-dim); white-space: pre; line-height: 1.7; }
-.tui-chain-node.target { color: var(--accent); }
-.tui-dim { color: var(--text-faint); }
-.tui-side-row { font-size: 12px; color: var(--text-dim); margin: 4px 0; display: flex; gap: 8px; }
-.tui-side-row .tui-k { color: var(--text-faint); flex: 0 0 62px; }
-.tui-side-warn { margin-top: 10px; color: var(--warn); font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
-.tui-filter { position: absolute; bottom: 0; left: 0; right: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 5px 14px; color: var(--accent-2); font-size: 12.5px; }
-.tui-caret, .tui-live { color: var(--accent); }
-.tui-footer { flex: 0 0 auto; padding: 7px 14px; background: var(--panel); border-top: 1px solid var(--line); color: var(--text-faint); font-size: 11.5px; }
-.tui-footer .tui-live { animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: 0.35; } }
+.tui-window {
+  --t-fg: #cdd3de; --t-dim: #767676; --t-accent: #8b8bea; --t-border: #585858;
+  --t-headerdim: #bcbcbc; --t-conn: #d787ff; --t-target: #4be24b; --t-section: #af87ff;
+  --t-error: #ff6b6b; --t-amber: #ffdf87; --t-confirm: #ffaf5f;
+  --t-brandfg: #fafafa; --t-brandbg: #7d56f4; --t-green: #22aa22;
+  --t-selfg: #ffffaf; --t-selbg: #5f00d7; --t-idle: #767676;
+  --t-surface: #14161d; --t-surface-2: #171a22;
+  width: min(1140px, 100%); height: min(660px, 92vh); display: flex; flex-direction: column;
+  background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 8px; overflow: hidden;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.75); font-family: var(--mono);
+  font-size: 12.5px; line-height: 1.5; color: var(--t-fg); padding: 8px 10px;
+}
+/* header row: brand badge + tabs */
+.tui-top { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.tui-brand { background: var(--t-brandbg); color: var(--t-brandfg); font-weight: 700; padding: 1px 9px; border-radius: 3px; }
+.tui-pidbadge { background: var(--t-green); color: #fff; font-weight: 700; padding: 1px 9px; border-radius: 3px; }
+.tui-tab { color: #fff; background: var(--t-idle); padding: 1px 9px; cursor: pointer; user-select: none; }
+.tui-tab.active { background: var(--t-green); font-weight: 700; }
+.tui-x { margin-left: auto; border: none; background: none; color: var(--t-dim); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
+.tui-x:hover { color: var(--t-fg); }
+.tui-spacer { height: 10px; flex: 0 0 auto; }
+/* status + input lines */
+.tui-status { flex: 0 0 auto; padding-left: 1px; color: var(--t-fg); }
+.tui-status.searching { color: var(--t-accent); }
+.tui-status.err { color: var(--t-error); font-weight: 700; }
+.tui-input { flex: 0 0 auto; padding-left: 1px; margin-bottom: 8px; color: var(--t-fg); min-height: 1.5em; }
+.tui-input .tui-prompt { color: var(--t-accent); font-weight: 700; }
+.tui-caret { color: var(--t-accent); animation: tblink 1.1s step-end infinite; }
+@keyframes tblink { 50% { opacity: 0; } }
+/* main split: list + side pane (or the two detail panes) */
+.tui-main { flex: 1 1 auto; min-height: 0; display: flex; gap: 0; }
+.tui-pane { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.tui-pane.divider { border-left: 1px solid var(--t-border); padding-left: 12px; margin-left: 10px; }
+.tui-pane.divider.focus { border-left-color: var(--t-accent); }
+.tui-pane-list { flex: 1 1 auto; }
+.tui-pane-side { flex: 0 0 31%; }
+.tui-pane-detail { flex: 1 1 62%; }
+.tui-pane-env { flex: 1 1 38%; }
+/* pane / table headers: accent, bold, underlined */
+.tui-hdr { flex: 0 0 auto; color: var(--t-headerdim); font-weight: 700; border-bottom: 1px solid var(--t-border);
+  padding: 0 2px 3px; margin-bottom: 4px; white-space: nowrap; }
+.tui-hdr.accent { color: var(--t-accent); border-bottom-color: var(--t-accent); }
+/* table rows */
+.tui-rows { flex: 1 1 auto; overflow-y: auto; overflow-x: auto; }
+.tui-r { display: grid; grid-template-columns: 54px 84px 128px 56px 100px 124px minmax(130px, 1fr); gap: 8px;
+  padding: 0 2px; white-space: nowrap; cursor: pointer; }
+.tui-r > span { overflow: hidden; text-overflow: ellipsis; }
+.tui-r.head { color: var(--t-accent); font-weight: 700; border-bottom: 1px solid var(--t-border); padding-bottom: 3px; margin-bottom: 3px; position: sticky; top: 0; background: var(--t-surface); }
+.tui-r.head.dim { color: var(--t-headerdim); }
+.tui-r.sel { background: var(--t-selbg); color: var(--t-selfg); }
+.tui-r.t-ports { grid-template-columns: 70px 90px 1fr 116px 66px 150px; }
+.tui-r.t-containers { grid-template-columns: 120px 1fr 84px 190px 150px 150px; }
+.tui-r.t-locks { grid-template-columns: 66px 150px 90px 84px 1fr; }
+.tui-num { text-align: right; }
+.tui-empty { color: var(--t-dim); padding: 12px 2px; }
+/* side pane (ancestry tree) */
+.tui-side-body { flex: 1 1 auto; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+.tui-sec { color: var(--t-section); font-weight: 700; }
+.tui-conn { color: var(--t-conn); }
+.tui-target { color: var(--t-target); }
+.tui-hl { background: var(--t-selbg); color: var(--t-selfg); }
+.tui-muted { color: var(--t-dim); }
+/* detail panes: witr output + env */
+.tui-body-scroll { flex: 1 1 auto; overflow: auto; padding-right: 6px; }
+.tui-body-scroll pre { margin: 0; font: inherit; white-space: pre; }
+/* footer */
+.tui-foot { flex: 0 0 auto; border-top: 1px solid var(--t-border); margin-top: 8px; padding: 6px 2px 0;
+  color: var(--t-dim); display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; overflow: hidden; }
+.tui-foot.actions { color: var(--t-amber); font-weight: 700; }
+.tui-foot.confirm { color: var(--t-confirm); font-weight: 700; }
+.tui-foot.err { color: var(--t-error); font-weight: 700; }
+.tui-foot .tui-help { overflow: hidden; text-overflow: ellipsis; }
+.tui-foot .tui-ver { flex: 0 0 auto; color: var(--t-dim); }
+/* the TUI reuses the terminal's ANSI colour classes inside .tui-body-scroll */
 
 /* ---- responsive ---- */
 /* Medium and below: single column. Incident on top, terminal below; the process
@@ -538,9 +559,9 @@ code { font-family: var(--mono); }
   .top-actions .btn-icon { padding: 6px 8px; }
   .brand-tag { display: none; }
   .tut-title { font-size: 17px; }
-  .tui-side { display: none; }
-  .tui-split .tui-table .tui-head, .tui-split .tui-table .tui-row { grid-template-columns: 48px 66px 70px 1fr; }
+  .tui-pane-side { display: none; }
+  .tui-pane-list .tui-r, .tui-pane-detail, .tui-pane-env { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .term-cursor.focused, .tui-footer .tui-live { animation: none; }
+  .term-cursor.focused, .tui-caret { animation: none; }
 }

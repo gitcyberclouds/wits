@@ -1,12 +1,16 @@
-// tui.js — an interactive, DOM-based rendition of witr's TUI dashboard.
+// tui.js — a faithful, DOM-based rendition of witr's interactive TUI.
 //
-// Four tabs (Processes / Ports / Containers / Locks) over the same world data,
-// with a live ancestry side panel and an auto-refreshing clock — the same shape
-// as the real bubbletea TUI, close enough to teach the workflow in a browser.
+// It mirrors the real bubbletea dashboard: a purple "witr" brand badge and
+// green/grey tabs (Processes / Ports / Containers / Locks), a status + search
+// line, a process table beside a live "Details" ancestry pane, and a footer
+// with the real key hints and version. Enter opens the Process Detail view —
+// the standard witr output beside the process's environment — where `a` opens
+// the action menu (kill / term / pause / resume / nice) exactly like the tool.
 
-import { formatStartedAt } from './engine.js';
+import { ansiToHtml } from './ansi.js';
 
 const TABS = ['Processes', 'Ports', 'Containers', 'Locks'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export class TUI {
   constructor(rootEl) {
@@ -16,24 +20,44 @@ export class TUI {
     this.sel = 0;
     this.filter = '';
     this.filtering = false;
+    this.version = '';
     this.onClose = null;
+    this.onKill = null;
+
+    // detail state
+    this.state = 'list';        // 'list' | 'detail'
+    this.detailPid = null;
+    this.detailContainer = null;
+    this.detailFocus = 'detail'; // 'detail' | 'env'
+    this.actionMenuOpen = false;
+    this.pendingAction = null;   // 'kill' | 'term' | 'pause' | 'resume' | 'nice'
+    this.statusMsg = '';
+
     this._tick = null;
     this._keyHandler = (e) => this._onKey(e);
   }
 
-  show(world, engine) {
+  show(world, engine, version) {
     this.world = world;
     this.engine = engine;
+    if (version) this.version = version;
     this.open = true;
     this.tab = 0;
     this.sel = 0;
     this.filter = '';
     this.filtering = false;
+    this.state = 'list';
+    this.detailPid = null;
+    this.detailContainer = null;
+    this.actionMenuOpen = false;
+    this.pendingAction = null;
+    this.statusMsg = '';
     this.root.classList.add('tui-open');
     this.root.setAttribute('aria-hidden', 'false');
     document.addEventListener('keydown', this._keyHandler, true);
     this.render();
-    this._tick = setInterval(() => this.render(), 1000);
+    // Match top's 3s auto-refresh cadence (relative times, live state).
+    this._tick = setInterval(() => { if (this.state === 'list') this.render(); }, 3000);
   }
 
   close() {
@@ -44,6 +68,8 @@ export class TUI {
     if (this._tick) clearInterval(this._tick);
     if (this.onClose) this.onClose();
   }
+
+  // ---- data ------------------------------------------------------------
 
   rows() {
     const w = this.world;
@@ -60,147 +86,373 @@ export class TUI {
       for (const p of w.processes) for (const s of p.sockets || []) if (s.state === 'LISTEN') ports.push({ p, s });
       return ports.sort((a, b) => a.s.port - b.s.port);
     }
-    if (this.tab === 2) return w.containers || [];
-    return w.locks || [];
+    if (this.tab === 2) {
+      let list = w.containers || [];
+      if (this.filter) { const f = this.filter.toLowerCase(); list = list.filter((c) => (c.name + ' ' + c.image).toLowerCase().includes(f)); }
+      return list;
+    }
+    let list = w.locks || [];
+    if (this.filter) { const f = this.filter.toLowerCase(); list = list.filter((l) => (l.process + ' ' + l.path + ' ' + l.pid).toLowerCase().includes(f)); }
+    return list;
   }
+
+  // ---- keys ------------------------------------------------------------
 
   _onKey(e) {
     if (!this.open) return;
+    e.stopPropagation();
+    if (this.state === 'detail') { this._onDetailKey(e); return; }
+
     if (this.filtering) {
       if (e.key === 'Enter' || e.key === 'Escape') { this.filtering = false; e.preventDefault(); this.render(); return; }
       if (e.key === 'Backspace') { this.filter = this.filter.slice(0, -1); e.preventDefault(); this.sel = 0; this.render(); return; }
       if (e.key.length === 1) { this.filter += e.key; e.preventDefault(); this.sel = 0; this.render(); return; }
       return;
     }
+
     const rows = this.rows();
     switch (e.key) {
-      case 'Escape': case 'q': this.close(); break;
+      case 'Escape': case 'q': e.preventDefault(); this.close(); break;
       case 'Tab':
         e.preventDefault();
         this.tab = (this.tab + (e.shiftKey ? TABS.length - 1 : 1)) % TABS.length;
-        this.sel = 0; this.filter = ''; this.render();
+        this.sel = 0; this.filter = ''; this.statusMsg = ''; this.render();
         break;
       case '1': case '2': case '3': case '4':
-        this.tab = Math.min(TABS.length - 1, parseInt(e.key, 10) - 1); this.sel = 0; this.filter = ''; this.render();
+        e.preventDefault();
+        this.tab = Math.min(TABS.length - 1, parseInt(e.key, 10) - 1); this.sel = 0; this.filter = ''; this.statusMsg = ''; this.render();
         break;
       case 'ArrowDown': case 'j':
         e.preventDefault(); this.sel = Math.min(rows.length - 1, this.sel + 1); this.render(); break;
       case 'ArrowUp': case 'k':
         e.preventDefault(); this.sel = Math.max(0, this.sel - 1); this.render(); break;
+      case 'Enter':
+        e.preventDefault(); this._openDetail(rows[this.sel]); break;
       case '/':
-        if (this.tab === 0) { e.preventDefault(); this.filtering = true; this.render(); }
+        if (this.tab !== 1) { e.preventDefault(); this.filtering = true; this.render(); }
         break;
       default: break;
     }
-    e.stopPropagation();
   }
+
+  _onDetailKey(e) {
+    const pid = this.detailPid;
+    if (this.pendingAction) {
+      if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault(); this._performAction(this.pendingAction, pid); return;
+      }
+      if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') {
+        e.preventDefault(); this.pendingAction = null; this.render(); return;
+      }
+      return;
+    }
+    if (this.actionMenuOpen) {
+      const map = { k: 'kill', t: 'term', p: 'pause', r: 'resume', n: 'nice' };
+      if (map[e.key]) { e.preventDefault(); this.actionMenuOpen = false; this.pendingAction = map[e.key]; this.render(); return; }
+      if (e.key === 'Escape' || e.key === 'q') { e.preventDefault(); this.actionMenuOpen = false; this.render(); return; }
+      return;
+    }
+    switch (e.key) {
+      case 'Escape': case 'q':
+        e.preventDefault(); this.state = 'list'; this.detailPid = null; this.detailContainer = null; this.render(); break;
+      case 'a':
+        if (this.detailPid != null) { e.preventDefault(); this.actionMenuOpen = true; this.statusMsg = ''; this.render(); }
+        break;
+      case 'Tab':
+        e.preventDefault(); this.detailFocus = this.detailFocus === 'detail' ? 'env' : 'detail'; this.render(); break;
+      default: break;
+    }
+  }
+
+  _openDetail(row) {
+    if (!row) return;
+    if (this.tab === 0) { this.detailPid = row.pid; this.detailContainer = null; }
+    else if (this.tab === 2) { this.detailContainer = row; this.detailPid = null; }
+    else if (this.tab === 3) {
+      const owner = this.engine.procByPid.get(row.pid);
+      if (!owner) return;
+      this.detailPid = owner.pid; this.detailContainer = null;
+    } else { return; } // Ports: no detail (matches the real footer)
+    this.state = 'detail';
+    this.detailFocus = 'detail';
+    this.actionMenuOpen = false;
+    this.pendingAction = null;
+    this.statusMsg = '';
+    this.render();
+  }
+
+  _performAction(action, pid) {
+    const proc = this.engine.procByPid.get(pid);
+    const name = proc ? proc.command : `pid ${pid}`;
+    this.pendingAction = null;
+    if (action === 'kill' || action === 'term') {
+      if (this.onKill) this.onKill(pid);
+      else { this.world.processes = this.world.processes.filter((p) => p.pid !== pid); this.engine.reindex(); }
+      // The process is gone — drop back to the list.
+      this.state = 'list';
+      this.detailPid = null;
+      this.sel = Math.max(0, Math.min(this.sel, this.rows().length - 1));
+      this.statusMsg = `Sent ${action === 'kill' ? 'SIGKILL' : 'SIGTERM'} to ${name} (pid ${pid})`;
+    } else {
+      const verb = { pause: 'Paused', resume: 'Resumed', nice: 'Reniced' }[action];
+      this.statusMsg = `${verb} ${name} (pid ${pid}) — simulated`;
+    }
+    this.render();
+  }
+
+  // ---- render ----------------------------------------------------------
 
   render() {
     if (!this.open) return;
+    if (this.state === 'detail') { this._renderDetail(); this._wireCommon(); return; }
+
     const w = this.world;
     const rows = this.rows();
     if (this.sel >= rows.length) this.sel = Math.max(0, rows.length - 1);
 
-    const tabsHtml = TABS.map((t, i) =>
-      `<button class="tui-tab${i === this.tab ? ' active' : ''}" data-tab="${i}">${i + 1} ${t}</button>`).join('');
+    const tabs = TABS.map((t, i) =>
+      `<span class="tui-tab${i === this.tab ? ' active' : ''}" data-tab="${i}">${i + 1}. ${t}</span>`).join('');
 
-    let body = '';
-    if (this.tab === 0) body = this._procs(rows);
-    else if (this.tab === 1) body = this._ports(rows);
-    else if (this.tab === 2) body = this._containers(rows);
-    else body = this._locks(rows);
+    let statusClass = '';
+    let statusText = 'Mode: Navigation (Press / to search)';
+    if (this.statusMsg) { statusText = escapeHtml(this.statusMsg); statusClass = ' err'; }
+    else if (this.filtering) { statusText = 'Mode: Searching (↑↓ to navigate, Esc/Enter to stop)'; statusClass = ' searching'; }
 
-    const footer = this.tab === 0
-      ? '↑/↓ move · Tab switch · / filter · q quit · <span class="tui-live">● live</span>'
-      : '↑/↓ move · Tab switch · q quit · <span class="tui-live">● live</span>';
+    const inputLine = (this.filtering || this.filter)
+      ? `<span class="tui-prompt">&gt; </span>${escapeHtml(this.filter)}${this.filtering ? '<span class="tui-caret">▏</span>' : ''}`
+      : `<span class="tui-prompt">&gt; </span><span class="tui-muted">${this.tab === 1 ? 'a: toggle all ports' : 'type / to search'}</span>`;
+
+    let main;
+    if (this.tab === 0) main = this._procsView(rows);
+    else if (this.tab === 1) main = this._portsView(rows);
+    else if (this.tab === 2) main = this._containersView(rows);
+    else main = this._locksView(rows);
 
     this.root.innerHTML = `
       <div class="tui-window" role="dialog" aria-label="witr interactive dashboard">
-        <div class="tui-titlebar">
-          <span class="tui-title">witr — ${escapeHtml(w.promptUser)}@${escapeHtml(w.hostname)}</span>
-          <span class="tui-sim">simulated</span>
-          <button class="tui-x" data-close>✕</button>
+        <div class="tui-top">
+          <span class="tui-brand">witr</span>${tabs}
+          <button class="tui-x" data-close title="Close (q)">✕</button>
         </div>
-        <div class="tui-tabs">${tabsHtml}</div>
-        <div class="tui-body">${body}</div>
-        <div class="tui-footer">${footer}</div>
+        <div class="tui-spacer"></div>
+        <div class="tui-status${statusClass}">${statusText}</div>
+        <div class="tui-input">${inputLine}</div>
+        <div class="tui-main">${main}</div>
+        <div class="tui-foot">${this._footer(rows.length)}</div>
       </div>`;
 
+    this._wireCommon();
     this.root.querySelectorAll('.tui-tab').forEach((b) =>
-      b.addEventListener('click', () => { this.tab = +b.dataset.tab; this.sel = 0; this.filter = ''; this.render(); }));
-    this.root.querySelector('[data-close]').addEventListener('click', () => this.close());
-    this.root.querySelectorAll('.tui-row').forEach((r) =>
+      b.addEventListener('click', () => { this.tab = +b.dataset.tab; this.sel = 0; this.filter = ''; this.statusMsg = ''; this.render(); }));
+    this.root.querySelectorAll('.tui-r[data-i]').forEach((r) =>
       r.addEventListener('click', () => { this.sel = +r.dataset.i; this.render(); }));
+    this.root.querySelectorAll('.tui-r[data-i]').forEach((r) =>
+      r.addEventListener('dblclick', () => { this.sel = +r.dataset.i; this._openDetail(this.rows()[this.sel]); }));
   }
 
-  _procs(rows) {
-    const filterBar = this.filtering || this.filter
-      ? `<div class="tui-filter">/${escapeHtml(this.filter)}${this.filtering ? '<span class="tui-caret">▏</span>' : ''}</div>` : '';
-    let table = `<div class="tui-table"><div class="tui-head"><span class="c-pid">PID</span><span class="c-user">USER</span><span class="c-start">STARTED</span><span class="c-cmd">COMMAND</span></div>`;
-    rows.forEach((p, i) => {
-      const [rel] = formatStartedAt(this.engine.now() - (p.startedAgo || 0) * 1000, this.engine.now());
-      const tag = p.health && p.health !== 'healthy' ? ` <span class="tui-tag">[${escapeHtml(p.health)}]</span>` : '';
-      table += `<div class="tui-row${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
-        `<span class="c-pid">${p.pid}</span>` +
-        `<span class="c-user">${escapeHtml(p.user || '')}</span>` +
-        `<span class="c-start">${escapeHtml(rel)}</span>` +
-        `<span class="c-cmd">${escapeHtml(p.cmdline || p.command)}${tag}</span></div>`;
-    });
-    table += '</div>';
+  _wireCommon() {
+    const x = this.root.querySelector('[data-close]');
+    if (x) x.addEventListener('click', () => this.close());
+  }
 
-    // Side panel: ancestry of selected.
-    const sel = rows[this.sel];
-    let side = '<div class="tui-side"><div class="tui-side-empty">no process</div></div>';
-    if (sel) {
-      const chain = this.engine.ancestryOf(sel);
-      const kids = this.engine.childrenOf(sel.pid);
-      let s = `<div class="tui-side"><div class="tui-side-h">Why is <b>${escapeHtml(sel.command)}</b> running?</div><div class="tui-chain">`;
-      chain.forEach((p, i) => {
-        const last = i === chain.length - 1;
-        s += `<div class="tui-chain-node${last ? ' target' : ''}">${'  '.repeat(i)}${i > 0 ? '└─ ' : ''}${escapeHtml(p.command)} <span class="tui-dim">(pid ${p.pid})</span></div>`;
-      });
-      s += '</div>';
-      const src = sel.source || this.engine.resolveSource(sel, chain);
-      s += `<div class="tui-side-row"><span class="tui-k">Source</span>${escapeHtml(src.name ? src.name + ' (' + src.type + ')' : src.type)}</div>`;
-      if (sel.workingDir) s += `<div class="tui-side-row"><span class="tui-k">Cwd</span>${escapeHtml(sel.workingDir)}</div>`;
-      const socks = (sel.sockets || []).filter((x) => x.address && x.port);
-      if (socks.length) s += `<div class="tui-side-row"><span class="tui-k">Sockets</span>${socks.map((x) => escapeHtml(x.address + ':' + x.port)).join(', ')}</div>`;
-      if (kids.length) s += `<div class="tui-side-row"><span class="tui-k">Children</span>${kids.length}</div>`;
-      if ((sel.warnings || []).length) s += `<div class="tui-side-warn">⚠ ${escapeHtml(sel.warnings[0])}</div>`;
-      s += '</div>';
-      side = s;
+  _footer(total) {
+    let help;
+    switch (this.tab) {
+      case 1: help = `Total: ${total} [LISTEN] | p/t/n/s: Sort | a: Toggle All | Esc/q: Quit | Tab: Focus | Up/Down: Scroll`; break;
+      case 2: help = `Total: ${total} | Enter: Detail | i/n/r/g/s: Sort | /: Search | Esc/q: Quit | Up/Down: Scroll`; break;
+      case 3: help = `Total: ${total} [LOCKED] | Enter: Detail | a: Toggle Open Files | p/n/t/m/f: Sort | /: Search | Esc/q: Quit | Up/Down: Scroll`; break;
+      default: help = `Total: ${total} | Enter: Detail | p/n/u/c/m/t: Sort | Esc/q: Quit | Tab: Focus | Up/Down: Scroll`;
     }
-    return `<div class="tui-split">${table}${side}${filterBar}</div>`;
+    return `<span class="tui-help">${escapeHtml(help)}</span><span class="tui-ver">${escapeHtml(this.version)}</span>`;
   }
 
-  _ports(rows) {
-    let t = `<div class="tui-table wide"><div class="tui-head"><span>ADDRESS:PORT</span><span>PROTO</span><span>STATE</span><span>PID</span><span>PROCESS</span></div>`;
+  // ---- list views ------------------------------------------------------
+
+  _procsView(rows) {
+    const now = this.engine.now();
+    let table = `<div class="tui-r head"><span class="tui-num">PID</span><span>User</span><span>Name</span>` +
+      `<span class="tui-num">CPU%</span><span class="tui-num">Mem</span><span>Started</span><span>Command</span></div>`;
+    let body = '';
+    rows.forEach((p, i) => {
+      const started = fmtStarted(now - (p.startedAgo || 0) * 1000);
+      const cpu = `${(p.cpuPercent || 0).toFixed(1)}%`;
+      const mem = fmtBytes((p.memory && p.memory.rss) || 0);
+      body += `<div class="tui-r${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
+        `<span class="tui-num">${p.pid}</span><span>${escapeHtml(p.user || '')}</span><span>${escapeHtml(p.command)}</span>` +
+        `<span class="tui-num">${cpu}</span><span class="tui-num">${escapeHtml(mem)}</span>` +
+        `<span>${escapeHtml(started)}</span><span>${escapeHtml(p.cmdline || p.command)}</span></div>`;
+    });
+    return `<div class="tui-pane tui-pane-list"><div class="tui-rows">${table}${body}</div></div>` +
+      this._sidePane(rows[this.sel]);
+  }
+
+  _sidePane(sel) {
+    let head = 'Details';
+    let body = '<div class="tui-muted">no process</div>';
+    if (sel) {
+      head = `PID ${sel.pid}`;
+      body = this._treeHtml(sel);
+    }
+    return `<div class="tui-pane tui-pane-side divider${this.detailFocus === 'side' ? ' focus' : ''}">` +
+      `<div class="tui-hdr">${escapeHtml(head)}</div><div class="tui-side-body">${body}</div></div>`;
+  }
+
+  _treeHtml(proc) {
+    const chain = this.engine.ancestryOf(proc);
+    const kids = this.engine.childrenOf(proc.pid);
+    let s = `<span class="tui-sec">Ancestry Tree:</span>\n`;
+    chain.forEach((p, i) => {
+      const indent = '  '.repeat(i);
+      const conn = i > 0 ? `${indent}<span class="tui-conn">└─</span> ` : '';
+      const label = `${escapeHtml(p.command)} <span class="tui-muted">(pid ${p.pid})</span>`;
+      const isTarget = i === chain.length - 1;
+      s += `${conn}${isTarget ? `<span class="tui-target">${label}</span>` : label}\n`;
+    });
+    if (kids.length) {
+      const base = '  '.repeat(chain.length);
+      const limit = 10;
+      kids.slice(0, limit).forEach((c, i) => {
+        const last = i === Math.min(kids.length, limit) - 1 && kids.length <= limit;
+        const conn = last ? '└─' : '├─';
+        s += `${base}<span class="tui-conn">${conn}</span> ${escapeHtml(c.command)} <span class="tui-muted">(pid ${c.pid})</span>\n`;
+      });
+      if (kids.length > limit) s += `${base}<span class="tui-conn">└─</span> <span class="tui-muted">… and ${kids.length - limit} more</span>\n`;
+    }
+    if (proc.cmdline) s += `\n<span class="tui-sec">Command:</span>\n${escapeHtml(proc.cmdline)}\n`;
+    return s;
+  }
+
+  _portsView(rows) {
+    let table = `<div class="tui-r t-ports head"><span class="tui-num">Port</span><span>Protocol</span><span>Address</span><span>State</span><span class="tui-num">PID</span><span>Process</span></div>`;
+    let body = '';
     rows.forEach(({ p, s }, i) => {
-      const addr = s.address.includes(':') ? `[${s.address}]:${s.port}` : `${s.address}:${s.port}`;
-      t += `<div class="tui-row${i === this.sel ? ' sel' : ''}" data-i="${i}"><span>${escapeHtml(addr)}</span><span>${escapeHtml(s.protocol)}</span><span>LISTENING</span><span>${p.pid}</span><span>${escapeHtml(p.command)}</span></div>`;
+      body += `<div class="tui-r t-ports${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
+        `<span class="tui-num">${s.port}</span><span>${escapeHtml(s.protocol || 'tcp')}</span>` +
+        `<span>${escapeHtml(s.address)}</span><span>LISTEN</span><span class="tui-num">${p.pid}</span><span>${escapeHtml(p.command)}</span></div>`;
     });
-    return t + '</div>';
+    if (!rows.length) body = '<div class="tui-empty">no listening ports</div>';
+    return `<div class="tui-pane tui-pane-list"><div class="tui-rows">${table}${body}</div></div>`;
   }
 
-  _containers(rows) {
-    if (rows.length === 0) return '<div class="tui-side-empty">no containers</div>';
-    let t = `<div class="tui-table wide"><div class="tui-head"><span>NAME</span><span>IMAGE</span><span>STATE</span><span>PORTS</span><span>COMPOSE</span></div>`;
+  _containersView(rows) {
+    let table = `<div class="tui-r t-containers head"><span>ID</span><span>Name</span><span>Runtime</span><span>Image</span><span>Status</span><span>Ports</span></div>`;
+    let body = '';
     rows.forEach((c, i) => {
-      const compose = c.composeProject ? `${c.composeProject}/${c.composeService}` : '';
-      const stateCls = c.state === 'running' ? 'ok' : (c.state === 'restarting' ? 'warn' : 'dim');
-      t += `<div class="tui-row${i === this.sel ? ' sel' : ''}" data-i="${i}"><span>${escapeHtml(c.name)}</span><span>${escapeHtml(c.image)}</span><span class="st-${stateCls}">${escapeHtml(c.status || c.state)}</span><span>${escapeHtml(c.ports || '—')}</span><span>${escapeHtml(compose)}</span></div>`;
+      const id = (c.id || '').slice(0, 12);
+      body += `<div class="tui-r t-containers${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
+        `<span>${escapeHtml(id)}</span><span>${escapeHtml(c.name)}</span><span>${escapeHtml(c.runtime || 'docker')}</span>` +
+        `<span>${escapeHtml(c.image)}</span><span>${escapeHtml(c.status || c.state)}</span><span>${escapeHtml(c.ports || '—')}</span></div>`;
     });
-    return t + '</div>';
+    if (!rows.length) body = '<div class="tui-empty">no containers</div>';
+    return `<div class="tui-pane tui-pane-list"><div class="tui-rows">${table}${body}</div></div>`;
   }
 
-  _locks(rows) {
-    if (rows.length === 0) return '<div class="tui-side-empty">no file locks</div>';
-    let t = `<div class="tui-table wide"><div class="tui-head"><span>PID</span><span>PROCESS</span><span>TYPE</span><span>MODE</span><span>PATH</span></div>`;
+  _locksView(rows) {
+    let table = `<div class="tui-r t-locks head"><span class="tui-num">PID</span><span>Process</span><span>Type</span><span>Mode</span><span>Path</span></div>`;
+    let body = '';
     rows.forEach((l, i) => {
-      t += `<div class="tui-row${i === this.sel ? ' sel' : ''}" data-i="${i}"><span>${l.pid}</span><span>${escapeHtml(l.process)}</span><span>${escapeHtml(l.type)}</span><span>${escapeHtml(l.mode)}</span><span>${escapeHtml(l.path)}</span></div>`;
+      body += `<div class="tui-r t-locks${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
+        `<span class="tui-num">${l.pid}</span><span>${escapeHtml(l.process)}</span><span>${escapeHtml(l.type)}</span>` +
+        `<span>${escapeHtml(l.mode)}</span><span>${escapeHtml(l.path)}</span></div>`;
     });
-    return t + '</div>';
+    if (!rows.length) body = '<div class="tui-empty">no file locks</div>';
+    return `<div class="tui-pane tui-pane-list"><div class="tui-rows">${table}${body}</div></div>`;
   }
+
+  // ---- detail view -----------------------------------------------------
+
+  _renderDetail() {
+    const badge = this.detailContainer
+      ? `<span class="tui-pidbadge">ID ${escapeHtml((this.detailContainer.id || '').slice(0, 12))}</span>`
+      : `<span class="tui-pidbadge">PID ${this.detailPid}</span>`;
+
+    let main;
+    if (this.detailContainer) {
+      main = `<div class="tui-pane tui-pane-detail"><div class="tui-hdr accent">Container Detail</div>` +
+        `<div class="tui-body-scroll"><pre>${this._containerDetailHtml(this.detailContainer)}</pre></div></div>`;
+    } else {
+      const detailFocused = this.detailFocus === 'detail';
+      main =
+        `<div class="tui-pane tui-pane-detail"><div class="tui-hdr ${detailFocused ? 'accent' : ''}">Process Detail</div>` +
+        `<div class="tui-body-scroll"><pre>${this._processDetailHtml(this.detailPid)}</pre></div></div>` +
+        `<div class="tui-pane tui-pane-env divider${detailFocused ? '' : ' focus'}"><div class="tui-hdr ${detailFocused ? '' : 'accent'}">Environment Variables</div>` +
+        `<div class="tui-body-scroll"><pre>${this._envHtml(this.detailPid)}</pre></div></div>`;
+    }
+
+    this.root.innerHTML = `
+      <div class="tui-window" role="dialog" aria-label="witr process detail">
+        <div class="tui-top">
+          <span class="tui-brand">witr</span>${badge}
+          <button class="tui-x" data-close title="Back (q)">✕</button>
+        </div>
+        <div class="tui-spacer"></div>
+        <div class="tui-main">${main}</div>
+        <div class="tui-foot ${this._detailFootClass()}">${this._detailFooter()}</div>
+      </div>`;
+  }
+
+  _detailFootClass() {
+    if (this.actionMenuOpen) return 'actions';
+    if (this.pendingAction) return 'confirm';
+    if (this.statusMsg) return 'err';
+    return '';
+  }
+
+  _detailFooter() {
+    const pid = this.detailPid;
+    if (this.actionMenuOpen) return `Esc/q: cancel | Actions:  [k]ill  [t]erm  [p]ause  [r]esume  [n]ice`;
+    if (this.pendingAction) {
+      const verb = { kill: 'Kill', term: 'Terminate', pause: 'Pause', resume: 'Resume', nice: 'Renice' }[this.pendingAction];
+      return `${verb} PID ${pid}? [y]es / [n]o`;
+    }
+    if (this.statusMsg) return escapeHtml(this.statusMsg);
+    const help = this.detailContainer
+      ? 'Esc/q: Back | Up/Down: Scroll'
+      : 'a: Actions | Esc/q: Back | Tab: Focus | Up/Down: Scroll';
+    return `<span class="tui-help">${escapeHtml(help)}</span><span class="tui-ver">${escapeHtml(this.version)}</span>`;
+  }
+
+  _processDetailHtml(pid) {
+    const res = this.engine.run({ targets: [{ type: 'pid', value: String(pid) }], flags: {} });
+    return ansiToHtml((res.text || '').replace(/\n$/, ''));
+  }
+
+  _envHtml(pid) {
+    const proc = this.engine.procByPid.get(pid);
+    const env = (proc && proc.env) || [];
+    if (!env.length) return '<span class="tui-muted">No environment variables found.</span>';
+    return env.map((e) => escapeHtml(e)).join('\n');
+  }
+
+  _containerDetailHtml(c) {
+    const lines = [];
+    const add = (k, v) => { if (v) lines.push(`<span class="tui-sec">${k}</span>  ${escapeHtml(String(v))}`); };
+    add('Name', c.name); add('Image', c.image); add('Runtime', c.runtime); add('State', c.state);
+    add('Status', c.status); add('Health', c.health); add('Ports', c.ports); add('Networks', c.networks);
+    add('Mounts', c.mounts);
+    if (c.composeProject) add('Compose', `${c.composeProject}/${c.composeService}`);
+    add('Config', c.composeConfigFile); add('Command', c.command);
+    return lines.join('\n');
+  }
+}
+
+function fmtStarted(ms) {
+  if (ms == null) return '';
+  const d = new Date(ms);
+  const mo = MONTHS[d.getUTCMonth()];
+  const da = String(d.getUTCDate()).padStart(2, '0');
+  const h = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
+  const s = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${mo} ${da} ${h}:${mi}:${s}`;
+}
+
+function fmtBytes(n) {
+  const unit = 1024;
+  if (n < unit) return `${n} B`;
+  let div = unit, exp = 0;
+  for (let m = Math.floor(n / unit); m >= unit; m = Math.floor(m / unit)) { div *= unit; exp++; }
+  return `${(n / div).toFixed(1)} ${'KMGTPE'[exp]}B`;
 }
 
 function escapeHtml(s) {

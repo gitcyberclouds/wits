@@ -32,8 +32,8 @@ export class SystemMap {
     this.hovered = null;
     this.highlightSet = new Set();
     this.reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.theme = 'dark';
-    this.pal = PALETTES.dark;
+    this.theme = 'light';
+    this.pal = PALETTES.light;
 
     this.TARGET = 130; // constellation is normalised to this radius
 
@@ -164,7 +164,8 @@ export class SystemMap {
 
     // Raw positions (depth → x, leaf order → y, deterministic jitter → z),
     // then normalise to a fixed radius so the framing is stable for any world.
-    const X = 60, Y = 20;
+    // Wide leaf spacing (Y) keeps busy sibling clusters from bunching up.
+    const X = 66, Y = 32;
     const raw = new Map();
     for (const p of procs) {
       const d = depth.get(p.pid);
@@ -180,7 +181,7 @@ export class SystemMap {
     const scale = this.TARGET / maxExt;
     for (const v of raw.values()) v.sub(center).multiplyScalar(scale);
 
-    const nodeGeo = new THREE.SphereGeometry(5.4, 22, 22);
+    const nodeGeo = new THREE.SphereGeometry(4.4, 22, 22);
 
     for (const p of procs) {
       const d = depth.get(p.pid);
@@ -203,7 +204,7 @@ export class SystemMap {
         map: this._haloTexture, color, transparent: true, opacity: 0.5,
         blending: THREE.AdditiveBlending, depthWrite: false,
       }));
-      halo.scale.set(30, 30, 1);
+      halo.scale.set(22, 22, 1);
       halo.position.copy(pos);
       this.group.add(halo);
 

@@ -16,6 +16,10 @@ export class Terminal {
     this.completer = null;
     this.promptObj = { user: 'you', host: 'witr', dir: '~' };
     this.locked = false;
+    // Stick-to-bottom: new output only auto-scrolls while the reader is already
+    // near the bottom. Scroll up (or jump to the top after the cold open) and
+    // incoming lines stay put so you can read at your own pace.
+    this._stick = true;
 
     root.classList.add('term');
     this.output = document.createElement('div');
@@ -45,6 +49,12 @@ export class Terminal {
     });
     this.input.addEventListener('input', () => this.renderLine());
     this.input.addEventListener('keydown', (e) => this._onKey(e));
+    // Track whether the reader is parked near the bottom (so we may auto-follow)
+    // or has scrolled up to read (so we leave the view alone).
+    this.root.addEventListener('scroll', () => {
+      const gap = this.root.scrollHeight - this.root.scrollTop - this.root.clientHeight;
+      this._stick = gap < 44;
+    });
     document.addEventListener('selectionchange', () => {
       if (document.activeElement === this.input) this.renderLine();
     });
@@ -149,6 +159,7 @@ export class Terminal {
 
   submit() {
     const val = this.value;
+    this._stick = true;   // a fresh command — follow its output to the bottom
     this.echoInput(val);
     if (val.trim() !== '') {
       this.history.push(val);
@@ -180,7 +191,20 @@ export class Terminal {
   }
 
   scroll() {
+    if (!this._stick) return;            // reader is scrolled up — don't yank them down
     this.root.scrollTop = this.root.scrollHeight;
+  }
+
+  // Force-follow the bottom again (used when the reader issues a command and
+  // expects to see its output).
+  stickToBottom() {
+    this._stick = true;
+    this.root.scrollTop = this.root.scrollHeight;
+  }
+
+  scrollToTop() {
+    this._stick = false;                 // reading from the top; later output won't yank
+    this.root.scrollTop = 0;
   }
 
   // Programmatically run a command with a typewriter effect (tutorial helper).
@@ -189,6 +213,7 @@ export class Terminal {
   typeAndRun(cmd, { speed = 34, pause = 340 } = {}) {
     return new Promise((resolve) => {
       this.locked = true;
+      this._stick = true;   // running a command — follow it to the bottom
       this.line.innerHTML = '';
       let i = 0;
       const buf = { v: '' };

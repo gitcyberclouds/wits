@@ -14,30 +14,28 @@ const targetsName = (name) => (ts) => ts.some((t) => t.type === 'name' && name.i
 export const INCIDENTS = {
   webbox: {
     coldOpen: [
-      { type: 'line', html: '<span class="co-prompt">deploy@webbox</span><span class="co-sep">:</span><span class="co-dir">~</span><span class="co-sep">$</span> ./deploy.sh', delay: 500 },
-      { type: 'line', html: '<span class="a-dim">▸ building expense-manager …</span> <span class="a-green">done</span>', delay: 650 },
-      { type: 'line', html: '<span class="a-dim">▸ health-checking :5000 …</span> <span class="a-green">ok</span>', delay: 650 },
-      { type: 'line', html: '<span class="a-dim">▸ starting metrics endpoint on :8000 …</span>', delay: 800 },
-      { type: 'line', html: '<span class="a-red">✗ Error: listen EADDRINUSE: address already in use 0.0.0.0:8000</span>', delay: 500 },
-      { type: 'line', html: '<span class="a-dim">  deploy aborted. something is already on that port.</span>', delay: 1100 },
+      { type: 'line', html: '<span class="co-prompt">deploy@webbox</span><span class="co-sep">:</span><span class="co-dir">~</span><span class="co-sep">$</span> ./deploy.sh', delay: 333 },
+      { type: 'line', html: '<span class="a-dim">▸ building expense-manager …</span> <span class="a-green">done</span>', delay: 433 },
+      { type: 'line', html: '<span class="a-dim">▸ health-checking :5000 …</span> <span class="a-green">ok</span>', delay: 433 },
+      { type: 'line', html: '<span class="a-dim">▸ starting metrics endpoint on :8000 …</span>', delay: 533 },
+      { type: 'line', html: '<span class="a-red">✗ Error: listen EADDRINUSE: address already in use 0.0.0.0:8000</span>', delay: 333 },
+      { type: 'line', html: '<span class="a-dim">  deploy aborted. something is already on that port.</span>', delay: 733 },
       { type: 'note', html: 'Every deploy hits this eventually. <b>witr</b> answers it in one command — <i>what</i> is on the port, and <i>why</i>:', delay: 900 },
       { type: 'run', cmd: 'witr --port 8000', delay: 400 },
     ],
-    briefing: 'That was one problem. A quick sweep flags <b>three</b> on <b>webbox</b>. Investigate each with witr, clean it up, and get the box back to <span class="a-green">green</span> — the tracker on the left counts down.',
+    briefing: 'That <span class="a-red">EADDRINUSE</span> was just the first thing witr surfaced — and, as it turns out, one that\'s already clearing itself. The same sweep flags <b>two more</b> on <b>webbox</b>: a blocked <code>apt</code>, and something you really don\'t want exposed. Trace each with witr and get the box back to <span class="a-green">green</span> — the tracker on the left counts down.',
     issues: [
       {
-        id: 'squatter', severity: 'high', title: 'Public dev server squatting on :8000',
-        blurb: "A forgotten <code>python3 -m http.server</code> (pid 8123), backgrounded from an SSH session and bound to <b>0.0.0.0</b> — it's blocking the deploy <i>and</i> exposed to the whole network.",
-        find: 'witr --port 8000', fixHint: 'kill 8123',
+        id: 'squatter', severity: 'high', title: 'Stray dev server holding :8000',
+        blurb: "witr traces :8000 to a forgotten <code>python3 -m http.server</code> (pid 8123) a teammate backgrounded over SSH. It's what blocked the deploy — but their session already disconnected, so it's orphaned and the box is cleaning it up. Nothing to kill.",
+        find: 'witr --port 8000',
         touched: (ts) => ts.some((t) => (t.type === 'port' && t.value === '8000')) || targetsPid(8123)(ts),
-        resolved: gone(8123), done: "Port freed. That's the deploy unblocked and an accidental exposure closed.",
-      },
-      {
-        id: 'tunnel', severity: 'high', title: 'Public ngrok tunnel to the app',
-        blurb: "An <code>ngrok</code> tunnel (pid 14290) is publishing the private app on :5000 straight to the internet. Find it — hint: <code>witr ng</code> matches more than one thing — then shut it down.",
-        find: 'witr --pid 14290', fixHint: 'kill 14290',
-        touched: (ts) => targetsPid(14290)(ts) || targetsName('ngrok')(ts),
-        resolved: gone(14290), done: 'Tunnel closed. The app is private again.',
+        resolved: gone(8123),
+        autoResolve: {
+          delayMs: 4200, remove: [8123],
+          waiting: "witr shows the :8000 process is an orphaned debug server whose SSH session already closed — nothing to force. The box will reap it any moment.",
+          done: "The orphaned server was reaped and :8000 is free — the deploy can proceed. No kill needed: witr showed it was already on its way out.",
+        },
       },
       {
         id: 'lock', severity: 'warn', title: 'apt is blocked — dpkg lock held',
@@ -50,6 +48,13 @@ export const INCIDENTS = {
           waiting: 'The dpkg lock is held by a scheduled <b>unattended-upgrade</b> — you don’t kill that. Give it a moment; it should finish on its own.',
           done: 'The unattended-upgrade finished and released the dpkg lock — nothing to kill. Sometimes the answer is just knowing <i>why</i>.',
         },
+      },
+      {
+        id: 'tunnel', severity: 'high', title: 'Public ngrok tunnel to the app',
+        blurb: "An <code>ngrok</code> tunnel (pid 14290) is publishing the private app on :5000 straight to the internet. Find it — hint: <code>witr ng</code> matches more than one thing — then shut it down. <b>This</b> is the one worth stopping by hand.",
+        find: 'witr --pid 14290', fixHint: 'kill 14290', fixLabel: 'Close the tunnel',
+        touched: (ts) => targetsPid(14290)(ts) || targetsName('ngrok')(ts),
+        resolved: gone(14290), done: 'Tunnel closed. The app is private again.',
       },
     ],
     sideQuests: [
@@ -75,8 +80,8 @@ export const INCIDENTS = {
     issues: [
       {
         id: 'gitlock', severity: 'high', title: 'git index.lock blocking every commit',
-        blurb: "A crashed <code>git commit</code> (pid 7300) is still holding <code>.git/index.lock</code>, so every new git command fails with “File exists”. Release it.",
-        find: 'witr --file /home/pranshu/projects/shop/.git/index.lock', fixHint: 'kill 7300',
+        blurb: "witr traces <code>.git/index.lock</code> to a <code>git commit</code> (pid 7300) that hung and never finished — so every new git command fails with “File exists.” It isn't doing any work; the stale lock just needs releasing.",
+        find: 'witr --file /home/pranshu/projects/shop/.git/index.lock', fixHint: 'kill 7300', fixLabel: 'Clear the stale lock',
         touched: (ts) => targetsPid(7300)(ts) || ts.some((t) => t.type === 'file' && t.value.includes('index.lock')),
         resolved: gone(7300), done: 'Lock released — git works again.',
       },
