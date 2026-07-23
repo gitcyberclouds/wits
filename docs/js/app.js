@@ -527,6 +527,24 @@ class App {
     document.querySelectorAll('[data-scenario]').forEach((b) =>
       b.addEventListener('click', () => this.switchWorld(b.dataset.scenario)));
 
+    // Mobile ☰ menu (the wrapper is display:contents on desktop, so this only
+    // ever does anything on small screens).
+    const menu = document.getElementById('top-menu');
+    const menuBtn = document.getElementById('btn-menu');
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = menu.classList.toggle('open');
+      menuBtn.setAttribute('aria-expanded', String(open));
+    });
+    menu.querySelectorAll('.btn').forEach((b) =>
+      b.addEventListener('click', () => { menu.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); }));
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#top-menu') && !e.target.closest('#btn-menu')) {
+        menu.classList.remove('open');
+        menuBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
     // Install popup.
     const install = document.getElementById('install-modal');
     document.getElementById('btn-install').addEventListener('click', () => install.classList.add('open'));

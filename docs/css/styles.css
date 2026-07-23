@@ -67,6 +67,10 @@ code { font-family: var(--mono); }
   background: color-mix(in srgb, var(--panel) 80%, transparent);
   backdrop-filter: blur(8px);
   flex: 0 0 auto;
+  /* Anchors the mobile ☰ dropdown; the z-index lifts the topbar's stacking
+     context (created by backdrop-filter) above the page so the dropdown isn't
+     painted under later content. */
+  position: relative; z-index: 30;
 }
 .brand { display: flex; align-items: baseline; gap: 8px; }
 .brand-mark {
@@ -92,6 +96,13 @@ a.brand-mark:hover { text-decoration: underline; }
   color: var(--warn); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px;
 }
 .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+/* On desktop the menu wrapper is layout-invisible (display: contents) and the
+   explicit order below reproduces the original button order exactly. On mobile
+   it becomes a dropdown behind the ☰ button. */
+.top-menu { display: contents; }
+#btn-menu { display: none; order: 8; }
+#btn-theme { order: 1; } #btn-tui { order: 2; } #btn-tutorial { order: 3; }
+#btn-scenario { order: 4; } #btn-reset { order: 5; } #btn-install { order: 6; } .btn-star { order: 7; }
 
 .btn {
   border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text);
@@ -641,8 +652,30 @@ a.brand-mark:hover { text-decoration: underline; }
   .top-actions .btn-icon { padding: 6px 8px; }
   .brand-tag { display: none; }
   .tut-title { font-size: 17px; }
-  .tui-pane-side { display: none; }
-  .tui-pane-list .tui-r, .tui-pane-detail, .tui-pane-env { min-width: 0; }
+
+  /* TUI keeps its desktop layout on small screens — the overlay pans
+     horizontally instead of cramming the panes. */
+  .tui { overflow-x: auto; }
+  .tui.tui-open { align-items: flex-start; }
+  .tui-window { min-width: 1000px; flex-shrink: 0; }
+  .tui-disclaimer { min-width: 0; position: sticky; left: 0; }
+
+  /* Topbar collapses into a ☰ menu; only theme + tutorial/free-play stay out. */
+  #btn-menu { display: inline-flex; align-items: center; }
+  .top-menu {
+    display: none; position: absolute; top: calc(100% + 6px); right: 10px; z-index: 60;
+    flex-direction: column; gap: 8px; min-width: 170px;
+    background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px;
+    padding: 10px; box-shadow: 0 18px 50px -12px rgba(0,0,0,0.35);
+  }
+  .top-menu.open { display: flex; }
+  .top-menu .btn { width: 100%; text-align: left; }
+
+  /* Modals: stack scenario cards and install OS sections vertically. */
+  .scenario-grid { grid-template-columns: 1fr; }
+  .install-grid { grid-template-columns: 1fr; }
+  .modal-card { max-height: 92vh; overflow-y: auto; }
+  .install-foot { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   .term-cursor.focused, .tui-caret { animation: none; }
