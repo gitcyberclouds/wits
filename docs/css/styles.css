@@ -483,10 +483,12 @@ a.brand-mark:hover { text-decoration: underline; }
 
 /* ---- install modal ---- */
 .install-card { width: min(900px, 100%); }
-.install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-.install-os { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+/* minmax(0,1fr) — not the default 1fr (= minmax(auto,1fr)) — so a long command
+   ellipsizes instead of stretching its column wider than the other. */
+.install-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.install-os { min-width: 0; border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 .io-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-.io-cmd { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%;
+.io-cmd { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; min-width: 0;
   border: 1px solid var(--line-2); background: var(--panel); border-radius: 8px; padding: 8px 11px; cursor: pointer;
   font-family: var(--sans); transition: border-color .15s; }
 .io-cmd:hover { border-color: var(--accent-2); }
