@@ -482,8 +482,8 @@ export class TUI {
   }
 
   _processDetailHtml(pid) {
-    // The real TUI shows the *verbose* standard output in the detail pane.
-    const res = this.engine.run({ targets: [{ type: 'pid', value: String(pid) }], flags: { verbose: true } });
+    // The real TUI shows the *verbose*, *colorized* standard output in the pane.
+    const res = this.engine.run({ targets: [{ type: 'pid', value: String(pid) }], flags: { verbose: true, color: true } });
     return ansiToHtml((res.text || '').replace(/\n$/, ''));
   }
 

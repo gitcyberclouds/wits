@@ -20,10 +20,9 @@ export const INCIDENTS = {
       { type: 'line', html: '<span class="a-dim">▸ starting metrics endpoint on :8000 …</span>', delay: 533 },
       { type: 'line', html: '<span class="a-red">✗ Error: listen EADDRINUSE: address already in use 0.0.0.0:8000</span>', delay: 333 },
       { type: 'line', html: '<span class="a-dim">  deploy aborted. something is already on that port.</span>', delay: 733 },
-      { type: 'note', html: 'Every deploy hits this eventually. <b>witr</b> answers it in one command — <i>what</i> is on the port, and <i>why</i>:', delay: 900 },
-      { type: 'run', cmd: 'witr --port 8000', delay: 400 },
+      { type: 'note', html: 'Every deploy hits this eventually — and <b>witr</b> answers it in one command. Your turn: investigate what’s on the port.', delay: 900 },
     ],
-    briefing: 'That <span class="a-red">EADDRINUSE</span> is one of <b>three</b> questions a quick sweep raised on <b>webbox</b> — and witr just answered the first. None of these need forcing: trace each and let witr tell you the <i>why</i>. The tracker on the left counts down.',
+    briefing: 'That <span class="a-red">EADDRINUSE</span> is one of <b>three</b> questions a quick sweep raised on <b>webbox</b>. None of these need forcing — trace each and let witr tell you the <i>why</i>. Start by investigating what’s on :8000; the tracker on the left counts down.',
     issues: [
       {
         id: 'squatter', severity: 'high', title: 'What is holding :8000?',
@@ -66,8 +65,7 @@ export const INCIDENTS = {
       { type: 'line', html: '<span class="co-prompt">pranshu@devbox</span><span class="co-sep">:</span><span class="co-dir">~/projects/shop</span><span class="co-sep">$</span> git commit -m "wip"', delay: 500 },
       { type: 'line', html: '<span class="a-red">fatal: Unable to create \'.git/index.lock\': File exists.</span>', delay: 550 },
       { type: 'line', html: '<span class="a-dim">  Another git process seems to be running in this repository.</span>', delay: 1100 },
-      { type: 'note', html: 'A stale lock — but which process? <b>witr</b> resolves the file to its owner:', delay: 900 },
-      { type: 'run', cmd: 'witr --file /home/pranshu/projects/shop/.git/index.lock', delay: 400 },
+      { type: 'note', html: 'A stale lock — but which process? Your turn: ask <b>witr</b> to resolve the file to its owner.', delay: 900 },
     ],
     briefing: "That stale <code>.git/index.lock</code> is one of three things gumming up <b>devbox</b> — plus a <code>python3</code> zombie nobody reaped and something pinning the CPU. Trace each with witr and sort it out.",
     issues: [

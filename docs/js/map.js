@@ -108,6 +108,8 @@ export class SystemMap {
       this._camPosTarget = this._defaultCamPos.clone();
       this._camLookTarget = new THREE.Vector3(0, 0, 0);
     }
+    this._camSettled = false;
+    this._needsRender = true;
   }
 
   _addStars() {
@@ -300,6 +302,7 @@ export class SystemMap {
     radius = Math.max(radius, 24) + 16;
 
     this._frozen = true;
+    this._camSettled = false;
     const fov = (this.camera.fov * Math.PI) / 180;
     // Fit against the tighter (vertical) axis with generous margin, so even a
     // long chain (systemd → sshd → sshd → sshd → bash → …) sits fully in frame.
@@ -317,6 +320,7 @@ export class SystemMap {
     if (this.hlEdges) { this.hlEdges.geometry.dispose(); this.hlEdges.geometry = new THREE.BufferGeometry(); }
     this._applyStyles();
     this._frozen = false;
+    this._camSettled = false;
     if (this._defaultCamPos) {
       this._camPosTarget = this._defaultCamPos.clone();
       this._camLookTarget = new THREE.Vector3(0, 0, 0);
@@ -343,6 +347,7 @@ export class SystemMap {
     this.edges.geometry.dispose();
     this.edges.geometry = new THREE.BufferGeometry().setFromPoints(pts);
     if (this.highlightSet.has(pid)) this.clearHighlight();
+    this._needsRender = true;
   }
 
   _applyStyles() {
@@ -367,6 +372,7 @@ export class SystemMap {
       }
     }
     if (this.edges) this.edges.material.opacity = has ? 0.18 : 0.55;
+    this._needsRender = true;
   }
 
   // ---- interaction ------------------------------------------------------
@@ -384,7 +390,7 @@ export class SystemMap {
 
   _onPointerMove(e) {
     const node = this._pointerToNode(e);
-    this.hovered = node;
+    if (node !== this.hovered) { this.hovered = node; this._needsRender = true; }
     this.canvas.style.cursor = node ? 'pointer' : 'grab';
   }
 
@@ -399,23 +405,38 @@ export class SystemMap {
 
   _animate() {
     requestAnimationFrame(this._animate);
-    if (!this.reduced && !this._frozen) this.group.rotation.y += 0.0011;
-    if (this._stars) this._stars.rotation.y += 0.0003;
-    if (this._pulse !== undefined) this._pulse += 0.06;
+    // Render on demand only. A perpetually-lerping camera (never quite reaching
+    // its target) redraws the whole scene by sub-pixel amounts every frame, and
+    // anti-aliased lines/points resample each time — that shimmer read as
+    // "flicker". So we hold the last frame at rest and only redraw when
+    // something actually changes: the camera easing to a target, the highlight
+    // pulse, a hover, a resize, or a rebuild.
+    let render = this._needsRender;
+    this._needsRender = false;
 
-    // Ease the camera toward its target (default orbit, or a framed chain).
-    if (this._camPosTarget) {
-      this.camera.position.lerp(this._camPosTarget, 0.055);
-      this._camLook.lerp(this._camLookTarget, 0.055);
+    if (this._camPosTarget && !this._camSettled) {
+      this.camera.position.lerp(this._camPosTarget, 0.09);
+      this._camLook.lerp(this._camLookTarget, 0.09);
       this.camera.lookAt(this._camLook);
+      render = true;
+      if (this.camera.position.distanceTo(this._camPosTarget) < 0.05 &&
+          this._camLook.distanceTo(this._camLookTarget) < 0.05) {
+        this.camera.position.copy(this._camPosTarget);
+        this._camLook.copy(this._camLookTarget);
+        this.camera.lookAt(this._camLook);
+        this._camSettled = true;
+      }
     }
 
-    // Pulse highlighted nodes.
+    // Pulse highlighted nodes while a chain is lit.
     if (this.highlightSet.size > 0) {
+      this._pulse = (this._pulse || 0) + 0.06;
       const s = 1.5 + Math.sin(this._pulse) * 0.18;
       for (const n of this.nodes) if (this.highlightSet.has(n.pid)) n.mesh.scale.setScalar(s);
+      render = true;
     }
 
+    if (!render) return;
     this.renderer.render(this.scene, this.camera);
     this._updateLabels();
   }

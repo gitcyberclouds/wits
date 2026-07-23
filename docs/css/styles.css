@@ -556,7 +556,15 @@ code { font-family: var(--mono); }
 .tui-foot.err { color: var(--t-error); font-weight: 700; }
 .tui-foot .tui-help { overflow: hidden; text-overflow: ellipsis; }
 .tui-foot .tui-ver { flex: 0 0 auto; color: var(--t-dim); }
-/* the TUI reuses the terminal's ANSI colour classes inside .tui-body-scroll */
+/* The TUI keeps a dark terminal surface, so ANSI output uses bright values
+   (the page's light-theme ANSI palette would be too dark to read here). */
+.tui .a-red { color: #ff7b72; }
+.tui .a-green { color: #7ee787; }
+.tui .a-blue { color: #79c0ff; }
+.tui .a-cyan { color: #56d4dd; }
+.tui .a-magenta { color: #d2a8ff; }
+.tui .a-dim { color: #8b98a8; }
+.tui .a-dimyellow { color: #e3b341; }
 
 /* ---- responsive ---- */
 /* Medium and below: single column. Incident on top, terminal below; the process

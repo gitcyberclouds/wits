@@ -364,6 +364,25 @@ class App {
       b.addEventListener('click', () => this.exitToFreePlay()));
     const rp = panel.querySelector('[data-replay]');
     if (rp) rp.addEventListener('click', () => this.resetScenario());
+
+    // When the next actionable task changes (one just completed), scroll it into
+    // view so its flashing button is never left below the fold. Re-query inside
+    // the rAF: several synchronous re-renders can rebuild the panel first, so a
+    // button captured now would already be detached.
+    if (nextId && nextId !== this._lastFlashId) {
+      requestAnimationFrame(() => {
+        const p = document.getElementById('tutorial');
+        const fb = p && p.querySelector('.btn.flash');
+        if (!fb) return;
+        const pr = p.getBoundingClientRect();
+        const br = fb.getBoundingClientRect();
+        if (br.bottom > pr.bottom - 2 || br.top < pr.top + 2) {
+          const card = fb.closest('.issue') || fb;
+          p.scrollTop += card.getBoundingClientRect().top - pr.top - 12;
+        }
+      });
+    }
+    this._lastFlashId = nextId;
   }
 
   // Leaving the tutorial hands the box over for free exploration: stop the
