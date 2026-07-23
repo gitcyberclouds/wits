@@ -3,7 +3,7 @@
 # witr
 
 ### Why is this running?
-Trace any process, port, or file back to the exact chain that started it —<br>
+Trace any process, port, container, or file back to the exact chain that started it —<br>
 one command, machine-readable JSON, or an [interactive TUI](#3-interactive-mode-tui).
 
 [![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](#8-platform-support) <br> [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20npm%20|%20ports%20|%20...%20-blue?style=flat-square)](https://repology.org/project/witr/versions)
@@ -13,7 +13,7 @@ one command, machine-readable JSON, or an [interactive TUI](#3-interactive-mode-
 ### 🎮 [**Try witr in your browser →**](https://pranshuparmar.github.io/witr/)
 *Investigate a simulated Linux box — a guided tutorial and free-play sandbox, no install required.*
 
-<a href="https://pranshuparmar.github.io/witr/"><img width="2464" height="1400" alt="witr_banner_final" src="https://github.com/user-attachments/assets/013d7507-d13b-4613-9fb1-d7959afb739f" /></a>
+<a href="https://pranshuparmar.github.io/witr/"><img width="1232" alt="witr's interactive TUI and CLI answering why a node process is running — the same systemd → PM2 → node chain in both" src="https://github.com/user-attachments/assets/013d7507-d13b-4613-9fb1-d7959afb739f" /></a>
 
 </div>
 
