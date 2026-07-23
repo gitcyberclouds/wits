@@ -13,7 +13,7 @@ one command, machine-readable JSON, or an [interactive TUI](#3-interactive-mode-
 ### 🎮 [**Try witr in your browser →**](https://pranshuparmar.github.io/witr/)
 *Investigate a simulated Linux box — a guided tutorial and free-play sandbox, no install required.*
 
-<a href="https://pranshuparmar.github.io/witr/"><img width="1232" alt="witr's interactive TUI and CLI answering why a node process is running — the same systemd → PM2 → node chain in both" src="https://github.com/user-attachments/assets/013d7507-d13b-4613-9fb1-d7959afb739f" /></a>
+<a href="https://pranshuparmar.github.io/witr/"><img width="1232" alt="witr's interactive TUI and CLI answering why a node process is running — the same systemd → PM2 → node chain in both" src="https://github.com/user-attachments/assets/dbe271ad-25e5-425b-b414-392d0c4eee37" /></a>
 
 </div>
 
