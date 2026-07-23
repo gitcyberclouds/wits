@@ -518,7 +518,7 @@ class App {
     document.getElementById('btn-tui').addEventListener('click', () => this.openTui());
     document.getElementById('btn-tutorial').addEventListener('click', () => {
       if (this.incident.active) this.exitToFreePlay();
-      else this.resetScenario();
+      else this.startTutorial();
     });
     document.getElementById('btn-scenario').addEventListener('click', () => this.openScenario());
     document.getElementById('btn-reset').addEventListener('click', () => this.resetScenario());
@@ -636,18 +636,31 @@ class App {
   openScenario() { document.getElementById('scenario-modal').classList.add('open'); }
 
   // Reset the current scenario to its pristine state (restores killed procs).
-  resetScenario() {
+  // Restore the pristine world for the current scenario without touching the
+  // mode — both reset paths share this.
+  restoreWorld() {
     for (const id of Object.keys(this._autoTimers)) clearTimeout(this._autoTimers[id]);
     this._autoTimers = {};
     this.live = cloneWorld(this.pristine[this.worldId]);
     this.shell.setWorld(this.live);
     this.viewSetWorld(this.live);
     this.map.resize();
-    this.term.clear();
     this.applyWorld();
+  }
+
+  startTutorial() {
+    this.restoreWorld();
+    this.term.clear();
     this.enterScenario(false);
     this.term.setPrompt(this.shell.prompt());
     this.term.focus();
+  }
+
+  // Reset keeps the current mode and scenario intact: mid-tutorial it restarts
+  // the incident; in free play it hands back a pristine box, still in free play.
+  resetScenario() {
+    if (this.incident.active) this.startTutorial();
+    else { this.restoreWorld(); this.exitToFreePlay(); }
   }
 
   switchWorld(id) {
