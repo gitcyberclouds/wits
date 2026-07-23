@@ -29,6 +29,7 @@ export class SystemMap {
     this.nodes = [];
     this.nodeByPid = new Map();
     this.onSelect = null;
+    this.onClear = null;
     this.hovered = null;
     this.highlightSet = new Set();
     this.reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -79,10 +80,34 @@ export class SystemMap {
 
   resize() {
     const r = this.canvas.getBoundingClientRect();
-    const w = Math.max(1, r.width), h = Math.max(1, r.height);
+    const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+    // Skip no-op resizes: the ResizeObserver can fire on sub-pixel layout jitter
+    // (health-bar animation, panel reflow), and re-setting the same size churns
+    // the canvas — that was the "flicker".
+    if (w === this._lastW && h === this._lastH) return;
+    this._lastW = w; this._lastH = h;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this._frameDefault();
+  }
+
+  // Frame the whole constellation to fit the current canvas aspect, so a short
+  // wide panel (during an incident) doesn't leave the nodes bunched in the
+  // middle. Re-run on every real resize.
+  _frameDefault() {
+    const fov = (this.camera.fov * Math.PI) / 180;
+    const R = this.TARGET * 1.06;
+    const aspect = Math.max(0.0001, this.camera.aspect || 1);
+    const distV = R / Math.tan(fov / 2);
+    const distH = R / (Math.tan(fov / 2) * aspect);
+    const dist = Math.max(distV, distH) * 1.08;
+    const dir = new THREE.Vector3(0.26, 0.3, 1).normalize().multiplyScalar(dist);
+    this._defaultCamPos = dir;
+    if (!this._frozen) {
+      this._camPosTarget = this._defaultCamPos.clone();
+      this._camLookTarget = new THREE.Vector3(0, 0, 0);
+    }
   }
 
   _addStars() {
@@ -365,7 +390,9 @@ export class SystemMap {
 
   _onClick(e) {
     const node = this._pointerToNode(e);
-    if (node && this.onSelect) this.onSelect(node.proc);
+    if (node) { if (this.onSelect) this.onSelect(node.proc); }
+    // Clicking empty space while a chain is lit returns to the full view.
+    else if (this.highlightSet.size > 0 && this.onClear) this.onClear();
   }
 
   // ---- render loop ------------------------------------------------------

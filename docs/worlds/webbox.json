@@ -7,6 +7,7 @@
   "kernel": "6.8.0-45-generic",
   "distro": "Ubuntu 24.04.1 LTS",
   "arch": "x86_64",
+  "memTotalBytes": 4294967296,
   "description": "A small production box: an Nginx front-end, a PM2-managed Node app, Postgres, a Redis container, and a stuck apt lock.",
   "processes": [
     {
@@ -34,7 +35,7 @@
     { "pid": 8123, "ppid": 40141, "command": "python3", "cmdline": "python3 -m http.server 8000", "user": "deploy",
       "startedAgo": 2400, "workingDir": "/home/deploy/share", "forked": "forked",
       "sockets": [ { "address": "0.0.0.0", "port": 8000, "protocol": "TCP", "state": "LISTEN" } ],
-      "warnings": ["Listening on all interfaces (0.0.0.0:8000) — reachable from any host that can route to this machine", "Started interactively and left running in the background — will die when the shell (pid 40141) exits"],
+      "warnings": ["Process is listening on a public interface"],
       "source": { "type": "shell", "name": "bash", "description": "Backgrounded from an interactive shell (pid 40141)" } },
 
     { "pid": 1201, "ppid": 1, "command": "nginx", "cmdline": "nginx: master process /usr/sbin/nginx -g daemon off;",
@@ -69,7 +70,6 @@
     { "pid": 14290, "ppid": 40141, "command": "ngrok", "cmdline": "ngrok http 5000", "user": "deploy", "startedAgo": 3000,
       "forked": "forked", "workingDir": "/home/deploy",
       "sockets": [ { "address": "127.0.0.1", "port": 4040, "protocol": "TCP", "state": "LISTEN" } ],
-      "warnings": ["Exposes local port 5000 to the public internet through an ngrok tunnel"],
       "source": { "type": "shell", "name": "bash", "description": "Started from an interactive shell (pid 40141)" } },
 
     { "pid": 1450, "ppid": 1, "command": "containerd", "cmdline": "/usr/bin/containerd", "user": "root", "startedAgo": 1814400,

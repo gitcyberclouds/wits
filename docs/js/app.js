@@ -41,6 +41,7 @@ class App {
     this.term.onSubmit = (line) => this.handle(line);
     this.term.completer = (v) => this.complete(v);
     this.map.onSelect = (proc) => this.launchFromPid(proc.pid);
+    this.map.onClear = () => this.viewClear();
     this.tree.onSelect = (pid) => this.launchFromPid(pid);
     this.tui.onClose = () => this.term.focus();
     this.tui.onKill = (pid) => this.killFromTui(pid);
@@ -81,7 +82,7 @@ class App {
     this.view = v === 'map' ? 'map' : 'tree';
     document.getElementById('view-panel').classList.toggle('show-map', this.view === 'map');
     document.querySelectorAll('.vt').forEach((b) => b.classList.toggle('active', b.dataset.view === this.view));
-    document.getElementById('view-hint').textContent = this.view === 'map' ? 'hover a node, click to inspect' : 'click a row to inspect it';
+    document.getElementById('view-hint').textContent = this.view === 'map' ? 'click a node to inspect · empty space to reset' : 'click a row to inspect it';
     try { localStorage.setItem('witr-view', this.view); } catch (_) {}
     if (this.view === 'map') requestAnimationFrame(() => this.map.resize());
   }
@@ -128,7 +129,7 @@ class App {
 
   async playColdOpen(def) {
     this._skipCold = false;
-    this.term.locked = true;
+    this.term.locked = true;   // hides the live prompt (setter) so it isn't shown twice during the cold open
     this.renderIncident();
     for (const step of def.coldOpen) {
       await this.sleep(step.delay);
@@ -141,7 +142,7 @@ class App {
     }
     this.term.locked = false;
     this.incident.beginInvestigation();
-    this.term.printHtml(`<div class="co-brief"><span class="co-brief-tag">🚨 incident</span> ${def.briefing}</div>`);
+    this.term.printHtml(`<div class="co-brief"><span class="co-brief-tag">🚨 Incident</span> ${def.briefing}</div>`);
     this.renderIncident();
     this.term.focus();
     // The whole cold-open story is now on screen. Rewind to the top so the
@@ -262,18 +263,23 @@ class App {
   // ---- incident outcomes ------------------------------------------------
 
   onIssueResolved(issue) {
-    this.term.printHtml(`<div class="learned"><span class="learned-badge">✓ resolved</span> ${issue.done || (issue.autoResolve && issue.autoResolve.done) || ''}</div>`);
+    this.term.printHtml(`<div class="learned"><span class="learned-badge">✓ Resolved</span> ${issue.done || (issue.autoResolve && issue.autoResolve.done) || ''}</div>`);
   }
 
   onIncidentComplete() {
     const w = this.currentWorld();
     this.term.printHtml(`<div class="finale-card">
+      <div class="finale-tip">Lost, or want the full reference? Run <button class="tip-cmd" data-cmd="witr -h"><code>witr -h</code></button> anytime.</div>
       <div class="finale-badge">✓ ${escapeHtml(w.hostname)} is green</div>
-      <div class="finale-title">You just ran an incident with witr — every problem traced to <i>why</i> in one command, then fixed.</div>
+      <div class="finale-title">You just worked an incident with witr — every question traced to its <i>why</i> in one command.</div>
       <div class="finale-sub">It does exactly this on a real machine, against live processes:</div>
       <pre class="tut-install">${INSTALL_CMD}</pre>
       <div class="finale-quests" id="finale-quests"><span class="fq-h">Keep poking:</span>${this.questsHtml()}</div>
     </div>`);
+    // Wire every command button in the finale card (the tip + the quests).
+    const card = this.term.output.lastElementChild;
+    if (card) card.querySelectorAll('[data-cmd]').forEach((b) =>
+      b.addEventListener('click', () => { if (!this.term.locked) this.term.typeAndRun(b.dataset.cmd); }));
     this.term.scroll();
   }
 
@@ -301,7 +307,7 @@ class App {
 
     if (this.incident.phase === 'coldopen') {
       panel.innerHTML = `
-        <div class="tut-head"><span class="tut-kicker alert">● incident detected</span>
+        <div class="tut-head"><span class="tut-kicker alert">● Incident detected</span>
           <button class="tut-skip" data-skip>Skip intro ⏭</button></div>
         <h2 class="tut-title">${escapeHtml(this.currentWorld().hostname)}</h2>
         <p class="tut-story">Something just broke. Watching witr trace the cause…</p>`;
@@ -313,15 +319,24 @@ class App {
     const done = this.incident.remaining() === 0;
     const total = this.incident.total();
     const resolved = total - this.incident.remaining();
-    const rows = this.incident.issues().map((issue) => {
+    const issues = this.incident.issues();
+    // Flash the single button the visitor should reach for next — the first
+    // issue that still needs an action — so it's obvious where to go.
+    const nextIssue = issues.find((iss) => {
+      const s = this.incident.status(iss);
+      return s === 'open' || (s === 'found' && iss.fixHint);
+    });
+    const nextId = nextIssue ? nextIssue.id : null;
+    const rows = issues.map((issue) => {
       const st = this.incident.status(issue);
       const icon = st === 'resolved' ? '✓' : (st === 'found' ? '◔' : '○');
+      const flash = issue.id === nextId ? ' flash' : '';
       let action = '';
       if (st === 'open') {
-        action = `<button class="btn btn-sm" data-cmd="${escapeAttr(issue.find)}">Investigate</button>`;
+        action = `<button class="btn btn-sm${flash}" data-cmd="${escapeAttr(issue.find)}">Investigate</button>`;
       } else if (st === 'found' && issue.fixHint) {
         const label = issue.fixLabel ? escapeHtml(issue.fixLabel) : `Fix · <code>${escapeHtml(issue.fixHint)}</code>`;
-        action = `<button class="btn btn-sm btn-primary" data-cmd="${escapeAttr(issue.fixHint)}">${label}</button>`;
+        action = `<button class="btn btn-sm btn-primary${flash}" data-cmd="${escapeAttr(issue.fixHint)}">${label}</button>`;
       } else if (st === 'found') {
         action = `<span class="issue-wait">clearing on its own…</span>`;
       }
@@ -334,7 +349,7 @@ class App {
 
     panel.innerHTML = `
       <div class="tut-head">
-        <span class="tut-kicker ${done ? 'ok' : 'alert'}">${done ? '● all clear' : '● incident · ' + escapeHtml(this.currentWorld().hostname)}</span>
+        <span class="tut-kicker ${done ? 'ok' : 'alert'}">${done ? '● All clear' : '● Incident · ' + escapeHtml(this.currentWorld().hostname)}</span>
         <button class="tut-skip" data-freeplay>Free play →</button>
       </div>
       <div class="health"><div class="health-bar"><span style="width:${(resolved / total) * 100}%"></span></div>
@@ -387,10 +402,13 @@ class App {
 
   welcome() {
     const w = this.currentWorld();
+    const hints = this.worldId === 'devbox'
+      ? 'Try <code>witr code</code>, inspect the <code>witr --port 5173</code> dev server, reap the <code>witr --pid 6120</code> zombie, or open the <code>witr</code> dashboard.'
+      : 'Try <code>witr node</code>, see what’s on <code>witr --port 5000</code>, trace <code>witr nginx</code>, or open the <code>witr</code> dashboard.';
     this.term.printHtml(`<div class="welcome">
       <div class="welcome-logo">witr <span>· why is this running?</span></div>
-      <div class="welcome-sub">Free play on <b>${escapeHtml(w.promptUser)}@${escapeHtml(w.hostname)}</b> — a <span class="sim-badge">simulated</span> ${escapeHtml(w.distro)}. Nothing here touches your real computer.</div>
-      <div class="welcome-hint">Try <code>witr code</code>, hunt the <code>witr --pid 6120</code> zombie, explore with <code>ls</code> / <code>ps</code>, or open the <code>witr</code> dashboard. Type <code>help</code> anytime.</div>
+      <div class="welcome-sub">Free play on <b>${escapeHtml(w.promptUser)}@${escapeHtml(w.hostname)}</b> — a <span class="sim-badge">simulated</span> ${escapeHtml(w.distro)}. Nothing here touches your real computer; it’s a recreation, so the real witr may look and behave slightly differently.</div>
+      <div class="welcome-hint">${hints} Explore with <code>ls</code> / <code>ps</code>, and type <code>help</code> anytime.</div>
     </div>`);
   }
 

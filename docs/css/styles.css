@@ -165,6 +165,20 @@ code { font-family: var(--mono); }
 .tut-story code, .tut-tiny code { font-family: var(--mono); background: var(--panel); padding: 1px 6px; border-radius: 5px; color: var(--accent-2); border: 1px solid var(--line); font-size: 0.92em; }
 .tut-story b { color: var(--text); }
 .tut-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+/* Flash the next button to steer the visitor's eye. */
+.btn.flash { animation: btnflash 1.5s ease-out infinite; }
+@keyframes btnflash {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-2) 55%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent-2) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .btn.flash { animation: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-2) 45%, transparent); } }
+
+/* Finale "witr -h" tip. */
+.finale-tip { font-size: 12.5px; color: var(--text-dim); margin: 0 0 12px; font-family: var(--sans); }
+.tip-cmd { border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 6px; padding: 1px 7px; cursor: pointer; vertical-align: baseline; }
+.tip-cmd:hover { border-color: var(--accent-2); }
+.tip-cmd code { font-family: var(--mono); color: var(--accent-2); font-size: 12px; }
 .tut-tiny { margin: 12px 0 0; font-size: 12px; color: var(--text-faint); }
 .tut-install {
   font-family: var(--mono); font-size: 12.5px; background: var(--bg); color: var(--accent);
@@ -464,7 +478,8 @@ code { font-family: var(--mono); }
    green active tab, yellow-on-violet selection, a bordered box. */
 .tui { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
   background: rgba(3,6,10,0.72); backdrop-filter: blur(5px); padding: 18px; }
-.tui.tui-open { display: flex; }
+.tui.tui-open { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.tui-disclaimer { flex: 0 0 auto; font-family: var(--sans); font-size: 11.5px; color: rgba(214,220,230,0.62); text-align: center; max-width: 90%; }
 .tui-window {
   --t-fg: #cdd3de; --t-dim: #767676; --t-accent: #8b8bea; --t-border: #585858;
   --t-headerdim: #bcbcbc; --t-conn: #d787ff; --t-target: #4be24b; --t-section: #af87ff;
@@ -472,7 +487,7 @@ code { font-family: var(--mono); }
   --t-brandfg: #fafafa; --t-brandbg: #7d56f4; --t-green: #22aa22;
   --t-selfg: #ffffaf; --t-selbg: #5f00d7; --t-idle: #767676;
   --t-surface: #14161d; --t-surface-2: #171a22;
-  width: min(1140px, 100%); height: min(660px, 92vh); display: flex; flex-direction: column;
+  width: min(1140px, 100%); height: min(650px, 87vh); display: flex; flex-direction: column;
   background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 8px; overflow: hidden;
   box-shadow: 0 30px 80px -20px rgba(0,0,0,0.75); font-family: var(--mono);
   font-size: 12.5px; line-height: 1.5; color: var(--t-fg); padding: 8px 10px;
@@ -501,6 +516,7 @@ code { font-family: var(--mono); }
 .tui-pane.divider.focus { border-left-color: var(--t-accent); }
 .tui-pane-list { flex: 1 1 auto; }
 .tui-pane-side { flex: 0 0 31%; }
+.tui-pane-portside { flex: 0 0 47%; }
 .tui-pane-detail { flex: 1 1 62%; }
 .tui-pane-env { flex: 1 1 38%; }
 /* pane / table headers: accent, bold, underlined */
@@ -509,14 +525,15 @@ code { font-family: var(--mono); }
 .tui-hdr.accent { color: var(--t-accent); border-bottom-color: var(--t-accent); }
 /* table rows */
 .tui-rows { flex: 1 1 auto; overflow-y: auto; overflow-x: auto; }
-.tui-r { display: grid; grid-template-columns: 54px 84px 128px 56px 100px 124px minmax(130px, 1fr); gap: 8px;
+.tui-r { display: grid; grid-template-columns: 52px 80px 118px 54px 138px 118px minmax(120px, 1fr); gap: 8px;
   padding: 0 2px; white-space: nowrap; cursor: pointer; }
 .tui-r > span { overflow: hidden; text-overflow: ellipsis; }
 .tui-r.head { color: var(--t-accent); font-weight: 700; border-bottom: 1px solid var(--t-border); padding-bottom: 3px; margin-bottom: 3px; position: sticky; top: 0; background: var(--t-surface); }
 .tui-r.head.dim { color: var(--t-headerdim); }
 .tui-r.sel { background: var(--t-selbg); color: var(--t-selfg); }
-.tui-r.t-ports { grid-template-columns: 70px 90px 1fr 116px 66px 150px; }
-.tui-r.t-containers { grid-template-columns: 120px 1fr 84px 190px 150px 150px; }
+.tui-r.t-ports { grid-template-columns: 80px 100px 1fr 140px; }
+.tui-r.t-attached { grid-template-columns: 72px 110px 96px minmax(120px, 1fr); }
+.tui-r.t-containers { grid-template-columns: 112px 168px 78px 200px 150px 150px minmax(150px, 1fr); }
 .tui-r.t-locks { grid-template-columns: 66px 150px 90px 84px 1fr; }
 .tui-num { text-align: right; }
 .tui-empty { color: var(--t-dim); padding: 12px 2px; }

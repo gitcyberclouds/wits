@@ -15,7 +15,7 @@ export class Terminal {
     this.onSubmit = null;
     this.completer = null;
     this.promptObj = { user: 'you', host: 'witr', dir: '~' };
-    this.locked = false;
+    this._locked = false;
     // Stick-to-bottom: new output only auto-scrolls while the reader is already
     // near the bottom. Scroll up (or jump to the top after the cold open) and
     // incoming lines stay put so you can read at your own pace.
@@ -59,6 +59,12 @@ export class Terminal {
       if (document.activeElement === this.input) this.renderLine();
     });
   }
+
+  // Locking hides the live prompt line entirely — otherwise an empty
+  // "user@host:~$" sits below scripted output (e.g. during the cold open),
+  // reading as a duplicate prompt.
+  get locked() { return this._locked; }
+  set locked(v) { this._locked = !!v; this.renderLine(); }
 
   focus() { if (!this.locked) this.input.focus({ preventScroll: true }); }
 
@@ -135,7 +141,8 @@ export class Terminal {
   }
 
   renderLine() {
-    if (this.locked) { this.line.innerHTML = ''; return; }
+    if (this._locked) { this.line.innerHTML = ''; this.line.style.display = 'none'; return; }
+    this.line.style.display = '';
     const val = this.input.value;
     let pos = this.input.selectionStart;
     if (pos == null) pos = val.length;

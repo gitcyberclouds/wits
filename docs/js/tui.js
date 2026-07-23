@@ -10,6 +10,7 @@
 import { ansiToHtml } from './ansi.js';
 
 const TABS = ['Processes', 'Ports', 'Containers', 'Locks'];
+const DISCLAIMER = '<div class="tui-disclaimer">A simulated recreation for the playground — the real witr TUI may look and behave slightly differently.</div>';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export class TUI {
@@ -74,10 +75,11 @@ export class TUI {
   rows() {
     const w = this.world;
     if (this.tab === 0) {
-      let list = [...w.processes].sort((a, b) => a.pid - b.pid);
+      // Default sort is by resident memory, descending — same as the real TUI.
+      let list = [...w.processes].sort((a, b) => rss(b) - rss(a));
       if (this.filter) {
         const f = this.filter.toLowerCase();
-        list = list.filter((p) => (p.command + ' ' + (p.cmdline || '') + ' ' + p.pid).toLowerCase().includes(f));
+        list = list.filter((p) => (p.command + ' ' + (p.cmdline || '') + ' ' + (p.user || '') + ' ' + p.pid).toLowerCase().includes(f));
       }
       return list;
     }
@@ -87,8 +89,8 @@ export class TUI {
       return ports.sort((a, b) => a.s.port - b.s.port);
     }
     if (this.tab === 2) {
-      let list = w.containers || [];
-      if (this.filter) { const f = this.filter.toLowerCase(); list = list.filter((c) => (c.name + ' ' + c.image).toLowerCase().includes(f)); }
+      let list = [...(w.containers || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      if (this.filter) { const f = this.filter.toLowerCase(); list = list.filter((c) => (c.name + ' ' + c.image + ' ' + (c.status || '')).toLowerCase().includes(f)); }
       return list;
     }
     let list = w.locks || [];
@@ -218,9 +220,15 @@ export class TUI {
     if (this.statusMsg) { statusText = escapeHtml(this.statusMsg); statusClass = ' err'; }
     else if (this.filtering) { statusText = 'Mode: Searching (↑↓ to navigate, Esc/Enter to stop)'; statusClass = ' searching'; }
 
+    const placeholders = [
+      'Search PID, Name, User, Command...',
+      'Search Port, Protocol, Address, State...',
+      'Search ID, Name, Runtime, Image, Status, Ports,…',
+      'Search PID, Process, Type, Mode, Path…',
+    ];
     const inputLine = (this.filtering || this.filter)
       ? `<span class="tui-prompt">&gt; </span>${escapeHtml(this.filter)}${this.filtering ? '<span class="tui-caret">▏</span>' : ''}`
-      : `<span class="tui-prompt">&gt; </span><span class="tui-muted">${this.tab === 1 ? 'a: toggle all ports' : 'type / to search'}</span>`;
+      : `<span class="tui-prompt">&gt; </span><span class="tui-muted">${placeholders[this.tab]}</span>`;
 
     let main;
     if (this.tab === 0) main = this._procsView(rows);
@@ -239,7 +247,8 @@ export class TUI {
         <div class="tui-input">${inputLine}</div>
         <div class="tui-main">${main}</div>
         <div class="tui-foot">${this._footer(rows.length)}</div>
-      </div>`;
+      </div>
+      ${DISCLAIMER}`;
 
     this._wireCommon();
     this.root.querySelectorAll('.tui-tab').forEach((b) =>
@@ -270,13 +279,15 @@ export class TUI {
 
   _procsView(rows) {
     const now = this.engine.now();
+    const total = this.world.memTotalBytes || 8 * 1024 * 1024 * 1024;
     let table = `<div class="tui-r head"><span class="tui-num">PID</span><span>User</span><span>Name</span>` +
-      `<span class="tui-num">CPU%</span><span class="tui-num">Mem</span><span>Started</span><span>Command</span></div>`;
+      `<span class="tui-num">CPU%</span><span class="tui-num">Mem ↓</span><span>Started</span><span>Command</span></div>`;
     let body = '';
     rows.forEach((p, i) => {
       const started = fmtStarted(now - (p.startedAgo || 0) * 1000);
       const cpu = `${(p.cpuPercent || 0).toFixed(1)}%`;
-      const mem = fmtBytes((p.memory && p.memory.rss) || 0);
+      const r = (p.memory && p.memory.rss) || 0;
+      const mem = r > 0 ? `${fmtBytes(r)} (${(r / total * 100).toFixed(1)}%)` : '0 B';
       body += `<div class="tui-r${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
         `<span class="tui-num">${p.pid}</span><span>${escapeHtml(p.user || '')}</span><span>${escapeHtml(p.command)}</span>` +
         `<span class="tui-num">${cpu}</span><span class="tui-num">${escapeHtml(mem)}</span>` +
@@ -323,25 +334,44 @@ export class TUI {
   }
 
   _portsView(rows) {
-    let table = `<div class="tui-r t-ports head"><span class="tui-num">Port</span><span>Protocol</span><span>Address</span><span>State</span><span class="tui-num">PID</span><span>Process</span></div>`;
+    let table = `<div class="tui-r t-ports head"><span class="tui-num">Port ↑</span><span>Protocol</span><span>Address</span><span>State</span></div>`;
     let body = '';
-    rows.forEach(({ p, s }, i) => {
+    rows.forEach(({ s }, i) => {
       body += `<div class="tui-r t-ports${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
-        `<span class="tui-num">${s.port}</span><span>${escapeHtml(s.protocol || 'tcp')}</span>` +
-        `<span>${escapeHtml(s.address)}</span><span>LISTEN</span><span class="tui-num">${p.pid}</span><span>${escapeHtml(p.command)}</span></div>`;
+        `<span class="tui-num">${s.port}</span><span>${escapeHtml(s.protocol || 'TCP')}</span>` +
+        `<span>${escapeHtml(s.address)}</span><span>${escapeHtml(s.state || 'LISTEN')}</span></div>`;
     });
     if (!rows.length) body = '<div class="tui-empty">no listening ports</div>';
-    return `<div class="tui-pane tui-pane-list"><div class="tui-rows">${table}${body}</div></div>`;
+    return `<div class="tui-pane tui-pane-list"><div class="tui-rows">${table}${body}</div></div>` +
+      this._portSidePane(rows[this.sel]);
+  }
+
+  _portSidePane(sel) {
+    let body = '<div class="tui-muted">select a port</div>';
+    if (sel) {
+      const port = sel.s.port;
+      const attached = this.world.processes.filter((p) => (p.sockets || []).some((s) => s.port === port));
+      if (attached.length) {
+        let t = `<div class="tui-r t-attached head"><span class="tui-num">PID</span><span>User</span><span>Name</span><span>Command</span></div>`;
+        attached.forEach((p) => {
+          t += `<div class="tui-r t-attached"><span class="tui-num">${p.pid}</span><span>${escapeHtml(p.user || '')}</span>` +
+            `<span>${escapeHtml(p.command)}</span><span>${escapeHtml(p.cmdline || p.command)}</span></div>`;
+        });
+        body = `<div class="tui-rows">${t}</div>`;
+      } else body = '<div class="tui-muted">no attached process</div>';
+    }
+    return `<div class="tui-pane tui-pane-portside divider"><div class="tui-hdr">Attached Processes</div>${body}</div>`;
   }
 
   _containersView(rows) {
-    let table = `<div class="tui-r t-containers head"><span>ID</span><span>Name</span><span>Runtime</span><span>Image</span><span>Status</span><span>Ports</span></div>`;
+    let table = `<div class="tui-r t-containers head"><span>ID</span><span>Name ↑</span><span>Runtime</span><span>Image</span><span>Status</span><span>Ports</span><span>Command</span></div>`;
     let body = '';
     rows.forEach((c, i) => {
       const id = (c.id || '').slice(0, 12);
       body += `<div class="tui-r t-containers${i === this.sel ? ' sel' : ''}" data-i="${i}">` +
         `<span>${escapeHtml(id)}</span><span>${escapeHtml(c.name)}</span><span>${escapeHtml(c.runtime || 'docker')}</span>` +
-        `<span>${escapeHtml(c.image)}</span><span>${escapeHtml(c.status || c.state)}</span><span>${escapeHtml(c.ports || '—')}</span></div>`;
+        `<span>${escapeHtml(c.image)}</span><span>${escapeHtml(c.status || c.state)}</span><span>${escapeHtml(c.ports || '—')}</span>` +
+        `<span>${escapeHtml(c.command || '')}</span></div>`;
     });
     if (!rows.length) body = '<div class="tui-empty">no containers</div>';
     return `<div class="tui-pane tui-pane-list"><div class="tui-rows">${table}${body}</div></div>`;
@@ -388,7 +418,29 @@ export class TUI {
         <div class="tui-spacer"></div>
         <div class="tui-main">${main}</div>
         <div class="tui-foot ${this._detailFootClass()}">${this._detailFooter()}</div>
-      </div>`;
+      </div>
+      ${DISCLAIMER}`;
+    // Scroll-position arrows (↓/↑/↕) on each pane header, like the real TUI.
+    this._updateDetailArrows();
+    this.root.querySelectorAll('.tui-body-scroll').forEach((el) =>
+      el.addEventListener('scroll', () => this._updateDetailArrows()));
+  }
+
+  _updateDetailArrows() {
+    this.root.querySelectorAll('.tui-pane').forEach((pane) => {
+      const hdr = pane.querySelector('.tui-hdr');
+      const sc = pane.querySelector('.tui-body-scroll');
+      if (!hdr || !sc) return;
+      const base = hdr.dataset.base || hdr.textContent.replace(/ [↓↑↕]$/, '');
+      hdr.dataset.base = base;
+      let arrow = '';
+      if (sc.scrollHeight > sc.clientHeight + 1) {
+        const atTop = sc.scrollTop <= 1;
+        const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+        arrow = (!atTop && !atBottom) ? ' ↕' : (atTop ? ' ↓' : ' ↑');
+      }
+      hdr.textContent = base + arrow;
+    });
   }
 
   _detailFootClass() {
@@ -413,7 +465,8 @@ export class TUI {
   }
 
   _processDetailHtml(pid) {
-    const res = this.engine.run({ targets: [{ type: 'pid', value: String(pid) }], flags: {} });
+    // The real TUI shows the *verbose* standard output in the detail pane.
+    const res = this.engine.run({ targets: [{ type: 'pid', value: String(pid) }], flags: { verbose: true } });
     return ansiToHtml((res.text || '').replace(/\n$/, ''));
   }
 
@@ -446,6 +499,8 @@ function fmtStarted(ms) {
   const s = String(d.getUTCSeconds()).padStart(2, '0');
   return `${mo} ${da} ${h}:${mi}:${s}`;
 }
+
+function rss(p) { return (p.memory && p.memory.rss) || 0; }
 
 function fmtBytes(n) {
   const unit = 1024;

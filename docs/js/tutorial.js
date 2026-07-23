@@ -23,38 +23,31 @@ export const INCIDENTS = {
       { type: 'note', html: 'Every deploy hits this eventually. <b>witr</b> answers it in one command — <i>what</i> is on the port, and <i>why</i>:', delay: 900 },
       { type: 'run', cmd: 'witr --port 8000', delay: 400 },
     ],
-    briefing: 'That <span class="a-red">EADDRINUSE</span> was just the first thing witr surfaced — and, as it turns out, one that\'s already clearing itself. The same sweep flags <b>two more</b> on <b>webbox</b>: a blocked <code>apt</code>, and something you really don\'t want exposed. Trace each with witr and get the box back to <span class="a-green">green</span> — the tracker on the left counts down.',
+    briefing: 'That <span class="a-red">EADDRINUSE</span> is one of <b>three</b> questions a quick sweep raised on <b>webbox</b> — and witr just answered the first. None of these need forcing: trace each and let witr tell you the <i>why</i>. The tracker on the left counts down.',
     issues: [
       {
-        id: 'squatter', severity: 'high', title: 'Stray dev server holding :8000',
-        blurb: "witr traces :8000 to a forgotten <code>python3 -m http.server</code> (pid 8123) a teammate backgrounded over SSH. It's what blocked the deploy — but their session already disconnected, so it's orphaned and the box is cleaning it up. Nothing to kill.",
+        id: 'squatter', severity: 'high', title: 'What is holding :8000?',
+        blurb: "witr already traced :8000 to a stray <code>python3 -m http.server</code> (pid 8123) a teammate backgrounded over SSH. That's the whole answer — now it's your call: free the port with <code>kill 8123</code>, or just point the deploy at another port. No forced action; witr told you the cause.",
         find: 'witr --port 8000',
-        touched: (ts) => ts.some((t) => (t.type === 'port' && t.value === '8000')) || targetsPid(8123)(ts),
-        resolved: gone(8123),
-        autoResolve: {
-          delayMs: 4200, remove: [8123],
-          waiting: "witr shows the :8000 process is an orphaned debug server whose SSH session already closed — nothing to force. The box will reap it any moment.",
-          done: "The orphaned server was reaped and :8000 is free — the deploy can proceed. No kill needed: witr showed it was already on its way out.",
-        },
+        touched: (c) => c.targets.some((t) => (t.type === 'port' && t.value === '8000')) || targetsPid(8123)(c.targets),
+        resolveOnFind: true,
+        done: "witr pinned :8000 to a forgotten <code>http.server</code> (pid 8123). Free the port or use another — either way you now know the cause. No guessing.",
       },
       {
-        id: 'lock', severity: 'warn', title: 'apt is blocked — dpkg lock held',
-        blurb: "Someone reported <code>apt</code> won't run. Find who holds <code>/var/lib/dpkg/lock</code> with <code>--file</code>. This one you <b>don't</b> kill — see what it is first.",
+        id: 'lock', severity: 'warn', title: 'apt won’t run — who holds the dpkg lock?',
+        blurb: "Someone reported <code>apt</code> is stuck. Ask witr who holds <code>/var/lib/dpkg/lock</code> with <code>--file</code> — no need to kill anything, just find out what it is.",
         find: 'witr --file /var/lib/dpkg/lock',
-        touched: (ts) => ts.some((t) => (t.type === 'file' && t.value.includes('dpkg')) || (t.type === 'pid' && t.value === '33871')),
-        resolved: gone(33871),
-        autoResolve: {
-          delayMs: 3500, remove: [33871],
-          waiting: 'The dpkg lock is held by a scheduled <b>unattended-upgrade</b> — you don’t kill that. Give it a moment; it should finish on its own.',
-          done: 'The unattended-upgrade finished and released the dpkg lock — nothing to kill. Sometimes the answer is just knowing <i>why</i>.',
-        },
+        touched: (c) => c.targets.some((t) => (t.type === 'file' && t.value.includes('dpkg')) || (t.type === 'pid' && t.value === '33871')),
+        resolveOnFind: true,
+        done: "It's the scheduled <b>unattended-upgrade</b> (pid 33871) — completely expected, you'd just forgotten it runs on a timer. Nothing is stuck; it releases the lock the moment it finishes. Mystery solved, no action needed.",
       },
       {
-        id: 'tunnel', severity: 'high', title: 'Public ngrok tunnel to the app',
-        blurb: "An <code>ngrok</code> tunnel (pid 14290) is publishing the private app on :5000 straight to the internet. Find it — hint: <code>witr ng</code> matches more than one thing — then shut it down. <b>This</b> is the one worth stopping by hand.",
-        find: 'witr --pid 14290', fixHint: 'kill 14290', fixLabel: 'Close the tunnel',
-        touched: (ts) => targetsPid(14290)(ts) || targetsName('ngrok')(ts),
-        resolved: gone(14290), done: 'Tunnel closed. The app is private again.',
+        id: 'verbose', severity: 'warn', title: 'How heavy is the app, really?',
+        blurb: "The Node app has been up for weeks — before you guess at its footprint, look. <code>witr node --verbose</code> adds memory, threads, open files, sockets and I/O to the answer: the full picture in one command.",
+        find: 'witr node --verbose',
+        touched: (c) => !!c.flags.verbose && c.targets.some((t) => t.type === 'name' && 'node'.includes((t.value || '').toLowerCase())),
+        resolveOnFind: true,
+        done: "That's the deep dive — memory, threads, open files, sockets and I/O, everything witr knows about the process in one view. Add <code>--verbose</code> to any query when you need the full footprint.",
       },
     ],
     sideQuests: [
@@ -76,27 +69,27 @@ export const INCIDENTS = {
       { type: 'note', html: 'A stale lock — but which process? <b>witr</b> resolves the file to its owner:', delay: 900 },
       { type: 'run', cmd: 'witr --file /home/pranshu/projects/shop/.git/index.lock', delay: 400 },
     ],
-    briefing: "This laptop is a mess. Three things need cleaning up on <b>devbox</b> — a stuck git lock, a zombie, and something eating the CPU. Trace each with witr and sort it out.",
+    briefing: "That stale <code>.git/index.lock</code> is one of three things gumming up <b>devbox</b> — plus a <code>python3</code> zombie nobody reaped and something pinning the CPU. Trace each with witr and sort it out.",
     issues: [
       {
         id: 'gitlock', severity: 'high', title: 'git index.lock blocking every commit',
         blurb: "witr traces <code>.git/index.lock</code> to a <code>git commit</code> (pid 7300) that hung and never finished — so every new git command fails with “File exists.” It isn't doing any work; the stale lock just needs releasing.",
         find: 'witr --file /home/pranshu/projects/shop/.git/index.lock', fixHint: 'kill 7300', fixLabel: 'Clear the stale lock',
-        touched: (ts) => targetsPid(7300)(ts) || ts.some((t) => t.type === 'file' && t.value.includes('index.lock')),
+        touched: (c) => targetsPid(7300)(c.targets) || c.targets.some((t) => t.type === 'file' && t.value.includes('index.lock')),
         resolved: gone(7300), done: 'Lock released — git works again.',
       },
       {
         id: 'zombie', severity: 'warn', title: 'Zombie process nobody reaped',
         blurb: "A defunct <code>python3</code> (pid 6120) is stuck as a <b>zombie</b>. You don't kill a zombie — you get its parent to reap it. <code>witr --pid 6120</code> shows whose child it is: <code>build.sh</code>, pid 6100.",
         find: 'witr --pid 6120', fixHint: 'kill 6100',
-        touched: (ts) => targetsPid(6120)(ts) || targetsPid(6100)(ts),
+        touched: (c) => targetsPid(6120)(c.targets) || targetsPid(6100)(c.targets),
         resolved: gone(6120), done: 'Parent gone, zombie reaped. A defunct child only clears when its parent waits on it (or dies).',
       },
       {
         id: 'ffmpeg', severity: 'high', title: 'Runaway ffmpeg pinning the CPU',
         blurb: "An <code>ffmpeg</code> encode (pid 6001) has been stuck near <b>98% CPU</b> since it started — the fans are screaming. Find it (<code>witr ffmpeg</code>) and stop it.",
         find: 'witr ffmpeg', fixHint: 'kill 6001',
-        touched: (ts) => targetsPid(6001)(ts) || targetsName('ffmpeg')(ts),
+        touched: (c) => targetsPid(6001)(c.targets) || targetsName('ffmpeg')(c.targets),
         resolved: gone(6001), done: "CPU's back to idle. The fans can rest.",
       },
     ],
@@ -154,6 +147,7 @@ export class Incident {
   // Called after each executed command. ctx = { targets, flags, action, world }.
   observe(ctx) {
     if (!this.active) return [];
+    ctx = { ...ctx, targets: ctx.targets || [], flags: ctx.flags || {} };
 
     // Side quests keep tracking even after the incident is resolved, so the
     // finale checklist ticks off as they're tried.
@@ -170,17 +164,25 @@ export class Incident {
     }
     if (this.phase === 'done') return [];
 
+    const newlyResolved = [];
     for (const issue of this.issues()) {
-      if (!this.found.has(issue.id) && issue.touched(ctx.targets || [])) {
+      if (!this.found.has(issue.id) && issue.touched(ctx)) {
         this.found.add(issue.id);
+        // Informational issues are answered the moment they're investigated —
+        // witr tells you the why, and that's the whole task.
+        if (issue.resolveOnFind && !this.resolved.has(issue.id)) {
+          this.resolved.add(issue.id);
+          newlyResolved.push(issue);
+        }
         this._emit();
       }
     }
 
-    const newlyResolved = [];
     for (const issue of this.issues()) {
       if (this.resolved.has(issue.id)) continue;
-      if (issue.resolved(ctx.world)) { this.resolved.add(issue.id); newlyResolved.push(issue); }
+      if (typeof issue.resolved === 'function' && issue.resolved(ctx.world)) {
+        this.resolved.add(issue.id); newlyResolved.push(issue);
+      }
     }
     for (const issue of newlyResolved) if (this.onResolve) this.onResolve(issue);
     if (newlyResolved.length) this._emit();

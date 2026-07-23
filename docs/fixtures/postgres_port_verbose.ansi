@@ -3,7 +3,7 @@
 [94mProcess[0m     : [92mpostgres[0m ([90mpid 2010[0m)
 [94mUser[0m        : postgres
 [94mCommand[0m     : /usr/lib/postgresql/16/bin/postgres -D /var/lib/postgresql/16/main
-[95mStarted[0m     : 6 days ago (Wed 2026-07-15 10:55:37 +00:00)
+[95mStarted[0m     : 6 days ago (Fri 2026-07-17 05:02:51 +00:00)
 
 [95mWhy It Exists[0m :
   systemd[0m ([90mpid 1[0m) [95m→[0m [92mpostgres[0m ([90mpid 2010[0m)

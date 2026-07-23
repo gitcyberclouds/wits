@@ -7,6 +7,7 @@
   "kernel": "6.10.4-arch1-1",
   "distro": "Arch Linux",
   "arch": "x86_64",
+  "memTotalBytes": 17179869184,
   "description": "A messy dev laptop: VS Code, a Vite dev server, a docker-compose shop stack, a zombie, a runaway ffmpeg, and a git lock nobody released.",
   "processes": [
     { "pid": 1, "ppid": 0, "command": "systemd", "cmdline": "/sbin/init", "user": "root", "startedAgo": 259200,
@@ -46,17 +47,16 @@
     { "pid": 6001, "ppid": 2281, "command": "ffmpeg", "cmdline": "ffmpeg -i input.mov -c:v libx264 -preset veryslow out.mp4",
       "user": "pranshu", "startedAgo": 900, "health": "high-cpu", "cpuPercent": 98.4, "workingDir": "/home/pranshu/videos",
       "threadCount": 16,
-      "warnings": ["High CPU usage (98.4%) — this process has been pinned near 100% since it started"],
+      "warnings": ["Process is using high CPU (>2h total)"],
       "source": { "type": "shell", "name": "bash", "description": "Started from an interactive shell (pid 2281)" } },
 
     { "pid": 6100, "ppid": 2281, "command": "build.sh", "cmdline": "/bin/bash ./build.sh", "user": "pranshu", "startedAgo": 600, "workingDir": "/home/pranshu/projects/shop" },
     { "pid": 6120, "ppid": 6100, "command": "python3", "cmdline": "<defunct>", "user": "pranshu", "startedAgo": 480, "health": "zombie",
-      "warnings": ["Zombie process (defunct) — it has exited but its parent (build.sh, pid 6100) has not reaped it"],
+      "warnings": ["Process is a zombie (defunct)"],
       "source": { "type": "shell", "name": "build.sh", "description": "Child of a shell script (pid 6100) that never called wait()" } },
 
     { "pid": 7300, "ppid": 2281, "command": "git", "cmdline": "git commit -m wip", "user": "pranshu", "startedAgo": 300, "workingDir": "/home/pranshu/projects/shop",
       "lockedFiles": ["/home/pranshu/projects/shop/.git/index.lock (WRITE)"],
-      "warnings": ["Holding /home/pranshu/projects/shop/.git/index.lock — other git commands in this repo will fail with 'Unable to create index.lock: File exists'"],
       "source": { "type": "shell", "name": "bash", "description": "Started from an interactive shell (pid 2281)" } }
   ],
   "containers": [
