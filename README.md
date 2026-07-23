@@ -3,17 +3,17 @@
 # witr
 
 ### Why is this running?
-*with* [**Interactive TUI Mode**](#3-interactive-mode-tui) ✨
+Trace any process, port, or file back to the exact chain that started it —<br>
+one command, machine-readable JSON, or an [interactive TUI](#3-interactive-mode-tui).
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/pranshuparmar/witr?style=flat-square)](https://github.com/pranshuparmar/witr/blob/main/go.mod) [![CodeFactor](https://www.codefactor.io/repository/github/pranshuparmar/witr/badge?style=flat-square)](https://www.codefactor.io/repository/github/pranshuparmar/witr) [![Release](https://img.shields.io/github/actions/workflow/status/pranshuparmar/witr/release.yml?style=flat-square)](https://github.com/pranshuparmar/witr/actions/workflows/release.yml) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](#8-platform-support) <br>
-[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20npm%20|%20ports%20|%20...%20-blue?style=flat-square)](https://repology.org/project/witr/versions)
+[![Latest Release](https://img.shields.io/github/v/release/pranshuparmar/witr?label=Latest%20Release&style=flat-square)](https://github.com/pranshuparmar/witr/releases/latest) [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macos%20%7C%20windows%20%7C%20freebsd-blue?style=flat-square)](#8-platform-support) <br> [![Package Managers](https://img.shields.io/badge/Package%20Managers-brew%20|%20conda%20|%20aur%20|%20winget%20|%20npm%20|%20ports%20|%20...%20-blue?style=flat-square)](https://repology.org/project/witr/versions)
 
-📖 Read the [story](https://medium.com/@pranshu.parmar/witr-why-is-this-running-a9a97cbedd18) behind witr
+<a href="https://trendshift.io/repositories/18714" target="_blank"><img src="https://trendshift.io/api/badge/repositories/18714" alt="pranshuparmar/witr on Trendshift" width="250" height="55" /></a>
 
 ### 🎮 [**Try witr in your browser →**](https://pranshuparmar.github.io/witr/)
-*An interactive [tutorial & playground](https://pranshuparmar.github.io/witr/) — investigate a simulated Linux box, no install required.*
+*Investigate a simulated Linux box — a guided tutorial and free-play sandbox, no install required.*
 
-<img width="1232" height="693" alt="witr_banner" src="https://github.com/user-attachments/assets/e9c19ef0-1391-4a5f-a015-f4003d3697a9" />
+<a href="https://pranshuparmar.github.io/witr/"><img width="2464" height="1400" alt="witr_banner_final" src="https://github.com/user-attachments/assets/013d7507-d13b-4613-9fb1-d7959afb739f" /></a>
 
 </div>
 
@@ -42,6 +42,8 @@ Existing tools (`ps`, `top`, `lsof`, `ss`, `systemctl`, `docker ps`) expose stat
 **witr** makes that causality explicit.
 
 It explains **where a running thing came from**, **how it was started**, and **what chain of systems is responsible for it existing right now**, in a single, human-readable output or an **interactive TUI dashboard**.
+
+> 📖 Curious how witr came to be? [Read the story](https://medium.com/@pranshu.parmar/witr-why-is-this-running-a9a97cbedd18) or browse the [Hacker News discussion](https://news.ycombinator.com/item?id=46392910).
 
 ---
 
