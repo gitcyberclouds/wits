@@ -71,8 +71,9 @@ code { font-family: var(--mono); }
 .brand { display: flex; align-items: baseline; gap: 8px; }
 .brand-mark {
   font-family: var(--mono); font-weight: 700; font-size: 20px;
-  color: var(--accent); letter-spacing: -0.5px;
+  color: var(--accent); letter-spacing: -0.5px; text-decoration: none; cursor: pointer;
 }
+a.brand-mark:hover { text-decoration: underline; }
 .brand-tag { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 2px; }
 
 .host-chip {
@@ -441,12 +442,18 @@ code { font-family: var(--mono); }
 :root[data-theme="dark"] .map-label { color: #9aa7b6; background: rgba(9,14,20,0.7); border-color: #1e2a36; }
 :root[data-theme="dark"] .map-label-warn { color: #e3b341; border-color: rgba(227,179,65,0.45); }
 .map-legend {
-  position: absolute; bottom: 12px; left: 16px; z-index: 3; display: flex; gap: 14px; flex-wrap: wrap;
+  position: absolute; bottom: 12px; left: 16px; z-index: 3; display: flex; gap: 8px; flex-wrap: wrap;
   font-size: 11.5px; color: #7d8b9c; pointer-events: none;
 }
 .map-legend .lg { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 .lg-root { background: #d8d2c0; } .lg-listener { background: #6cc58f; } .lg-proc { background: #5fb0d8; }
 .lg-warn { background: #d8a24a; } .lg-hl { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+/* Legend chips are clickable to light up all nodes of a category. */
+.lg-item, .lg-static { font: inherit; color: inherit; display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; }
+.lg-item { pointer-events: auto; cursor: pointer; border: 1px solid transparent; background: color-mix(in srgb, var(--panel) 55%, transparent); }
+.lg-item:hover { border-color: var(--line-2); color: var(--text); }
+.lg-item.active { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.lg-static { opacity: 0.85; }
 
 /* ---- scenario modal ---- */
 .modal { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
@@ -471,26 +478,61 @@ code { font-family: var(--mono); }
 .modal-close { margin-top: 18px; }
 .modal-close { border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); padding: 8px 16px; border-radius: 8px; cursor: pointer; }
 
+/* ---- install modal ---- */
+.install-card { width: min(880px, 100%); }
+.install-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.install-os { border: 1px solid var(--line); background: var(--panel-2); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+.io-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.io-cmd { display: flex; align-items: center; gap: 9px; text-align: left; width: 100%;
+  border: 1px solid var(--line-2); background: var(--bg); border-radius: 8px; padding: 7px 10px; cursor: pointer;
+  font-family: var(--sans); }
+.io-cmd:hover { border-color: var(--accent-2); }
+.io-cmd.copied { border-color: var(--accent); }
+.io-label { flex: 0 0 auto; font-size: 11px; color: var(--text-faint); min-width: 108px; }
+.io-cmd code { flex: 1 1 auto; font-family: var(--mono); font-size: 12px; color: var(--accent-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.io-copyicon { flex: 0 0 auto; font-family: var(--mono); color: var(--text-faint); }
+.io-cmd:hover .io-copyicon { color: var(--accent-2); }
+.io-cmd.copied .io-copyicon { color: var(--accent); }
+.install-more { display: inline-block; margin-top: 16px; font-size: 13px; color: var(--accent-2); text-decoration: none; }
+.install-more:hover { text-decoration: underline; }
+
+/* ---- copy button (finale install command) ---- */
+.tut-install-row { display: flex; align-items: stretch; gap: 8px; margin: 4px 0 14px; }
+.tut-install-row .tut-install { margin: 0; flex: 1 1 auto; }
+.tut-copy { flex: 0 0 auto; border: 1px solid var(--line); background: var(--panel-2); color: var(--text-dim);
+  border-radius: 8px; padding: 0 12px; cursor: pointer; font-family: var(--sans); font-size: 12px; white-space: nowrap; }
+.tut-copy:hover { border-color: var(--accent-2); color: var(--text); }
+.tut-copy.copied { border-color: var(--accent); color: var(--accent); }
+.tut-copy .copy-icon { font-family: var(--mono); }
+
 /* ---- TUI overlay ----
-   A faithful, DOM rendition of witr's bubbletea TUI. It keeps its own dark
-   "terminal" palette (the real tool's Dark adaptive scheme) regardless of the
-   page theme, so it reads like an actual terminal window: purple brand badge,
-   green active tab, yellow-on-violet selection, a bordered box. */
+   A faithful, DOM rendition of witr's bubbletea TUI. Like the real tool it
+   adapts to the theme (its Light/Dark AdaptiveColor scheme): light palette by
+   default, dark under [data-theme="dark"]. The purple brand, green active tab
+   and yellow-on-violet selection are painted over their own background, so they
+   stay fixed on both. */
 .tui { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
   background: rgba(3,6,10,0.72); backdrop-filter: blur(5px); padding: 18px; }
 .tui.tui-open { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-.tui-disclaimer { flex: 0 0 auto; font-family: var(--sans); font-size: 11.5px; color: rgba(214,220,230,0.62); text-align: center; max-width: 90%; }
+.tui-disclaimer { flex: 0 0 auto; font-family: var(--sans); font-size: 11.5px; color: rgba(230,235,242,0.7); text-align: center; max-width: 90%; }
 .tui-window {
+  /* light (default) */
+  --t-fg: #1c2530; --t-dim: #6e6e6e; --t-accent: #4338ca; --t-border: #c2c2c2;
+  --t-headerdim: #5b616e; --t-conn: #9333ea; --t-target: #15803d; --t-section: #7c3aed;
+  --t-error: #c0271d; --t-amber: #9a6700; --t-confirm: #b45309;
+  --t-brandfg: #fafafa; --t-brandbg: #7d56f4; --t-green: #22aa22;
+  --t-selfg: #ffffaf; --t-selbg: #5f00d7; --t-idle: #767676;
+  --t-surface: #ffffff; --t-surface-2: #f4f7fa;
+  width: min(1140px, 100%); height: min(650px, 87vh); display: flex; flex-direction: column;
+  background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 8px; overflow: hidden;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.55); font-family: var(--mono);
+  font-size: 12.5px; line-height: 1.5; color: var(--t-fg); padding: 8px 10px;
+}
+:root[data-theme="dark"] .tui-window {
   --t-fg: #cdd3de; --t-dim: #767676; --t-accent: #8b8bea; --t-border: #585858;
   --t-headerdim: #bcbcbc; --t-conn: #d787ff; --t-target: #4be24b; --t-section: #af87ff;
   --t-error: #ff6b6b; --t-amber: #ffdf87; --t-confirm: #ffaf5f;
-  --t-brandfg: #fafafa; --t-brandbg: #7d56f4; --t-green: #22aa22;
-  --t-selfg: #ffffaf; --t-selbg: #5f00d7; --t-idle: #767676;
   --t-surface: #14161d; --t-surface-2: #171a22;
-  width: min(1140px, 100%); height: min(650px, 87vh); display: flex; flex-direction: column;
-  background: var(--t-surface); border: 1px solid var(--t-border); border-radius: 8px; overflow: hidden;
-  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.75); font-family: var(--mono);
-  font-size: 12.5px; line-height: 1.5; color: var(--t-fg); padding: 8px 10px;
 }
 /* header row: brand badge + tabs, butted flush together like the real TUI */
 .tui-top { display: flex; align-items: center; gap: 0; flex: 0 0 auto; }
@@ -556,15 +598,22 @@ code { font-family: var(--mono); }
 .tui-foot.err { color: var(--t-error); font-weight: 700; }
 .tui-foot .tui-help { overflow: hidden; text-overflow: ellipsis; }
 .tui-foot .tui-ver { flex: 0 0 auto; color: var(--t-dim); }
-/* The TUI keeps a dark terminal surface, so ANSI output uses bright values
-   (the page's light-theme ANSI palette would be too dark to read here). */
-.tui .a-red { color: #ff7b72; }
-.tui .a-green { color: #7ee787; }
-.tui .a-blue { color: #79c0ff; }
-.tui .a-cyan { color: #56d4dd; }
-.tui .a-magenta { color: #d2a8ff; }
-.tui .a-dim { color: #8b98a8; }
-.tui .a-dimyellow { color: #e3b341; }
+/* ANSI output in the TUI detail panes — theme-aware so it reads on the TUI's
+   own surface (dark values on the dark surface, darker values on the light). */
+.tui .a-red { color: #c9403a; }
+.tui .a-green { color: #1f7a3f; }
+.tui .a-blue { color: #1f6feb; }
+.tui .a-cyan { color: #0a8f9c; }
+.tui .a-magenta { color: #8250df; }
+.tui .a-dim { color: #6a7683; }
+.tui .a-dimyellow { color: #9a6b00; }
+:root[data-theme="dark"] .tui .a-red { color: #ff7b72; }
+:root[data-theme="dark"] .tui .a-green { color: #7ee787; }
+:root[data-theme="dark"] .tui .a-blue { color: #79c0ff; }
+:root[data-theme="dark"] .tui .a-cyan { color: #56d4dd; }
+:root[data-theme="dark"] .tui .a-magenta { color: #d2a8ff; }
+:root[data-theme="dark"] .tui .a-dim { color: #8b98a8; }
+:root[data-theme="dark"] .tui .a-dimyellow { color: #e3b341; }
 
 /* ---- responsive ---- */
 /* Medium and below: single column. Incident on top, terminal below; the process

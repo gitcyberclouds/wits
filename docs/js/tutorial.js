@@ -72,6 +72,7 @@ export const INCIDENTS = {
       {
         id: 'gitlock', severity: 'high', title: 'git index.lock blocking every commit',
         blurb: "Every <code>git</code> command in <code>shop</code> dies with <i>Unable to create '.git/index.lock': File exists</i>. Some process is holding that lock — <code>witr --file …/.git/index.lock</code> will name it.",
+        foundBlurb: "There it is — a crashed <code>git commit</code> (pid 7300) still clutching <code>.git/index.lock</code>. It's doing no work; clearing the stale lock unblocks every git command.",
         find: 'witr --file /home/pranshu/projects/shop/.git/index.lock', fixHint: 'kill 7300', fixLabel: 'Clear the stale lock',
         touched: (c) => targetsPid(7300)(c.targets) || c.targets.some((t) => t.type === 'file' && t.value.includes('index.lock')),
         resolved: gone(7300), done: "Lock released — git works again. witr traced it to a crashed <code>git commit</code> that never let go; clearing the stale lock was all it needed.",
@@ -79,14 +80,16 @@ export const INCIDENTS = {
       {
         id: 'zombie', severity: 'warn', title: 'Zombie process nobody reaped',
         blurb: "A <code>python3</code> process is stuck <b>&lt;defunct&gt;</b> — a zombie. You can't kill a zombie directly; it only clears once its parent reaps it. <code>witr --pid 6120</code> shows whose child it is.",
-        find: 'witr --pid 6120', fixHint: 'kill 6100',
+        foundBlurb: "Its parent is <code>build.sh</code> (pid 6100), which never reaped it. End the parent and the kernel clears the zombie — killing the zombie itself does nothing.",
+        find: 'witr --pid 6120', fixHint: 'kill 6100', fixLabel: 'Reap via parent · kill 6100',
         touched: (c) => targetsPid(6120)(c.targets) || targetsPid(6100)(c.targets),
         resolved: gone(6120), done: 'Parent gone, zombie reaped. A defunct child only clears when its parent waits on it (or dies) — killing the zombie itself does nothing.',
       },
       {
         id: 'ffmpeg', severity: 'high', title: 'Runaway ffmpeg pinning the CPU',
         blurb: "Something is pinning a core and the fans are screaming. <code>witr ffmpeg</code> will point at the culprit and show exactly how it was launched.",
-        find: 'witr ffmpeg', fixHint: 'kill 6001',
+        foundBlurb: "There's the culprit — a runaway <code>ffmpeg</code> encode (pid 6001) stuck near <b>98% CPU</b> since it started. Stop it and the fans settle.",
+        find: 'witr ffmpeg', fixHint: 'kill 6001', fixLabel: 'Stop it · kill 6001',
         touched: (c) => targetsPid(6001)(c.targets) || targetsName('ffmpeg')(c.targets),
         resolved: gone(6001), done: "CPU's back to idle. The fans can rest.",
       },

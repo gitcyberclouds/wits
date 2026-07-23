@@ -36,6 +36,13 @@ export class TUI {
 
     this._tick = null;
     this._keyHandler = (e) => this._onKey(e);
+    // Click the backdrop (or the disclaimer beneath it) to close. Test the
+    // target directly rather than closest('.tui-window'): a tab/row click
+    // re-renders innerHTML, so by the time the event bubbles here that element
+    // is detached and closest() would wrongly report "outside".
+    this.root.addEventListener('click', (e) => {
+      if (this.open && (e.target === this.root || e.target.classList.contains('tui-disclaimer'))) this.close();
+    });
   }
 
   show(world, engine, version) {
@@ -62,6 +69,7 @@ export class TUI {
   }
 
   close() {
+    if (!this.open) return;
     this.open = false;
     this.root.classList.remove('tui-open');
     this.root.setAttribute('aria-hidden', 'true');

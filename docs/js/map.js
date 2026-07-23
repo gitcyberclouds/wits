@@ -282,6 +282,20 @@ export class SystemMap {
     this._frameHighlight(pids);
   }
 
+  // Highlight every node of a legend category (root / listener / warn / proc),
+  // matching how each is coloured. No chain edges, no reframing — just light up
+  // the group in place. Returns the matched pids.
+  highlightByType(type) {
+    const cat = (n) => (n.isRoot ? 'root' : (n.hasWarn ? 'warn' : (n.isListener ? 'listener' : 'proc')));
+    const pids = this.nodes.filter((n) => cat(n) === type).map((n) => n.pid);
+    if (!pids.length) { this.clearHighlight(); return []; }
+    this.highlightSet = new Set(pids);
+    if (this.hlEdges) { this.hlEdges.geometry.dispose(); this.hlEdges.geometry = new THREE.BufferGeometry(); }
+    this._applyStyles();
+    this._pulse = 0;
+    return pids;
+  }
+
   // Freeze the rotation and glide the camera to frame the highlighted chain.
   _frameHighlight(pids) {
     this.group.updateMatrixWorld(true);

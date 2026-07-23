@@ -58,6 +58,7 @@ class App {
     this.wireChrome();
     this.setupView();
     this.setupResizer();
+    this.setupLegend();
     this.applyWorld();
     this.enterScenario(true);
     this.fetchVersion();
@@ -67,9 +68,34 @@ class App {
   // ---- process views (tree + constellation kept in sync) ----------------
 
   viewSetWorld(w) { this.map.setWorld(w); this.tree.setWorld(w); }
-  viewHighlight(pids) { this.map.highlightPids(pids); this.tree.highlightPids(pids); }
-  viewClear() { this.map.clearHighlight(); this.tree.clearHighlight(); }
+  viewHighlight(pids) { this.resetLegendUI(); this.map.highlightPids(pids); this.tree.highlightPids(pids); }
+  viewClear() { this.resetLegendUI(); this.map.clearHighlight(); this.tree.clearHighlight(); }
   viewRemove(pid) { this.map.removeProcess(pid); this.tree.setWorld(this.currentWorld()); }
+
+  // ---- constellation legend (click a category to light up its nodes) ------
+
+  setupLegend() {
+    document.querySelectorAll('.lg-item').forEach((b) =>
+      b.addEventListener('click', () => this.toggleLegend(b.dataset.legend, b)));
+  }
+
+  toggleLegend(type, btn) {
+    if (this._legendActive === type) {
+      this._legendActive = null;
+      this.map.clearHighlight();
+      this.resetLegendUI();
+      return;
+    }
+    this._legendActive = type;
+    this.map.highlightByType(type);
+    this.tree.clearHighlight();
+    document.querySelectorAll('.lg-item').forEach((x) => x.classList.toggle('active', x === btn));
+  }
+
+  resetLegendUI() {
+    this._legendActive = null;
+    document.querySelectorAll('.lg-item.active').forEach((x) => x.classList.remove('active'));
+  }
 
   setupView() {
     let v = 'tree';
@@ -272,14 +298,21 @@ class App {
       <div class="finale-badge">✓ ${escapeHtml(w.hostname)} is green</div>
       <div class="finale-title">You just worked an incident with witr — every question traced to its <i>why</i> in one command.</div>
       <div class="finale-sub">It does exactly this on a real machine, against live processes:</div>
-      <pre class="tut-install">${INSTALL_CMD}</pre>
+      <div class="tut-install-row">
+        <pre class="tut-install">${INSTALL_CMD}</pre>
+        <button class="tut-copy" data-copy="${escapeAttr(INSTALL_CMD)}" title="Copy install command"><span class="copy-icon">⧉</span> Copy</button>
+      </div>
       <div class="finale-tip">Lost, or want the full reference? Run <button class="tip-cmd" data-cmd="witr --help"><code>witr --help</code></button> anytime.</div>
       <div class="finale-quests" id="finale-quests"><span class="fq-h">Keep poking:</span>${this.questsHtml()}</div>
     </div>`);
     // Wire every command button in the finale card (the tip + the quests).
     const card = this.term.output.lastElementChild;
-    if (card) card.querySelectorAll('[data-cmd]').forEach((b) =>
-      b.addEventListener('click', () => { if (!this.term.locked) this.term.typeAndRun(b.dataset.cmd); }));
+    if (card) {
+      card.querySelectorAll('[data-cmd]').forEach((b) =>
+        b.addEventListener('click', () => { if (!this.term.locked) this.term.typeAndRun(b.dataset.cmd); }));
+      const cp = card.querySelector('[data-copy]');
+      if (cp) cp.addEventListener('click', () => this.copyToClipboard(cp.dataset.copy, cp));
+    }
     this.term.scroll();
   }
 
@@ -340,9 +373,15 @@ class App {
       } else if (st === 'found') {
         action = `<span class="issue-wait">clearing on its own…</span>`;
       }
+      // Once investigated, swap the curiosity blurb for the "here's what witr
+      // found — now do X" message, so the card doesn't read stale next to a
+      // freshly-appeared fix button.
+      const bodyMsg = st === 'resolved'
+        ? (issue.done || (issue.autoResolve && issue.autoResolve.done) || '')
+        : (st === 'found' && issue.foundBlurb ? issue.foundBlurb : issue.blurb);
       return `<div class="issue ${st} sev-${issue.severity}">
         <div class="issue-top"><span class="issue-ic">${icon}</span><span class="issue-title">${issue.title}</span></div>
-        ${st !== 'resolved' ? `<div class="issue-blurb">${issue.blurb}</div>` : `<div class="issue-blurb done">${issue.done || (issue.autoResolve && issue.autoResolve.done) || ''}</div>`}
+        <div class="issue-blurb${st === 'resolved' ? ' done' : ''}">${bodyMsg}</div>
         ${action ? `<div class="issue-act">${action}</div>` : ''}
       </div>`;
     }).join('');
@@ -404,6 +443,8 @@ class App {
     this.incident.stop();
     this.term.clear();
     this.welcome();
+    // Reset the process views to their initial, unfiltered state.
+    this.viewClear();
     this.term.setPrompt(this.shell.prompt());
     this.term.focus();
   }
@@ -482,10 +523,45 @@ class App {
     document.querySelectorAll('[data-scenario]').forEach((b) =>
       b.addEventListener('click', () => this.switchWorld(b.dataset.scenario)));
 
+    // Install popup.
+    const install = document.getElementById('install-modal');
+    document.getElementById('btn-install').addEventListener('click', () => install.classList.add('open'));
+    install.addEventListener('click', (e) => { if (e.target === install) install.classList.remove('open'); });
+    document.querySelector('[data-close-install]').addEventListener('click', () => install.classList.remove('open'));
+    install.querySelectorAll('[data-copy]').forEach((b) =>
+      b.addEventListener('click', () => this.copyToClipboard(b.dataset.copy, b)));
+
     document.getElementById('chips').addEventListener('click', (e) => {
       const chip = e.target.closest('[data-cmd]');
       if (chip && !this.term.locked) this.term.typeAndRun(chip.dataset.cmd);
     });
+  }
+
+  // Copy text to the clipboard and flash a brief confirmation on the button.
+  copyToClipboard(text, btn) {
+    const done = () => {
+      if (!btn) return;
+      btn.classList.add('copied');
+      const icon = btn.querySelector('.io-copyicon, .copy-icon');
+      const prev = icon ? icon.textContent : null;
+      if (icon) icon.textContent = '✓';
+      setTimeout(() => { btn.classList.remove('copied'); if (icon && prev != null) icon.textContent = prev; }, 1400);
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, () => this._fallbackCopy(text, done));
+      } else { this._fallbackCopy(text, done); }
+    } catch (_) { this._fallbackCopy(text, done); }
+  }
+
+  _fallbackCopy(text, done) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      done();
+    } catch (_) { /* clipboard unavailable */ }
   }
 
   // ---- theme ------------------------------------------------------------

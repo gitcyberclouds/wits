@@ -14,7 +14,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">witr</span>
+      <a class="brand-mark" href="https://github.com/pranshuparmar/witr" target="_blank" rel="noopener" title="witr on GitHub">witr</a>
       <span class="brand-tag">playground</span>
     </div>
     <div class="host-chip" title="You are on a simulated machine">
@@ -30,6 +30,7 @@
       <button id="btn-tutorial" class="btn btn-ghost" title="Toggle the guided tutorial">Tutorial</button>
       <button id="btn-scenario" class="btn btn-ghost" title="Switch the machine">Scenario</button>
       <button id="btn-reset" class="btn btn-ghost" title="Clear the screen">Reset</button>
+      <button id="btn-install" class="btn btn-ghost" title="Install witr on your machine">⬇ Install</button>
       <a class="btn btn-star" href="https://github.com/pranshuparmar/witr" target="_blank" rel="noopener" title="Star witr on GitHub">★ Star</a>
     </nav>
   </header>
@@ -62,11 +63,11 @@
           <canvas id="map-canvas"></canvas>
           <div id="map-labels" class="map-labels"></div>
           <div class="map-legend">
-            <span><i class="lg lg-root"></i> pid 1</span>
-            <span><i class="lg lg-listener"></i> listener</span>
-            <span><i class="lg lg-proc"></i> process</span>
-            <span><i class="lg lg-warn"></i> warning</span>
-            <span><i class="lg lg-hl"></i> active chain</span>
+            <button class="lg-item" data-legend="root" title="Highlight PID 1"><i class="lg lg-root"></i> pid 1</button>
+            <button class="lg-item" data-legend="listener" title="Highlight listeners"><i class="lg lg-listener"></i> listener</button>
+            <button class="lg-item" data-legend="proc" title="Highlight processes"><i class="lg lg-proc"></i> process</button>
+            <button class="lg-item" data-legend="warn" title="Highlight warnings"><i class="lg lg-warn"></i> warning</button>
+            <span class="lg-static"><i class="lg lg-hl"></i> active chain</span>
           </div>
         </div>
       </div>
@@ -92,6 +93,41 @@
         </button>
       </div>
       <button class="modal-close" data-close-scenario>Close</button>
+    </div>
+  </div>
+
+  <div id="install-modal" class="modal" aria-hidden="true">
+    <div class="modal-card install-card">
+      <h2>Install witr</h2>
+      <p class="modal-sub">A single static binary for Linux, macOS, Windows &amp; FreeBSD. Pick your platform — click a command to copy it.</p>
+      <div class="install-grid">
+        <div class="install-os">
+          <div class="io-name">🐧 Linux</div>
+          <button class="io-cmd" data-copy="curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash"><span class="io-label">Install script</span><code>curl -fsSL …/install.sh | bash</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="sudo apt install witr"><span class="io-label">APT · Debian/Ubuntu</span><code>sudo apt install witr</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="brew install witr"><span class="io-label">Homebrew</span><code>brew install witr</code><span class="io-copyicon">⧉</span></button>
+        </div>
+        <div class="install-os">
+          <div class="io-name">🍎 macOS</div>
+          <button class="io-cmd" data-copy="brew install witr"><span class="io-label">Homebrew</span><code>brew install witr</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="sudo port install witr"><span class="io-label">MacPorts</span><code>sudo port install witr</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash"><span class="io-label">Install script</span><code>curl -fsSL …/install.sh | bash</code><span class="io-copyicon">⧉</span></button>
+        </div>
+        <div class="install-os">
+          <div class="io-name">🪟 Windows</div>
+          <button class="io-cmd" data-copy="irm https://raw.githubusercontent.com/pranshuparmar/witr/main/install.ps1 | iex"><span class="io-label">PowerShell script</span><code>irm …/install.ps1 | iex</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="winget install -e --id PranshuParmar.witr"><span class="io-label">Winget</span><code>winget install -e --id PranshuParmar.witr</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="scoop install main/witr"><span class="io-label">Scoop</span><code>scoop install main/witr</code><span class="io-copyicon">⧉</span></button>
+        </div>
+        <div class="install-os">
+          <div class="io-name">😈 FreeBSD</div>
+          <button class="io-cmd" data-copy="pkg install witr"><span class="io-label">pkg</span><code>pkg install witr</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="pkg install sysutils/witr"><span class="io-label">Ports tree</span><code>pkg install sysutils/witr</code><span class="io-copyicon">⧉</span></button>
+          <button class="io-cmd" data-copy="curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash"><span class="io-label">Install script</span><code>curl -fsSL …/install.sh | bash</code><span class="io-copyicon">⧉</span></button>
+        </div>
+      </div>
+      <a class="install-more" href="https://github.com/pranshuparmar/witr#2-installation" target="_blank" rel="noopener">More methods &amp; package managers on GitHub →</a>
+      <button class="modal-close" data-close-install>Close</button>
     </div>
   </div>
 
