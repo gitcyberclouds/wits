@@ -492,10 +492,11 @@ code { font-family: var(--mono); }
   box-shadow: 0 30px 80px -20px rgba(0,0,0,0.75); font-family: var(--mono);
   font-size: 12.5px; line-height: 1.5; color: var(--t-fg); padding: 8px 10px;
 }
-/* header row: brand badge + tabs */
-.tui-top { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-.tui-brand { background: var(--t-brandbg); color: var(--t-brandfg); font-weight: 700; padding: 1px 9px; border-radius: 3px; }
-.tui-pidbadge { background: var(--t-green); color: #fff; font-weight: 700; padding: 1px 9px; border-radius: 3px; }
+/* header row: brand badge + tabs, butted flush together like the real TUI */
+.tui-top { display: flex; align-items: center; gap: 0; flex: 0 0 auto; }
+.tui-brand { background: var(--t-brandbg); color: var(--t-brandfg); font-weight: 700; padding: 1px 9px; cursor: pointer; }
+.tui-brand:hover { filter: brightness(1.12); }
+.tui-pidbadge { background: var(--t-green); color: #fff; font-weight: 700; padding: 1px 9px; }
 .tui-tab { color: #fff; background: var(--t-idle); padding: 1px 9px; cursor: pointer; user-select: none; }
 .tui-tab.active { background: var(--t-green); font-weight: 700; }
 .tui-x { margin-left: auto; border: none; background: none; color: var(--t-dim); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }

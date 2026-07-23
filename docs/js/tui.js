@@ -239,7 +239,7 @@ export class TUI {
     this.root.innerHTML = `
       <div class="tui-window" role="dialog" aria-label="witr interactive dashboard">
         <div class="tui-top">
-          <span class="tui-brand">witr</span>${tabs}
+          <span class="tui-brand" data-home title="Back to processes">witr</span>${tabs}
           <button class="tui-x" data-close title="Close (q)">✕</button>
         </div>
         <div class="tui-spacer"></div>
@@ -262,6 +262,23 @@ export class TUI {
   _wireCommon() {
     const x = this.root.querySelector('[data-close]');
     if (x) x.addEventListener('click', () => this.close());
+    const home = this.root.querySelector('[data-home]');
+    if (home) home.addEventListener('click', () => this._goHome());
+  }
+
+  // Clicking the "witr" badge returns to the Processes list from anywhere.
+  _goHome() {
+    this.state = 'list';
+    this.tab = 0;
+    this.sel = 0;
+    this.filter = '';
+    this.filtering = false;
+    this.detailPid = null;
+    this.detailContainer = null;
+    this.actionMenuOpen = false;
+    this.pendingAction = null;
+    this.statusMsg = '';
+    this.render();
   }
 
   _footer(total) {
@@ -412,7 +429,7 @@ export class TUI {
     this.root.innerHTML = `
       <div class="tui-window" role="dialog" aria-label="witr process detail">
         <div class="tui-top">
-          <span class="tui-brand">witr</span>${badge}
+          <span class="tui-brand" data-home title="Back to processes">witr</span>${badge}
           <button class="tui-x" data-close title="Back (q)">✕</button>
         </div>
         <div class="tui-spacer"></div>
