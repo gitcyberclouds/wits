@@ -7,6 +7,7 @@ import { Tree } from './tree.js';
 import { Incident, INCIDENTS } from './tutorial.js';
 import { TUI } from './tui.js';
 import { parse, tokenize } from './parser.js';
+import { track } from './analytics.js';
 
 const VERSION_URL = 'https://raw.githubusercontent.com/pranshuparmar/witr/main/internal/version/VERSION';
 
@@ -49,9 +50,9 @@ class App {
     this.tui.onKill = (pid) => this.killFromTui(pid);
 
     this.incident.onChange = () => this.renderIncident();
-    this.incident.onResolve = (issue) => this.onIssueResolved(issue);
-    this.incident.onComplete = () => this.onIncidentComplete();
-    this.incident.onQuestTried = (q) => this.onQuestTried(q);
+    this.incident.onResolve = (issue) => { track(`task-resolved-${issue.id}`); this.onIssueResolved(issue); };
+    this.incident.onComplete = () => { track(`tutorial-completed-${this.worldId}`); this.onIncidentComplete(); };
+    this.incident.onQuestTried = (q) => { track(`quest-tried-${q.id}`); this.onQuestTried(q); };
 
     this.viewSetWorld(this.live);
     this.map.start();
@@ -144,6 +145,7 @@ class App {
   enterScenario() {
     const def = INCIDENTS[this.worldId];
     if (def) {
+      track(`tutorial-started-${this.worldId}`);
       this.incident.load(def);
       this.incident.start();      // phase = coldopen
       this.playColdOpen(def);
@@ -443,6 +445,7 @@ class App {
   // incident, wipe the screen so the story doesn't linger, and drop a short
   // welcome so free play never starts on a blank void.
   exitToFreePlay() {
+    track('free-play-entered');
     if (this._autoTimers) { for (const id of Object.keys(this._autoTimers)) clearTimeout(this._autoTimers[id]); this._autoTimers = {}; }
     this.incident.stop();
     this.term.clear();
@@ -547,7 +550,9 @@ class App {
 
     // Install popup.
     const install = document.getElementById('install-modal');
-    document.getElementById('btn-install').addEventListener('click', () => install.classList.add('open'));
+    document.getElementById('btn-install').addEventListener('click', () => { track('install-modal-opened'); install.classList.add('open'); });
+    document.querySelectorAll('a.brand-mark, a.btn-star').forEach((a) =>
+      a.addEventListener('click', () => track(a.classList.contains('btn-star') ? 'outbound-star' : 'outbound-repo')));
     install.addEventListener('click', (e) => { if (e.target === install) install.classList.remove('open'); });
     document.querySelector('[data-close-install]').addEventListener('click', () => install.classList.remove('open'));
     install.querySelectorAll('[data-copy]').forEach((b) =>
@@ -561,6 +566,7 @@ class App {
 
   // Copy text to the clipboard and flash a brief confirmation on the button.
   copyToClipboard(text, btn) {
+    track('install-copied');
     const done = () => {
       if (!btn) return;
       btn.classList.add('copied');
@@ -617,6 +623,7 @@ class App {
   }
 
   openTui() {
+    track('tui-opened');
     this.tui.show(this.currentWorld(), this.shell.engine, this.shell.version);
     this.incident.observe({ targets: [], flags: {}, action: 'tui', world: this.currentWorld() });
     if (this.incident.phase === 'done') this.refreshQuests();
@@ -665,6 +672,7 @@ class App {
 
   switchWorld(id) {
     if (!this.pristine[id]) return;
+    track(`scenario-switched-${id}`);
     this.worldId = id;
     document.getElementById('scenario-modal').classList.remove('open');
     this.resetScenario();

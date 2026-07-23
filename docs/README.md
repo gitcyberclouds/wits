@@ -79,6 +79,7 @@ docs/
   index.html            page shell
   css/styles.css        terminal-first theme (dark + light)
   js/
+    analytics.js        optional GoatCounter wrapper (no-ops when blocked)
     ansi.js             ANSI escape → HTML
     engine.js           faithful witr output engine  ← fidelity-critical
     parser.js           witr command-line parser
@@ -115,6 +116,17 @@ node docs/scripts/check-fixtures.mjs
 Fixtures embed absolute timestamps and a pinned clock (`_meta.json`), so every
 regeneration changes the timestamps — that's expected. The check uses the pinned
 clock, so it stays deterministic.
+
+## Analytics
+
+The site counts visits and a handful of anonymous events (tutorial started /
+completed, tasks resolved, TUI opened, install command copied) via
+[GoatCounter](https://www.goatcounter.com/) — cookieless, no identifier stored
+in the browser, and the dashboard is public:
+<https://witr.goatcounter.com>. `js/analytics.js` is a thin wrapper that
+silently no-ops when the counter script is blocked or unavailable, so the
+playground never depends on it. A note in the page footer discloses this to
+visitors.
 
 ## Adding a scenario
 

@@ -47,6 +47,7 @@
       </div>
       <div id="terminal" tabindex="0"></div>
       <div id="chips" class="chips"></div>
+      <div class="stats-note">anonymous, cookieless <a href="https://witr.goatcounter.com" target="_blank" rel="noopener">visit stats</a> — nothing is stored in your browser</div>
     </div>
 
     <div class="right-col">
@@ -138,6 +139,8 @@
   <div id="tui" class="tui" aria-hidden="true"></div>
 
   <script type="module" src="js/app.js"></script>
+  <script data-goatcounter="https://witr.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
   <script>
     // Close-scenario button (non-module handler for simplicity).
     document.querySelector('[data-close-scenario]')?.addEventListener('click', () => {
