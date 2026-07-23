@@ -14,6 +14,8 @@ const WORLD_IDS = ['webbox', 'devbox'];
 const COMPLETIONS = ['witr', 'ls', 'cat', 'ps', 'kill', 'pwd', 'cd', 'whoami', 'hostname', 'uname', 'neofetch', 'clear', 'help', 'scenario'];
 const WITR_FLAGS = ['--pid', '--port', '--file', '--container', '--short', '--tree', '--json', '--env', '--warnings', '--verbose', '--exact', '--no-color', '--interactive', '--help', '--version'];
 const INSTALL_CMD = 'curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash';
+// Shown (middle trimmed so it fits without a scrollbar); the full command is copied.
+const INSTALL_CMD_SHORT = 'curl -fsSL …/install.sh | bash';
 
 class App {
   constructor() {
@@ -299,7 +301,7 @@ class App {
       <div class="finale-title">You just worked an incident with witr — every question traced to its <i>why</i> in one command.</div>
       <div class="finale-sub">It does exactly this on a real machine, against live processes:</div>
       <div class="tut-install-row">
-        <pre class="tut-install">${INSTALL_CMD}</pre>
+        <pre class="tut-install" title="${escapeAttr(INSTALL_CMD)}">${INSTALL_CMD_SHORT}</pre>
         <button class="tut-copy" data-copy="${escapeAttr(INSTALL_CMD)}" title="Copy install command"><span class="copy-icon">⧉</span> Copy</button>
       </div>
       <div class="finale-tip">Lost, or want the full reference? Run <button class="tip-cmd" data-cmd="witr --help"><code>witr --help</code></button> anytime.</div>
@@ -332,7 +334,9 @@ class App {
     // an un-highlighted "Free play" invitation once you've stepped out.
     document.querySelector('.layout').classList.toggle('no-incident', !this.incident.active);
     const btnT = document.getElementById('btn-tutorial');
-    btnT.classList.toggle('active', this.incident.active);
+    // Both modes (guided tutorial and free play) are "active" states — keep the
+    // button highlighted throughout; only the label changes.
+    btnT.classList.add('active');
     btnT.textContent = this.incident.active ? 'Tutorial' : 'Free play';
     btnT.title = this.incident.active ? 'Exit the tutorial and explore freely' : 'Restart the guided tutorial';
     if (!this.incident.active) { panel.classList.add('hidden'); return; }
