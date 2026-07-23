@@ -269,11 +269,11 @@ class App {
   onIncidentComplete() {
     const w = this.currentWorld();
     this.term.printHtml(`<div class="finale-card">
-      <div class="finale-tip">Lost, or want the full reference? Run <button class="tip-cmd" data-cmd="witr -h"><code>witr -h</code></button> anytime.</div>
       <div class="finale-badge">✓ ${escapeHtml(w.hostname)} is green</div>
       <div class="finale-title">You just worked an incident with witr — every question traced to its <i>why</i> in one command.</div>
       <div class="finale-sub">It does exactly this on a real machine, against live processes:</div>
       <pre class="tut-install">${INSTALL_CMD}</pre>
+      <div class="finale-tip">Lost, or want the full reference? Run <button class="tip-cmd" data-cmd="witr --help"><code>witr --help</code></button> anytime.</div>
       <div class="finale-quests" id="finale-quests"><span class="fq-h">Keep poking:</span>${this.questsHtml()}</div>
     </div>`);
     // Wire every command button in the finale card (the tip + the quests).
@@ -383,6 +383,17 @@ class App {
       });
     }
     this._lastFlashId = nextId;
+
+    // The moment the box goes green, glide it to the "Explore" section so the
+    // toolkit and "Explore freely" call-to-action are what the visitor lands on.
+    if (done && !this._incidentWasDone) {
+      requestAnimationFrame(() => {
+        const p = document.getElementById('tutorial');
+        const target = p && (p.querySelector('.toolkit') || p.querySelector('.tut-actions'));
+        if (target) p.scrollTop += target.getBoundingClientRect().top - p.getBoundingClientRect().top - 12;
+      });
+    }
+    this._incidentWasDone = done;
   }
 
   // Leaving the tutorial hands the box over for free exploration: stop the

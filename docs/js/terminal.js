@@ -214,10 +214,18 @@ export class Terminal {
     this.root.scrollTop = 0;
   }
 
+  // Put a row near the top of the viewport so its output reads from the start.
+  revealRowAtTop(row) {
+    this._stick = false;
+    const delta = row.getBoundingClientRect().top - this.root.getBoundingClientRect().top - 10;
+    this.root.scrollTop += delta;
+  }
+
   // Programmatically run a command with a typewriter effect (tutorial helper).
   // `pause` is a beat after the command finishes typing, before it runs, so the
-  // reader can register the command before the output appears.
-  typeAndRun(cmd, { speed = 34, pause = 340 } = {}) {
+  // reader can register the command before the output appears. `revealTop` parks
+  // the command line at the top afterwards so the reader starts at its output.
+  typeAndRun(cmd, { speed = 34, pause = 340, revealTop = true } = {}) {
     return new Promise((resolve) => {
       this.locked = true;
       this._stick = true;   // running a command — follow it to the bottom
@@ -241,6 +249,9 @@ export class Terminal {
           setTimeout(() => {
             this.locked = false;
             if (this.onSubmit) this.onSubmit(cmd);
+            // Rewind so the just-run command sits at the top and its output can
+            // be read from the beginning, rather than landing at the bottom.
+            if (revealTop) this.revealRowAtTop(rowPromptOnly);
             resolve();
           }, pause);
         }

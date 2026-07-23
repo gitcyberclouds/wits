@@ -86,6 +86,7 @@
       "composeConfigFile": "/home/pranshu/projects/shop/docker-compose.yml", "composeWorkingDir": "/home/pranshu/projects/shop" }
   ],
   "locks": [
+    { "pid": 2400, "process": "node", "path": "/home/pranshu/projects/shop/node_modules/.vite/deps/_metadata.json", "type": "FLOCK", "mode": "WRITE" },
     { "pid": 7300, "process": "git", "path": "/home/pranshu/projects/shop/.git/index.lock", "type": "FLOCK", "mode": "WRITE" }
   ],
   "socketOverrides": {
