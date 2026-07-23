@@ -1,11 +1,13 @@
 // tutorial.js — per-scenario incidents.
 //
 // Each scenario is a single short incident: a cold open that plays itself, then
-// a box with real problems the visitor investigates with witr and *fixes*
-// (processes they kill, a lock that clears). A health tracker counts down to
-// zero; hitting zero is the finale with the install command. Feature coverage
-// (port/file/tree/multi-match/kill) falls out of the investigation; the rest
-// live as optional side quests that tick off as they're tried.
+// a box with real problems the visitor traces with witr. On webbox the tasks
+// are informational (witr gives the *why*; the operator decides the fix); on
+// devbox they're fix-by-kill (processes they kill, a lock that clears). A
+// tracker counts down as each task resolves; clearing them all is the finale
+// with the install command. Feature coverage (port/file/pid/verbose/chain)
+// falls out of the investigation; the rest live as optional side quests that
+// tick off as they're tried.
 
 const gone = (pid) => (w) => !w.processes.some((p) => p.pid === pid);
 const targetsPid = (pid) => (ts) => ts.some((t) => t.type === 'pid' && t.value === String(pid));

@@ -20,16 +20,23 @@ lock is authored data; the terminal simulates witr, not a real shell.
 
 - **Terminal-first.** A dependency-free terminal widget runs `witr …` against
   the simulated world and renders witr's real ANSI output. A handful of flavour
-  commands (`ls`, `cat`, `ps`, `neofetch`, …) make the box feel real to poke at.
-- **The incident (tutorial).** A cold open plays itself — a deploy fails with
-  `EADDRINUSE`, witr traces the cause in one command — then hands the visitor a
-  box with three real problems (a public dev server squatting on a port, a rogue
-  ngrok tunnel, a stuck `dpkg` lock). They investigate with witr and **fix** them
-  (`kill` actually removes processes; the lock clears on its own). A health
-  tracker counts down to zero; hitting zero is the finale with the install
-  command. Feature coverage (`--port`, `--file`, multi-match, the chain) falls
-  out of the investigation; `--json`, `--verbose`, `--container`, and the TUI are
-  optional side quests.
+  commands (`ls`, `cat`, `ps`, `top`, `neofetch`, …) make the box feel real to
+  poke at.
+- **The incident (tutorial).** Each scenario opens with a cold open that plays
+  itself, then hands the visitor a briefing and a left-side tracker that counts
+  down as each task is resolved. On **webbox** the tasks are *informational* — a
+  deploy dies with `EADDRINUSE`, and the visitor traces what's holding `:8000`,
+  who owns the `dpkg` lock, and how heavy the Node app really is. witr supplies
+  the **why**; the fix stays the operator's call (nothing is forced — the
+  squatter is a teammate's `http.server`, the lock is a scheduled
+  `unattended-upgrade`). On **devbox** the tasks are *fix-by-kill* — a
+  `git index.lock` blocks every commit, a `python3` zombie needs reaping through
+  its parent, and a stray `ffmpeg` is pinning the CPU; here `kill` actually
+  removes the process and the tracker, constellation and TUI all reflect it live.
+  Clearing all three is the finale, with the install command. Feature coverage
+  (`--port`, `--file`, `--pid`, `--verbose`, the causal chain) falls out of the
+  investigation; `--json`, `--tree`, `--env`, `--container`, and the TUI are
+  optional side quests that tick off as they're tried.
 - **Reactive world.** The loaded world is a mutable clone: `kill`/`pkill` remove
   processes (and their subtrees), which the engine, the constellation, the TUI,
   and the incident tracker all reflect live. **Reset** restores the pristine box.
@@ -37,7 +44,8 @@ lock is authored data; the terminal simulates witr, not a real shell.
   switch scenarios (a production web box, a messy dev laptop).
 - **Process constellation.** A three.js view of the machine. When a query
   resolves, the causal chain (`systemd → … → target`) lights up while everything
-  else dims — the text says the chain, the map shows it. Nodes are clickable.
+  else dims — the text says the chain, the map shows it. Nodes and the legend
+  (pid 1 / listener / process / warning) are both clickable.
 - **Interactive TUI.** `witr` with no arguments opens a live dashboard
   (Processes / Ports / Containers / Locks) with an ancestry side-panel — the
   same shape as witr's real bubbletea TUI.
