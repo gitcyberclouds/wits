@@ -19,7 +19,7 @@ const HELP = `Available commands in this playground:
 
   ${ESC.dim}ls${ESC.reset} [dir]               list a directory
   ${ESC.dim}cat${ESC.reset} <file>             print a file
-  ${ESC.dim}ps${ESC.reset}                     list running processes
+  ${ESC.dim}ps${ESC.reset} / ${ESC.dim}top${ESC.reset}               list processes / by CPU
   ${ESC.dim}kill${ESC.reset} <pid>             stop a process (it really goes away here)
   ${ESC.dim}pwd / cd / whoami${ESC.reset}      the usual
   ${ESC.dim}uname${ESC.reset} [-a] / ${ESC.dim}hostname${ESC.reset}  system info
@@ -97,6 +97,8 @@ export class Shell {
       case 'hostname': return { output: this.world.hostname + '\n', exit: 0 };
       case 'uname': return this.uname(args);
       case 'ps': return this.ps(args);
+      case 'top': return this.top();
+      case 'htop': return { output: `htop: command not found. Try ${ESC.cyan}top${ESC.reset}.\n`, exit: 127 };
       case 'neofetch': case 'witr-info': return { output: this.neofetch(), exit: 0 };
       case 'echo': return { output: args.join(' ') + '\n', exit: 0 };
       case 'scenario': case 'scenarios': return { output: '', exit: 0, action: 'scenario' };
@@ -221,6 +223,31 @@ export class Shell {
       return { output: `Linux ${w.hostname} ${w.kernel} #1 SMP ${w.arch} GNU/Linux\n`, exit: 0 };
     }
     return { output: 'Linux\n', exit: 0 };
+  }
+
+  // A static top-style snapshot: processes sorted by CPU then memory. This is
+  // how you *find* the pid that's pinning a core (the devbox CPU task).
+  top() {
+    const w = this.world;
+    const total = w.memTotalBytes || 8 * 1024 * 1024 * 1024;
+    const procs = [...w.processes].sort((a, b) => {
+      const c = (b.cpuPercent || 0) - (a.cpuPercent || 0);
+      if (c !== 0) return c;
+      return ((b.memory && b.memory.rss) || 0) - ((a.memory && a.memory.rss) || 0);
+    });
+    const totalCpu = procs.reduce((s, p) => s + (p.cpuPercent || 0), 0);
+    let o = `${ESC.dim}top - snapshot  up 21 days,  ${w.processes.length} tasks,  load average: ${(totalCpu / 100).toFixed(2)}${ESC.reset}\n`;
+    o += `${ESC.dim}%Cpu(s): ${totalCpu.toFixed(1)} us   MiB Mem: ${(total / 1048576).toFixed(0)} total${ESC.reset}\n\n`;
+    o += `${ESC.dim}  PID USER       %CPU  %MEM COMMAND${ESC.reset}\n`;
+    for (const p of procs.slice(0, 12)) {
+      const cpu = (p.cpuPercent || 0).toFixed(1).padStart(5);
+      const mem = ((((p.memory && p.memory.rss) || 0) / total) * 100).toFixed(1).padStart(5);
+      const hot = (p.cpuPercent || 0) > 50;
+      const line = `${String(p.pid).padStart(5)} ${(p.user || '').padEnd(10).slice(0, 10)} ${cpu} ${mem} ${p.command}`;
+      o += hot ? `${ESC.red}${line}${ESC.reset}\n` : `${line}\n`;
+    }
+    o += `${ESC.dim}(static snapshot — pass a pid to witr to find out *why* it's running)${ESC.reset}\n`;
+    return { output: o, exit: 0 };
   }
 
   ps() {

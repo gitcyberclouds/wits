@@ -11,7 +11,7 @@ import { parse, tokenize } from './parser.js';
 const VERSION_URL = 'https://raw.githubusercontent.com/pranshuparmar/witr/main/internal/version/VERSION';
 
 const WORLD_IDS = ['webbox', 'devbox'];
-const COMPLETIONS = ['witr', 'ls', 'cat', 'ps', 'kill', 'pwd', 'cd', 'whoami', 'hostname', 'uname', 'neofetch', 'clear', 'help', 'scenario'];
+const COMPLETIONS = ['witr', 'ls', 'cat', 'ps', 'top', 'kill', 'pwd', 'cd', 'whoami', 'hostname', 'uname', 'neofetch', 'clear', 'help', 'scenario'];
 const WITR_FLAGS = ['--pid', '--port', '--file', '--container', '--short', '--tree', '--json', '--env', '--warnings', '--verbose', '--exact', '--no-color', '--interactive', '--help', '--version'];
 const INSTALL_CMD = 'curl -fsSL https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh | bash';
 // Shown (middle trimmed so it fits without a scrollbar); the full command is copied.
@@ -654,8 +654,8 @@ class App {
     this.term.setPrompt(this.shell.prompt());
     this.renderIncident();
     const chips = this.worldId === 'webbox'
-      ? ['witr --port 8000', 'kill 8123', 'witr ng', 'witr --file /var/lib/dpkg/lock', 'witr']
-      : ['witr code', 'witr --pid 6120', 'witr --container shop', 'witr ffmpeg', 'witr'];
+      ? ['witr --port 8000', 'witr --file /var/lib/dpkg/lock', 'witr node --verbose', 'witr ng', 'witr']
+      : ['witr --file /home/pranshu/projects/shop/.git/index.lock', 'witr --pid 6120', 'top', 'witr --pid 6001', 'witr'];
     document.getElementById('chips').innerHTML = chips.map((c) => `<button class="chip" data-cmd="${escapeAttr(c)}">${escapeHtml(c)}</button>`).join('');
   }
 }
