@@ -10,6 +10,9 @@
 
 📖 Read the [story](https://medium.com/@pranshu.parmar/witr-why-is-this-running-a9a97cbedd18) behind witr
 
+### 🎮 [**Try witr in your browser →**](https://pranshuparmar.github.io/witr/)
+*An interactive [tutorial & playground](https://pranshuparmar.github.io/witr/) — investigate a simulated Linux box, no install required.*
+
 <img width="1232" height="693" alt="witr_banner" src="https://github.com/user-attachments/assets/e9c19ef0-1391-4a5f-a015-f4003d3697a9" />
 
 </div>
@@ -585,6 +588,8 @@ At its core, witr answers:
 ---
 
 ## 6. Example Outputs
+
+> 💡 Prefer learning by doing? The [interactive browser tutorial](https://pranshuparmar.github.io/witr/) walks you through outputs like these live on a simulated box — for a better feel of witr, no install required.
 
 ### 6.1 Name Based Query
 
