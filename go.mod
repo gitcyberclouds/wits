@@ -1,8 +1,6 @@
 module github.com/pranshuparmar/witr
 
-go 1.25
-
-toolchain go1.25.10
+go 1.26.0
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
@@ -13,7 +11,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/muesli/reflow v0.3.1-0.20230316100924-83f637991171
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/sys v0.38.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
